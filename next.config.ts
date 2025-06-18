@@ -4,10 +4,10 @@ const nextConfig: NextConfig = {
   /* config options here */
   // Configuración para Firebase App Hosting
   typescript: {
-    ignoreBuildErrors: true, // Necesario para el build en producción
+    ignoreBuildErrors: true,
   },
   eslint: {
-    ignoreDuringBuilds: true, // Necesario para el build en producción
+    ignoreDuringBuilds: true,
   },
   experimental: {
     serverComponentsExternalPackages: ['firebase-admin']
