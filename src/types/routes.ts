@@ -152,7 +152,13 @@ export interface Cliente {
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
-  lastVisitDate?: string | Date;
+  lastVisitDate?: Date | null;
+  tieneSeñalizacion?: boolean | null;
+  ultimaVisitaMerchandising?: Date | null;
+  ultimaVisitaTradeImpulso?: Date | null;
+  fechaUltimaVisita?: Date | null;
+  signage?: 'con' | 'sin' | string;
+  signagePhotoUrl?: string;
 }
 
 // Tipo para crear un nuevo cliente

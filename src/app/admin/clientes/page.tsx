@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Plus, Edit, Trash2, Search, Filter, UserCircle, ArrowLeft, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { MapPin, Plus, Edit, Trash2, Search, Filter, UserCircle, ArrowLeft, Upload, FileText, AlertCircle, CheckCircle, Menu } from 'lucide-react';
 import { Cliente, CreateClienteData, Region, Sede, SEDES_DATA, getSedesByRegion, getCitiesBySede } from '@/types/routes';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/firebase/clientApp';
@@ -74,13 +74,27 @@ interface BulkUploadState {
   result: BulkUploadResult | null;
 }
 
+// Función helper para normalizar fechas
+const normalizeDate = (v: any): Date | null => {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  // Manejar Timestamps de Firestore
+  if (typeof v.toDate === 'function') return v.toDate();
+  if (typeof v === 'string' || typeof v === 'number') {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+};
+
 export default function GestionClientesPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [clientes, setClientes] = useState<ClienteConSeñalizacion[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [currentCliente, setCurrentCliente] = useState<Cliente | null>(null);
   const [isVisitTypeDialogOpen, setIsVisitTypeDialogOpen] = useState(false);
   const [selectedClienteForVisitType, setSelectedClienteForVisitType] = useState<Cliente | null>(null);
   const [selectedVisitType, setSelectedVisitType] = useState<'Merchandising' | 'Trade (Eventos)' | 'Trade (Impulso)' | 'sin_configurar'>('sin_configurar');
@@ -91,6 +105,10 @@ export default function GestionClientesPage() {
   const [filterTipo, setFilterTipo] = useState<'todos' | 'tienda' | 'distribuidor' | 'cliente_especial'>('todos');
   const [filterSinVisita, setFilterSinVisita] = useState<'todos' | '7' | '15' | '30' | '60' | '90'>('todos');
   const [filterSeñalizacion, setFilterSeñalizacion] = useState<'todos' | 'con_señalizacion' | 'sin_señalizacion' | 'sin_informacion'>('todos');
+  const [filterRegion, setFilterRegion] = useState<Region | 'all'>('all');
+  const [filterSede, setFilterSede] = useState<Sede | 'all'>('all');
+  const [filterSignal, setFilterSignal] = useState<'all' | 'si' | 'no'>('all');
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Estados de usuario y permisos
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
@@ -563,7 +581,7 @@ export default function GestionClientesPage() {
     }
   };
 
-  const loadClientes = async () => {
+  const loadClientes = useCallback(async () => {
     try {
       setLoading(true);
       const clientesRef = collection(db, 'clientes');
@@ -582,53 +600,37 @@ export default function GestionClientesPage() {
         } as Cliente);
       });
       
-      // Obtener información de señalización y últimas visitas por tipo para cada cliente
-      const clientesConSeñalizacion: ClienteConSeñalizacion[] = await Promise.all(
+      // Mapeo enriquecido para incluir información de señalización
+      const clientesConSeñalizacion: Cliente[] = await Promise.all(
         clientesData.map(async (cliente) => {
-          if (!cliente.rif) {
-            return { 
-              ...cliente, 
-              tieneSeñalizacion: null, 
-              fechaUltimaVisita: null,
-              ultimaVisitaMerchandising: null,
-              ultimaVisitaTradeImpulso: null
-            };
-          }
-          
-          // ✅ USAR DIRECTAMENTE EL CAMPO signage DEL CLIENTE (más eficiente y preciso)
-          const ultimasVisitas = await obtenerUltimasVisitasPorTipo(cliente.rif);
-          
-          // Determinar señalización desde el campo signage del cliente
-          const clienteExtendido = cliente as any; // Cast para acceder a campos adicionales
-          let tieneSeñalizacion: boolean | null = null;
-          if (clienteExtendido.signage === 'con') {
-            tieneSeñalizacion = true;
-          } else if (clienteExtendido.signage === 'sin') {
-            tieneSeñalizacion = false;
-          }
-          // Si signage no está definido o es otro valor, mantener null
-          
-          console.log(`🚩 Cliente ${cliente.rif}: signage="${clienteExtendido.signage}", tieneSeñalizacion=${tieneSeñalizacion}`);
-          
+          const visitasRef = collection(db, 'visitas');
+          const q = query(visitasRef, where('rifCliente', '==', cliente.rif), orderBy('marcaTemporal', 'desc'));
+          const visitasSnap = await getDocs(q);
+          const visitas = visitasSnap.docs.map(doc => doc.data() as Visita);
+
+          const ultimaVisita = visitas[0] || null;
+          const ultimasVisitasMerchandising = visitas.filter(v => v.tipoVisita === 'Merchandising');
+          const ultimasVisitasTradeImpulso = visitas.filter(v => v.tipoVisita === 'Trade (Impulso)');
+
           return {
             ...cliente,
-            tieneSeñalizacion: tieneSeñalizacion,
-            fechaUltimaVisita: cliente.lastVisitDate ? new Date(cliente.lastVisitDate) : null,
-            ultimaVisitaMerchandising: ultimasVisitas.ultimaVisitaMerchandising,
-            ultimaVisitaTradeImpulso: ultimasVisitas.ultimaVisitaTradeImpulso
+            tieneSeñalizacion: ultimaVisita?.checkIn写真URL ? true : (ultimaVisita ? false : null),
+            signagePhotoUrl: ultimaVisita?.checkIn写真URL || undefined,
+            fechaUltimaVisita: normalizeDate(ultimaVisita?.marcaTemporal),
+            ultimaVisitaMerchandising: normalizeDate(ultimasVisitasMerchandising[0]?.marcaTemporal),
+            ultimaVisitaTradeImpulso: normalizeDate(ultimasVisitasTradeImpulso[0]?.marcaTemporal),
+            signage: ultimaVisita?.checkInContexto,
           };
         })
       );
-      
+
       setClientes(clientesConSeñalizacion);
     } catch (error) {
       console.error('Error cargando clientes:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -660,9 +662,9 @@ export default function GestionClientesPage() {
         gpsRequiredInField: !selectedPosition // Marcar si necesita GPS en campo
       };
 
-      if (editingCliente) {
+      if (currentCliente) {
         // Actualizar cliente existente
-        const clienteRef = doc(db, 'clientes', editingCliente.id);
+        const clienteRef = doc(db, 'clientes', currentCliente.id);
         await updateDoc(clienteRef, {
           ...clienteData,
           updatedAt: new Date()
@@ -673,7 +675,7 @@ export default function GestionClientesPage() {
       }
 
       setIsDialogOpen(false);
-      setEditingCliente(null);
+      setCurrentCliente(null);
       resetForm();
       loadClientes();
     } catch (error) {
@@ -682,44 +684,17 @@ export default function GestionClientesPage() {
     }
   };
 
-  const handleEdit = (cliente: Cliente) => {
-    // Verificar permisos para editar este cliente
-    if (currentUser && !canAccessSede(currentUser, cliente.sede)) {
-      alert('No tienes permisos para editar clientes de esta sede');
-      return;
-    }
-
-    setEditingCliente(cliente);
-    
-    // Primero actualizar las ciudades disponibles para la sede del cliente
-    const cities = getCitiesBySede(cliente.sede);
-    setAvailableCities(cities);
-    
-    setFormData({
-      rif: cliente.rif || '',
-      nombre: cliente.nombre,
-      direccion: cliente.direccion,
-      telefono: cliente.telefono || '',
-      email: cliente.email || '',
-      contacto: cliente.contacto || '',
-      region: cliente.region,
-      sede: cliente.sede,
-      estadoGeografico: cliente.estadoGeografico || '',
-      ciudad: cliente.ciudad,
-      position: cliente.position,
-      tipo: cliente.tipo,
-      observaciones: cliente.observaciones || '',
-      tipoVisitaPredeterminado: cliente.tipoVisitaPredeterminado
-    });
-    setSelectedPosition(cliente.position);
+  const handleEditCliente = (cliente: Cliente) => {
+    setIsEditMode(true);
+    setCurrentCliente(cliente);
+    resetForm(cliente);
     setIsDialogOpen(true);
   };
 
   // Función para abrir modal de foto de señalización
-  const handleViewSignagePhoto = (cliente: ClienteConSeñalizacion) => {
-    const clienteExtendido = cliente as any;
-    if (clienteExtendido.signagePhoto && clienteExtendido.signagePhoto !== 'No capturada' && clienteExtendido.signagePhoto.startsWith('http')) {
-      setSelectedPhotoUrl(clienteExtendido.signagePhoto);
+  const handleViewSignagePhoto = (cliente: Cliente) => {
+    if (cliente.signagePhotoUrl && cliente.nombre) {
+      setSelectedPhotoUrl(cliente.signagePhotoUrl);
       setSelectedClienteName(cliente.nombre);
       setPhotoModalOpen(true);
     }
@@ -745,32 +720,29 @@ export default function GestionClientesPage() {
     }
   };
 
-  const resetForm = () => {
-    const defaultRegion: Region = 'Centro-capital';
-    const defaultSede: Sede = 'GRUPO DISBATTERY';
-    
+  const resetForm = (cliente?: Cliente | null) => {
+    const defaultRegion: Region = cliente?.region || 'Centro-capital';
+    const defaultSede: Sede = cliente?.sede || 'GRUPO DISBATTERY';
+    const defaultCities = getCitiesBySede(defaultSede);
+
     setFormData({
-      rif: '',
-      nombre: '',
-      direccion: '',
-      telefono: '',
-      email: '',
-      contacto: '',
+      rif: cliente?.rif || '',
+      nombre: cliente?.nombre || '',
+      direccion: cliente?.direccion || '',
+      telefono: cliente?.telefono || '',
+      email: cliente?.email || '',
+      contacto: cliente?.contacto || '',
       region: defaultRegion,
       sede: defaultSede,
-      estadoGeografico: '',
-      ciudad: '',
-      position: { lat: 0, lng: 0 },
-      tipo: 'tienda',
-      observaciones: '',
-      tipoVisitaPredeterminado: undefined
+      ciudad: cliente?.ciudad || '',
+      position: cliente?.position || { lat: 0, lng: 0 },
+      tipo: cliente?.tipo || 'tienda',
+      observaciones: cliente?.observaciones || '',
+      tipoVisitaPredeterminado: cliente?.tipoVisitaPredeterminado || 'Merchandising',
     });
-    
-    // Actualizar las ciudades disponibles para la configuración por defecto
-    const cities = getCitiesBySede(defaultSede);
-    setAvailableCities(cities);
-    
-    setSelectedPosition(null);
+
+    setSelectedPosition(cliente?.position || null);
+    setAvailableCities(defaultCities);
   };
 
   // ========== FUNCIONES PARA CARGA MASIVA ==========
@@ -1477,7 +1449,8 @@ export default function GestionClientesPage() {
   };
 
   const handleNewCliente = () => {
-    setEditingCliente(null);
+    setIsEditMode(false);
+    setCurrentCliente(null);
     resetForm();
     setIsDialogOpen(true);
   };
@@ -1694,7 +1667,7 @@ export default function GestionClientesPage() {
     <div className="flex flex-col min-h-screen">
       {/* Top Bar */}
       <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
-        <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center py-3 px-6 sm:px-8">
+        <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center justify-between sm:justify-start py-3 px-6 sm:px-8">
           <div className="flex items-center gap-4">
             <Button
               onClick={() => router.back()}
@@ -1704,17 +1677,30 @@ export default function GestionClientesPage() {
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div className="flex items-center text-white p-2 rounded-md">
+            {/* Desktop User Info */}
+            <div className="hidden sm:flex items-center text-white p-2 rounded-md">
               <UserCircle className="w-10 h-10 mr-3" />
               <div className="text-left flex-1">
                 <div className="text-xl font-semibold">{currentUser?.fullName || 'Usuario'}</div>
                 <div className="text-sm opacity-75">
-                  {userPermissions?.isAdminMaster ? 'Admin Master' : 
-                   `${currentUser?.role} - ${currentUser?.sede}`}
+                  {userPermissions?.isAdminMaster ? 'Admin Master' : `${currentUser?.role} - ${currentUser?.sede}`}
                 </div>
               </div>
               <LogoutButton className="ml-3 bg-red-800 hover:bg-red-900 text-white border-0 px-3 py-1 text-sm" />
             </div>
+            {/* Mobile Title */}
+            <h1 className="sm:hidden text-xl font-semibold text-white">Gestión de Clientes</h1>
+          </div>
+          {/* Mobile Hamburger Button */}
+          <div className="sm:hidden">
+            <Button 
+              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} 
+              variant="ghost" 
+              size="sm" 
+              className="text-white hover:bg-red-700/50 p-2 rounded-md"
+            >
+              <Menu className="w-6 h-6" />
+            </Button>
           </div>
         </div>
         <div style={{ backgroundColor: '#ffee26' }} className="w-full sm:w-2/3 flex items-center justify-center sm:justify-end py-3 px-6 sm:px-8">
@@ -1726,9 +1712,28 @@ export default function GestionClientesPage() {
           />
         </div>
       </header>
+      
+      {/* Collapsible Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div 
+          className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div className="flex items-center p-2 rounded-md mb-4">
+            <UserCircle className="w-10 h-10 mr-3 flex-shrink-0" />
+            <div className="text-left flex-1 overflow-hidden">
+              <div className="text-xl font-semibold truncate">{currentUser?.fullName || 'Usuario'}</div>
+              <div className="text-sm opacity-75 truncate">
+                {userPermissions?.isAdminMaster ? 'Admin Master' : `${currentUser?.role} - ${currentUser?.sede}`}
+              </div>
+            </div>
+          </div>
+          <LogoutButton className="w-full bg-red-700 hover:bg-red-800 text-white" />
+        </div>
+      )}
 
       {/* Main Content - Scrollable */}
-      <main style={{ backgroundColor: '#a51717' }} className="flex-grow pt-16">
+      <main style={{ backgroundColor: '#a51717' }} className="flex-grow pt-24">
         <div className="max-w-7xl mx-auto p-4">
           <Card className="bg-stone-50 shadow-xl">
             <CardHeader className="border-b border-gray-200">
@@ -1976,7 +1981,7 @@ export default function GestionClientesPage() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleEdit(cliente)}
+                                    onClick={() => handleEditCliente(cliente)}
                                     disabled={currentUser ? !canAccessSede(currentUser, cliente.sede) : false}
                                   >
                                     <Edit className="w-4 h-4" />
@@ -2059,10 +2064,10 @@ export default function GestionClientesPage() {
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingCliente ? 'Editar Cliente' : 'Nuevo Cliente'}
+              {isEditMode ? 'Editar Cliente' : 'Nuevo Cliente'}
             </DialogTitle>
             <DialogDescription>
-              {editingCliente ? 'Modifica la información del cliente' : 'Agrega un nuevo punto de venta o cliente'}
+              {isEditMode ? 'Modifica la información del cliente' : 'Agrega un nuevo punto de venta o cliente'}
             </DialogDescription>
           </DialogHeader>
 
@@ -2149,7 +2154,7 @@ export default function GestionClientesPage() {
               <div>
                 <Label htmlFor="region">Región *</Label>
                 <Select 
-                  key={`region-${editingCliente?.id || 'new'}-${formData.region}`}
+                  key={`region-${currentCliente?.id || 'new'}-${formData.region}`}
                   value={formData.region} 
                   onValueChange={(value: Region) => {
                     const sedesDisponibles = getSedesByRegion(value);
@@ -2185,7 +2190,7 @@ export default function GestionClientesPage() {
               <div>
                 <Label htmlFor="sede">Sede *</Label>
                 <Select 
-                  key={`sede-${editingCliente?.id || 'new'}-${formData.region}-${formData.sede}`}
+                  key={`sede-${currentCliente?.id || 'new'}-${formData.region}-${formData.sede}`}
                   value={formData.sede} 
                   onValueChange={(value: Sede) => {
                     const cities = getCitiesBySede(value);
@@ -2216,7 +2221,7 @@ export default function GestionClientesPage() {
               <div>
                 <Label htmlFor="ciudad">Ciudad *</Label>
                 <Combobox
-                  key={`ciudad-${editingCliente?.id || 'new'}-${formData.sede}-${availableCities.length}`}
+                  key={`ciudad-${currentCliente?.id || 'new'}-${formData.sede}-${availableCities.length}`}
                   options={availableCities.map((ciudad): ComboboxOption => ({
                     value: ciudad,
                     label: ciudad
@@ -2287,7 +2292,7 @@ export default function GestionClientesPage() {
               </p>
               <MapSelector
                 onPositionSelect={setSelectedPosition}
-                initialPosition={editingCliente?.position}
+                initialPosition={currentCliente?.position}
                 className="w-full"
               />
               {!selectedPosition && (
@@ -2313,7 +2318,7 @@ export default function GestionClientesPage() {
                 Cancelar
               </Button>
               <Button type="submit" className="bg-red-600 hover:bg-red-700">
-                {editingCliente ? 'Actualizar' : 'Crear'} Cliente
+                {isEditMode ? 'Actualizar' : 'Crear'} Cliente
               </Button>
             </div>
           </form>

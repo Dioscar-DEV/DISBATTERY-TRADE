@@ -39,7 +39,7 @@ import { Badge } from '@/components/ui/badge';
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PlusCircle, Users, Edit3, Trash2, Eye, EyeOff, Loader2, UserCircle, ArrowLeft } from 'lucide-react';
+import { PlusCircle, Users, Edit3, Trash2, Eye, EyeOff, Loader2, UserCircle, ArrowLeft, Menu } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/firebase/clientApp'; 
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -104,6 +104,7 @@ function UserManagementPageContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'todos' | 'Mercaderista' | 'Administrador' | 'Supervisor'>('todos');
   const [filterRegion, setFilterRegion] = useState<'todos' | Region>('todos');
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Estados para visitas y permisos
   const [ultimasVisitas, setUltimasVisitas] = useState<{[email: string]: Visita | null}>({});
@@ -247,6 +248,7 @@ function UserManagementPageContent() {
 
   // Procesar automáticamente los parámetros de aprobación/rechazo
   useEffect(() => {
+    if (!searchParams) return;
     const action = searchParams.get('action');
     const userId = searchParams.get('id');
 
@@ -587,7 +589,7 @@ function UserManagementPageContent() {
     }
 
     // Verificar permisos
-    if (currentUser && !userPermissions?.isAdminMaster && !canAccessSede(currentUser, user.sede)) {
+    if (currentUser && !userPermissions?.isAdminMaster && !canAccessSede(currentUser, user.sede as Sede)) {
       toast({
         title: "Acceso denegado",
         description: "No tienes permisos para eliminar usuarios de esta sede.",
@@ -719,7 +721,7 @@ function UserManagementPageContent() {
     <div className="flex flex-col min-h-screen">
       {/* Top Bar */}
       <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
-        <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center py-3 px-6 sm:px-8">
+        <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center justify-between sm:justify-start py-3 px-6 sm:px-8">
           <div className="flex items-center gap-4">
             <Button
               onClick={() => router.back()}
@@ -729,7 +731,8 @@ function UserManagementPageContent() {
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div className="flex items-center text-white p-2 rounded-md">
+            {/* Desktop User Info */}
+            <div className="hidden sm:flex items-center text-white p-2 rounded-md">
               <UserCircle className="w-10 h-10 mr-3" />
               <div className="text-left flex-1">
                 <div className="text-xl font-semibold">{currentUser?.fullName || 'Usuario'}</div>
@@ -740,6 +743,19 @@ function UserManagementPageContent() {
               </div>
               <LogoutButton className="ml-3 bg-red-800 hover:bg-red-900 text-white border-0 px-3 py-1 text-sm" />
             </div>
+            {/* Mobile Title */}
+            <h1 className="sm:hidden text-xl font-semibold text-white">Gestión de Usuarios</h1>
+          </div>
+           {/* Mobile Hamburger Button */}
+          <div className="sm:hidden">
+            <Button 
+              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} 
+              variant="ghost" 
+              size="sm" 
+              className="text-white hover:bg-red-700/50 p-2 rounded-md"
+            >
+              <Menu className="w-6 h-6" />
+            </Button>
           </div>
         </div>
         <div style={{ backgroundColor: '#ffee26' }} className="w-full sm:w-2/3 flex items-center justify-center sm:justify-end py-3 px-6 sm:px-8">
@@ -752,8 +768,28 @@ function UserManagementPageContent() {
         </div>
       </header>
 
+      {/* Collapsible Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div 
+          className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div className="flex items-center p-2 rounded-md mb-4">
+            <UserCircle className="w-10 h-10 mr-3 flex-shrink-0" />
+            <div className="text-left flex-1 overflow-hidden">
+              <div className="text-xl font-semibold truncate">{currentUser?.fullName || 'Usuario'}</div>
+              <div className="text-sm opacity-75 truncate">
+                {userPermissions?.isAdminMaster ? 'Admin Master' : 
+                 `${currentUser?.role} - ${currentUser?.sede}`}
+              </div>
+            </div>
+          </div>
+          <LogoutButton className="w-full bg-red-700 hover:bg-red-800 text-white" />
+        </div>
+      )}
+
       {/* Main Content */}
-      <main style={{ backgroundColor: '#a51717' }} className="flex-grow pt-16">
+      <main style={{ backgroundColor: '#a51717' }} className="flex-grow pt-24">
         <div className="container mx-auto py-8 px-2 sm:px-4 md:px-6 lg:px-8">
           <Card className="shadow-xl bg-white/90 backdrop-blur-sm">
             <CardHeader className="border-b pb-4">
@@ -1078,7 +1114,7 @@ function UserManagementPageContent() {
                                   size="sm"
                                   onClick={() => handleEditUser(user)}
                                   disabled={
-                                    (currentUser && !userPermissions?.isAdminMaster && !canAccessSede(currentUser, user.sede || '')) ||
+                                    (currentUser && !userPermissions?.isAdminMaster && !canAccessSede(currentUser, user.sede as Sede)) ||
                                     user.email === ADMIN_MASTER_EMAIL
                                   }
                                 >
@@ -1090,7 +1126,7 @@ function UserManagementPageContent() {
                                   onClick={() => handleDeleteUser(user)}
                                   className="text-red-600 hover:text-red-700"
                                   disabled={
-                                    (currentUser && !userPermissions?.isAdminMaster && !canAccessSede(currentUser, user.sede || '')) ||
+                                    (currentUser && !userPermissions?.isAdminMaster && !canAccessSede(currentUser, user.sede as Sede)) ||
                                     user.email === ADMIN_MASTER_EMAIL
                                   }
                                 >

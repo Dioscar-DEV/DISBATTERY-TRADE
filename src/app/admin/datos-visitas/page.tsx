@@ -12,7 +12,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { UserCircle, ArrowLeft, TrendingUp, MapPinned, Activity } from 'lucide-react';
+import { UserCircle, ArrowLeft, TrendingUp, MapPinned, Activity, Menu } from 'lucide-react';
 import { collection, onSnapshot, orderBy, limit, query, Timestamp, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/clientApp';
 import { getCurrentUserWithPermissions, UserData, UserPermissions, canAccessSede } from '@/services/auth';
@@ -44,6 +44,7 @@ export default function DatosVisitasPage() {
   const [routes, setRoutes] = useState<RouteDoc[]>([]);
   const [days, setDays] = useState(30);
   const [search, setSearch] = useState('');
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Cargar usuario y permisos
   useEffect(() => {
@@ -424,12 +425,13 @@ export default function DatosVisitasPage() {
     <div className="flex flex-col min-h-screen">
       {/* Top Bar */}
       <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
-        <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center py-3 px-6 sm:px-8">
+        <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center justify-between sm:justify-start py-3 px-6 sm:px-8">
           <div className="flex items-center gap-4">
             <Button onClick={() => router.back()} variant="ghost" size="sm" className="text-white hover:bg-red-700/50 p-2 rounded-md">
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div className="flex items-center text-white p-2 rounded-md">
+            {/* Desktop User Info */}
+            <div className="hidden sm:flex items-center text-white p-2 rounded-md">
               <UserCircle className="w-10 h-10 mr-3" />
               <div className="text-left flex-1">
                 <div className="text-xl font-semibold">{currentUser.fullName}</div>
@@ -438,15 +440,47 @@ export default function DatosVisitasPage() {
                 </div>
               </div>
             </div>
+             {/* Mobile Title */}
+             <h1 className="sm:hidden text-xl font-semibold text-white">Datos de Visitas</h1>
+          </div>
+          {/* Mobile Hamburger Button */}
+          <div className="sm:hidden">
+            <Button 
+              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} 
+              variant="ghost" 
+              size="sm" 
+              className="text-white hover:bg-red-700/50 p-2 rounded-md"
+            >
+              <Menu className="w-6 h-6" />
+            </Button>
           </div>
         </div>
         <div style={{ backgroundColor: '#ffee26' }} className="w-full sm:w-2/3 flex items-center justify-center sm:justify-end py-3 px-6 sm:px-8">
           <img src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png" alt="Disbattery Lubricantes Logo" className="max-h-8" />
         </div>
       </header>
+      
+      {/* Collapsible Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div 
+          className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div className="flex items-center p-2 rounded-md mb-4">
+            <UserCircle className="w-10 h-10 mr-3 flex-shrink-0" />
+            <div className="text-left flex-1 overflow-hidden">
+              <div className="text-xl font-semibold truncate">{currentUser.fullName}</div>
+              <div className="text-sm opacity-75 truncate">
+                {userPermissions.isAdminMaster ? 'Admin Master' : `${currentUser.role} - ${currentUser.sede}`}
+              </div>
+            </div>
+          </div>
+          {/* Podrías añadir un LogoutButton aquí si lo tienes como componente */}
+        </div>
+      )}
 
       {/* Main */}
-      <main style={{ backgroundColor: '#a51717' }} className="flex-grow pt-16">
+      <main style={{ backgroundColor: '#a51717' }} className="flex-grow pt-24">
         <div className="max-w-7xl mx-auto p-2 sm:p-4">
           <Card className="bg-stone-50 shadow-xl">
             <CardHeader className="border-b border-gray-200">
