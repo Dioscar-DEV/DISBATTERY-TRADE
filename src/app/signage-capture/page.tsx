@@ -1,4 +1,3 @@
-
 'use client';
 
 import {useRouter, useSearchParams} from 'next/navigation';
@@ -15,10 +14,12 @@ import {
 } from '@/components/ui/card';
 import {Input} from '@/components/ui/input';
 import {Label}from '@/components/ui/label';
-import {Camera} from 'lucide-react';
+import {Camera, Settings} from 'lucide-react';
 import {useToast}from '@/hooks/use-toast';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { PermissionChecker } from '@/components/PermissionChecker';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 function SignageCaptureContent() {
   const router = useRouter();
@@ -38,6 +39,7 @@ function SignageCaptureContent() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState(true);
   const [capturingType, setCapturingType] = useState<string | null>(null);
+  const [showPermissionsDialog, setShowPermissionsDialog] = useState(false);
 
   useEffect(() => {
     setClientRif(searchParams.get('clientRif') || '');
@@ -48,8 +50,19 @@ function SignageCaptureContent() {
     setTradeSubType(searchParams.get('tradeSubType') || '');
   }, [searchParams]);
 
+  // ✅ Mostrar mensaje de bienvenida offline
+  useEffect(() => {
+    if (!navigator.onLine) {
+      toast({
+        title: '🔄 Modo Offline Activado',
+        description: 'Los formularios funcionan sin internet. Las fotos se guardarán localmente.',
+      });
+    }
+  }, [toast]);
+
   useEffect(() => {
     const getCameraPermission = async () => {
+        // ✅ MEJORA OFFLINE: Verificación más tolerante sin internet
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
              toast({
                 variant: 'destructive',
@@ -59,6 +72,7 @@ function SignageCaptureContent() {
             setHasCameraPermission(false);
             return;
         }
+        
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
@@ -69,6 +83,14 @@ function SignageCaptureContent() {
             stream.getTracks().forEach(track => track.stop());
         } catch (error) {
             console.error('Error accessing camera:', error);
+            
+            // ✅ MEJORA: Manejo específico para modo offline
+            if (!navigator.onLine) {
+                console.log('📷 Modo offline: asumiendo permisos de cámara disponibles');
+                setHasCameraPermission(true); // Asumir que funciona offline
+                return;
+            }
+            
             setHasCameraPermission(false);
             toast({
                 variant: 'destructive',
@@ -149,6 +171,16 @@ function SignageCaptureContent() {
         });
         return;
     }
+
+    // ✅ VALIDACIÓN OBLIGATORIA: Foto de señalización cuando el cliente SÍ tiene
+    if (hasSignage === 'Yes' && !signagePhoto) {
+        toast({
+            variant: 'destructive',
+            title: 'Foto de Señalización Requerida',
+            description: 'Debe tomar una foto de la señalización cuando indica que el cliente SÍ tiene.',
+        });
+        return;
+    }
     
     const visitData = {
         clientRif,
@@ -156,31 +188,97 @@ function SignageCaptureContent() {
         address,
         timestamp,
         visitType,
-        tradeSubType: visitType === 'Trade (Eventos)' ? tradeSubType : null,
         hasSignage,
         signagePhoto,
     };
+
+    // 🗺️ OBTENER DATOS EXISTENTES DEL CLIENTE PRIMERO (INCLUYENDO COORDENADAS)
+    const existingClienteData = localStorage.getItem('clienteData');
+    let existingData: any = {};
+    if (existingClienteData) {
+        existingData = JSON.parse(existingClienteData);
+        console.log('🗺️ DATOS EXISTENTES DEL CLIENTE:', existingData);
+        console.log('🗺️ COORDENADAS EXISTENTES:', existingData.position);
+    }
+
+    // Guardar datos del cliente en localStorage PRESERVANDO las coordenadas existentes
+    const clienteData = {
+        rif: clientRif || existingData.rif || '',
+        nombre: clientName || existingData.nombre || '',
+        direccion: address || existingData.direccion || '',
+        // 🗺️ PRESERVAR COORDENADAS EXISTENTES - SOLO usar fallback si no hay coordenadas válidas
+        position: (existingData.position && existingData.position.lat !== 0 && existingData.position.lng !== 0) 
+            ? existingData.position 
+            : (existingData.position || { lat: 0, lng: 0 }),
+        // ✅ PRESERVAR EL IDENTIFICADOR DEL PUNTO PARA ACTUALIZAR STATUS EN LA RUTA
+        pointId: existingData.pointId || '',
+        sede: existingData.sede || 'GRUPO DISBATTERY',
+        telefono: existingData.telefono || '',
+        email: existingData.email || '',
+        contacto: existingData.contacto || '',
+        region: existingData.region || '',
+        ciudad: existingData.ciudad || '',
+        tipo: existingData.tipo || '',
+        // ✅ GUARDAR tipoVisita QUE USA EL RESTO DEL FLUJO
+        tipoVisita: visitType || existingData.tipoVisita,
+        visitType,
+        hasSignage, // 'Yes' | 'No'
+        signagePhoto, // base64
+        timestamp
+    };
+
+    console.log('🗺️ COORDENADAS FINALES PRESERVADAS:', clienteData.position);
+    console.log('🔍 DEBUGGING GPS - existingData.position:', existingData.position);
+    console.log('🔍 DEBUGGING GPS - tiene lat/lng válidos?:', existingData.position?.lat !== 0 && existingData.position?.lng !== 0);
+    console.log('🔍 DEBUGGING GPS - lat:', existingData.position?.lat, 'lng:', existingData.position?.lng);
+    
+    console.log('🚩🚩🚩 === DEBUGGING SEÑALIZACIÓN EN SIGNAGE-CAPTURE ===');
+    console.log('🚩 hasSignage VALUE:', hasSignage);
+    console.log('🚩 hasSignage TYPE:', typeof hasSignage);
+    console.log('🚩 hasSignage === "Yes":', hasSignage === 'Yes');
+    console.log('🚩 hasSignage === "No":', hasSignage === 'No');
+    console.log('🚩 signagePhoto:', signagePhoto ? 'FOTO CAPTURADA' : 'NO FOTO');
+    console.log('🚩 clienteData.hasSignage:', clienteData.hasSignage);
+    console.log('🚩 clienteData.signagePhoto:', clienteData.signagePhoto ? 'FOTO EN clienteData' : 'NO FOTO EN clienteData');
+    
+    localStorage.setItem('clienteData', JSON.stringify(clienteData));
+    
+    // ✅ VERIFICACIÓN FINAL ANTES DE NAVEGAR
+    const verificacion = localStorage.getItem('clienteData');
+    const clienteVerificado = JSON.parse(verificacion || '{}');
+    console.log('🚩🚩🚩 === VERIFICACIÓN FINAL ANTES DE NAVEGAR ===');
+    console.log('🚩 DATOS GUARDADOS EN LOCALSTORAGE:');
+    console.log('🚩 hasSignage guardado:', clienteVerificado.hasSignage);
+    console.log('🚩 signagePhoto guardado:', clienteVerificado.signagePhoto ? 'SÍ GUARDADA' : 'NO GUARDADA');
+    console.log('🚩 position guardado:', clienteVerificado.position);
+    console.log('🚩 pointId guardado:', clienteVerificado.pointId);
+    
+    // 📝 GUARDAR LOG CRÍTICO PARA DEBUGGING
+    const debugLog = {
+      timestamp: new Date().toISOString(),
+      page: 'signage-capture',
+      hasSignage: hasSignage,
+      signagePhoto: signagePhoto ? 'FOTO_CAPTURADA' : 'NO_FOTO',
+      clienteDataSaved: {
+        hasSignage: clienteVerificado.hasSignage,
+        signagePhoto: clienteVerificado.signagePhoto ? 'GUARDADA' : 'NO_GUARDADA',
+        position: clienteVerificado.position
+      }
+    };
+    localStorage.setItem('debugSignageFlow', JSON.stringify(debugLog));
+    console.log('📝 DEBUG LOG GUARDADO:', debugLog);
+    
     console.log("Visit Start Data (including signage):", visitData);
+    console.log("Cliente data saved to localStorage:", clienteData);
+    console.log("🎯 RIF guardado:", clienteData.rif);
+    console.log("🎯 Nombre guardado:", clienteData.nombre);
 
     if (visitType === 'Merchandising') {
         router.push('/shell-merchandising');
     } else if (visitType === 'Trade (Eventos)') {
-        if (tradeSubType === 'Impulso') {
-            router.push('/trade-impulso');
-        } else if (tradeSubType === 'Evento') {
-             toast({
-                title: `Flujo para ${tradeSubType} en Desarrollo`,
-                description: `El flujo de Trade (${tradeSubType}) aún no está implementado.`,
-            });
-            router.push('/visit-capture');
-        } else {
-            toast({
-              variant: 'destructive',
-              title: 'Subtipo de Trade no válido',
-              description: 'Por favor, regrese y seleccione un subtipo de Trade.',
-            });
-            router.push('/visit-capture');
-        }
+        router.push('/trade-eventos');
+    } else if (visitType === 'Trade (Impulso)') {
+        router.push('/trade-impulso');
     } else {
         toast({
           variant: 'destructive',
@@ -228,11 +326,48 @@ function SignageCaptureContent() {
           )}
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Botón de verificación de permisos */}
+          <div className="flex justify-center">
+            <Dialog open={showPermissionsDialog} onOpenChange={setShowPermissionsDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Verificar Permisos
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Permisos de la Aplicación</DialogTitle>
+                  <DialogDescription>
+                    Verifica y activa los permisos necesarios para capturar fotos y ubicación
+                  </DialogDescription>
+                </DialogHeader>
+                <PermissionChecker 
+                  onPermissionsReady={(permissions) => {
+                    setHasCameraPermission(permissions.camera === 'granted');
+                  }}
+                  showCameraCheck={true}
+                  showLocationCheck={true}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+
           <video ref={videoRef} className="hidden w-full aspect-video rounded-md" autoPlay muted playsInline />
           { !(hasCameraPermission) && (
               <Alert variant="destructive" className="mt-4">
                 <AlertTitle>Acceso a la Cámara Requerido</AlertTitle>
-                <AlertDescription>Por favor, permita el acceso a la cámara para usar esta función.</AlertDescription>
+                <AlertDescription>
+                  Por favor, permita el acceso a la cámara para usar esta función.
+                  <br />
+                  <Button 
+                    variant="link" 
+                    className="p-0 h-auto text-destructive underline mt-1"
+                    onClick={() => setShowPermissionsDialog(true)}
+                  >
+                    🔧 Activar permisos aquí
+                  </Button>
+                </AlertDescription>
               </Alert>
           )}
 

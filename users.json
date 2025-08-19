@@ -1,0 +1,31 @@
+{"users": [
+{
+  "localId": "4iH1IlIaGqSkraqJlRk1CrHGXvZ2",
+  "email": "jrojas@smartautomatai.com",
+  "emailVerified": true,
+  "passwordHash": "dRk+CXrGrL/Eq3EPf+n+3SeRwWaXqWLD9s8fB85p4eUtrOujoqBFxoPSE/oGM9EqkGrIb1GuGcFNXmD7qLMHdw==",
+  "salt": "noiefq2aIyZDlg==",
+  "lastSignedInAt": "1750701610360",
+  "createdAt": "1750280480912",
+  "providerUserInfo": []
+},
+{
+  "localId": "bvM3nxyZN1QspkyFjt5ovjHawDA2",
+  "email": "dsalcedo@smartautomatai.com",
+  "emailVerified": true,
+  "passwordHash": "28DtX5auCdNQ3SYy7spqX/gZR65m37iyFY2jZgrPdnTXgAl4vWduQbcqtefC9L0cd1BSyVHiueGa/wJC2cgeMg==",
+  "salt": "w5FNkxyMsr01sg==",
+  "lastSignedInAt": "1750702018030",
+  "createdAt": "1750078924029",
+  "providerUserInfo": []
+},
+{
+  "localId": "m29YJH4yShQNk8sUBQ2AWUYRKLc2",
+  "email": "dioscar05@gmail.com",
+  "emailVerified": false,
+  "passwordHash": "HnRbDrw9584NQ8SRmXu+2KEfBhRYhsMknnWQYsywR5efk3SSL3S7TXBvDIOFszvXzWbwvLAVSx4gQYdukfP+Jg==",
+  "salt": "85yzSxOIwo/nLA==",
+  "lastSignedInAt": "1750280076100",
+  "createdAt": "1750280076100",
+  "providerUserInfo": []
+}]}

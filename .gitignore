@@ -44,3 +44,5 @@ firebase-adminsdk-*.json
 .idx
 
 .genkit/*
+
+.vercel

@@ -1,0 +1,13 @@
+{
+  "projects": {},
+  "targets": {
+    "disbattery-trade": {
+      "storage": {
+        "default": [
+          "disbattery-trade.firebasestorage.app"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

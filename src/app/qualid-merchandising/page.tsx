@@ -1,4 +1,3 @@
-
 'use client';
 
 import {useRouter} from 'next/navigation';
@@ -22,6 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 interface AficheColocado {
   tipo: string;
   cantidad: number;
+  foto?: string | null; // Nueva propiedad para foto individual de cada afiche
 }
 
 interface ExhibidorCauchoColocado {
@@ -49,13 +49,17 @@ const EXHIBIDORES_CAUCHO_QUALID_TYPES: string[] = [
 ];
 
 export default function QualidMerchandising() {
+  const [hicistePlanogramaQualid, setHicistePlanogramaQualid] = useState<string>('');
+  const [fotoAntesPlanogramaQualid, setFotoAntesPlanogramaQualid] = useState<string | null>(null);
+  const [fotoDespuesPlanogramaQualid, setFotoDespuesPlanogramaQualid] = useState<string | null>(null);
+  
   const [totalCenefasQualid, setTotalCenefasQualid] = useState<number | null>(null);
   const [bolsasQualidCarro, setBolsasQualidCarro] = useState<number | null>(null);
   
   const [afichesQualidAgregados, setAfichesQualidAgregados] = useState<AficheColocado[]>([]);
   const [currentTipoAficheQualid, setCurrentTipoAficheQualid] = useState<string>('');
   const [currentCantidadAficheQualid, setCurrentCantidadAficheQualid] = useState<string>('');
-  const [fotoAfichesQualidColocados, setFotoAfichesQualidColocados] = useState<string | null>(null);
+  const [currentFotoAficheQualid, setCurrentFotoAficheQualid] = useState<string | null>(null);
 
   const [exhibidoresCauchoQualidAgregados, setExhibidoresCauchoQualidAgregados] = useState<ExhibidorCauchoColocado[]>([]);
   const [currentTipoExhibidorCauchoQualid, setCurrentTipoExhibidorCauchoQualid] = useState<string>('');
@@ -155,6 +159,12 @@ export default function QualidMerchandising() {
     }
   };
 
+  const handleHicistePlanogramaQualidChange = (value: string) => {
+    setHicistePlanogramaQualid(value);
+    if (value === 'No') {
+      setFotoDespuesPlanogramaQualid(null);
+    }
+  };
 
   const handleTotalCenefasQualidChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -193,9 +203,24 @@ export default function QualidMerchandising() {
       return;
     }
 
-    setAfichesQualidAgregados([...afichesQualidAgregados, { tipo: currentTipoAficheQualid, cantidad: cantidadNum }]);
+    // Solo permitir agregar si hay foto para afiches con cantidad > 0
+    if (cantidadNum > 0 && !currentFotoAficheQualid) {
+      toast({
+        variant: 'destructive',
+        title: 'Foto Requerida',
+        description: 'Por favor, tome una foto del afiche antes de agregarlo.',
+      });
+      return;
+    }
+
+    setAfichesQualidAgregados([...afichesQualidAgregados, { 
+      tipo: currentTipoAficheQualid, 
+      cantidad: cantidadNum,
+      foto: cantidadNum > 0 ? currentFotoAficheQualid : undefined
+    }]);
     setCurrentTipoAficheQualid('');
     setCurrentCantidadAficheQualid('');
+    setCurrentFotoAficheQualid(null);
   };
 
   const handleRemoveAficheQualid = (indexToRemove: number) => {
@@ -238,51 +263,83 @@ export default function QualidMerchandising() {
     setExhibidoresCauchoQualidAgregados(exhibidoresCauchoQualidAgregados.filter((_, index) => index !== indexToRemove));
   };
 
-  const saveDataLocally = (data: any) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const qualidData = JSON.parse(localStorage.getItem('qualidData') || '[]')
-      qualidData.push(data);
-      localStorage.setItem('qualidData', JSON.stringify(qualidData));
-    }
-  };
-
   const handleSubmit = async () => {
-    if (totalCenefasQualid === null || totalCenefasQualid < 0) {
+    // ✅ VALIDACIONES OBLIGATORIAS: Fotos de planograma Qualid cuando se trabajó
+    if (hicistePlanogramaQualid === 'Yes') {
+      if (!fotoAntesPlanogramaQualid) {
+        toast({
+          variant: 'destructive',
+          title: 'Foto "Antes" del Planograma Qualid Requerida',
+          description: 'Debe tomar la foto "antes" del planograma Qualid cuando indica que trabajó en él.',
+        });
+        return;
+      }
+      if (!fotoDespuesPlanogramaQualid) {
+        toast({
+          variant: 'destructive',
+          title: 'Foto "Después" del Planograma Qualid Requerida',
+          description: 'Debe tomar la foto "después" del planograma Qualid cuando indica que trabajó en él.',
+        });
+        return;
+      }
+    }
+
+    // ✅ VALIDACIÓN OBLIGATORIA: Foto de exhibidores de caucho cuando se agregaron
+    if (exhibidoresCauchoQualidAgregados.length > 0 && !fotoExhibidoresCauchoQualid) {
       toast({
         variant: 'destructive',
-        title: 'Cantidad de Cenefas Inválida',
-        description: 'Por favor, ingrese un número válido para el total de cenefas Qualid colocadas (0 o más).',
+        title: 'Foto de Exhibidores de Caucho Requerida',
+        description: 'Debe tomar una foto de los exhibidores de caucho Qualid cuando los agrega.',
       });
       return;
     }
 
-    if (bolsasQualidCarro === null || bolsasQualidCarro < 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Cantidad de Bolsas Inválida',
-        description: 'Por favor, ingrese un número válido para las bolsas Qualid para carros entregadas (0 o más).',
-      });
-      return;
-    }
-
-    const data = {
-      totalCenefasQualid,
-      bolsasQualidCarro,
-      afichesQualidColocados: afichesQualidAgregados.map(af => ({ nombre: af.tipo, cantidad: af.cantidad })),
-      fotoAfichesQualidColocados,
-      exhibidoresCauchoQualid: exhibidoresCauchoQualidAgregados.map(ex => ({ tipo: ex.tipo, cantidad: ex.cantidad })),
-      fotoExhibidoresCauchoQualid,
+    const datosQualid = {
+      hicistePlanogramaQualid: hicistePlanogramaQualid === 'Yes',
+      fotoAntesPlanogramaQualid: fotoAntesPlanogramaQualid,
+      fotoDespuesPlanogramaQualid: fotoDespuesPlanogramaQualid,
+      totalCenefasQualid: totalCenefasQualid,
+      bolsasQualidCarro: bolsasQualidCarro,
+      afichesColocadosQualid: afichesQualidAgregados, // Cada afiche incluye su foto individual
+      exhibidoresCauchoQualid: exhibidoresCauchoQualidAgregados,
+      fotoExhibidoresCauchoQualid: fotoExhibidoresCauchoQualid,
       timestamp: new Date().toISOString(),
+      seccion: 'qualid-merchandising'
     };
 
-    saveDataLocally(data);
-    toast({
-      title: 'Datos de Qualid guardados localmente',
-      description: 'Los datos se sincronizarán cuando haya conexión.',
-    });
-    console.log('Qualid Merchandising Data:', data);
+    try {
+      setIsSyncing(true);
+      
+      // Obtener datos acumulados
+      const datosAcumulados = JSON.parse(localStorage.getItem('datosFormularioCompleto') || '{}');
 
-    router.push('/observaciones'); 
+      // Agregar los nuevos datos de Qualid
+      datosAcumulados.qualidMerchandising = datosQualid;
+
+      // Guardar de nuevo en localStorage
+      localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosAcumulados));
+
+      console.log('=== DATOS DE QUALID MERCHANDISING GUARDADOS ===');
+      console.log(datosAcumulados);
+
+      toast({
+        title: 'Datos de Qualid Guardados',
+        description: 'Progreso guardado. Continuando con el formulario...',
+      });
+      
+      // Flujo simplificado - continuar con ventas productos
+      router.push('/ventas-productos');
+
+    } catch (error) {
+      console.error('Error guardando datos de Qualid:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error al Guardar',
+        description: 'Hubo un problema guardando el progreso. Intente nuevamente.',
+      });
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   useEffect(() => {
@@ -382,8 +439,51 @@ export default function QualidMerchandising() {
               </Alert>
           )}
 
+          {/* Planograma Qualid */}
           <div>
-            <Label htmlFor="total-cenefas-qualid">Total cenefas Qualid colocadas</Label>
+            <Label>¿Hiciste el planograma de Qualid?</Label>
+            <Select onValueChange={handleHicistePlanogramaQualidChange} value={hicistePlanogramaQualid}>
+              <SelectTrigger className="w-full mt-1">
+                <SelectValue placeholder="Seleccionar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Yes">Sí</SelectItem>
+                <SelectItem value="No">No</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {hicistePlanogramaQualid === 'Yes' && (
+            <>
+              <div>
+                <Label htmlFor="foto-antes-planograma-qualid">Foto "Antes" del Planograma Qualid</Label>
+                <Button
+                  onClick={() => takePhoto(setFotoAntesPlanogramaQualid, 'fotoAntesPlanogramaQualid')}
+                  disabled={!hasCameraPermission || !!capturingType}
+                  className="w-full mt-1"
+                >
+                  <Camera className="mr-2 h-4 w-4" /> Tomar Foto "Antes"
+                </Button>
+                {fotoAntesPlanogramaQualid && <img src={fotoAntesPlanogramaQualid} alt="Foto Antes Planograma Qualid" className="mt-2 rounded-md" />}
+              </div>
+              
+              <div>
+                <Label htmlFor="foto-despues-planograma-qualid">Foto "Después" del Planograma Qualid</Label>
+                <Button
+                  onClick={() => takePhoto(setFotoDespuesPlanogramaQualid, 'fotoDespuesPlanogramaQualid')}
+                  disabled={!hasCameraPermission || !!capturingType}
+                  className="w-full mt-1"
+                >
+                  <Camera className="mr-2 h-4 w-4" /> Tomar Foto "Después"
+                </Button>
+                {fotoDespuesPlanogramaQualid && <img src={fotoDespuesPlanogramaQualid} alt="Foto Después Planograma Qualid" className="mt-2 rounded-md" />}
+              </div>
+            </>
+          )}
+          
+          {/* Cenefas y Bolsas */}
+          <div>
+            <Label htmlFor="total-cenefas-qualid">Total de Cenefas Qualid colocadas</Label>
             <Input
               id="total-cenefas-qualid"
               type="number"
@@ -414,59 +514,104 @@ export default function QualidMerchandising() {
 
           <div className="space-y-4 border-t pt-4">
             <Label className="font-medium">Afiches Qualid Colocados</Label>
-            <div className="flex items-end space-x-2">
-              <div className="flex-grow space-y-1">
-                <Label htmlFor="tipo-afiche-qualid-select">Tipo de Afiche Qualid</Label>
-                <Select
-                  value={currentTipoAficheQualid}
-                  onValueChange={setCurrentTipoAficheQualid}
-                  disabled={availableAficheQualidTypes.length === 0 || isSyncing || !!capturingType}
-                >
-                  <SelectTrigger id="tipo-afiche-qualid-select">
-                    <SelectValue placeholder={availableAficheQualidTypes.length > 0 ? "Seleccionar tipo" : "Todos agregados"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableAficheQualidTypes.map(tipo => (
-                      <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+            <div className="space-y-3">
+              <div className="flex items-end space-x-2">
+                <div className="flex-grow space-y-1">
+                  <Label htmlFor="tipo-afiche-qualid-select">Tipo de Afiche Qualid</Label>
+                  <Select
+                    value={currentTipoAficheQualid}
+                    onValueChange={setCurrentTipoAficheQualid}
+                    disabled={availableAficheQualidTypes.length === 0 || isSyncing || !!capturingType}
+                  >
+                    <SelectTrigger id="tipo-afiche-qualid-select">
+                      <SelectValue placeholder={availableAficheQualidTypes.length > 0 ? "Seleccionar tipo" : "Todos agregados"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableAficheQualidTypes.map(tipo => (
+                        <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-1/3 space-y-1">
+                  <Label htmlFor="cantidad-afiche-qualid-input">Cantidad</Label>
+                  <Input
+                    id="cantidad-afiche-qualid-input"
+                    type="number"
+                    placeholder="Ingresar cantidad"
+                    value={currentCantidadAficheQualid}
+                    onChange={(e) => setCurrentCantidadAficheQualid(e.target.value)}
+                    inputMode="numeric"
+                    min="0"
+                    disabled={isSyncing || !!capturingType}
+                  />
+                </div>
+              </div>
+
+              {/* Captura de foto para el afiche actual */}
+              {currentTipoAficheQualid && currentCantidadAficheQualid && parseInt(currentCantidadAficheQualid) > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="foto-afiche-qualid-individual">Foto del {currentTipoAficheQualid}</Label>
+                  <Button
+                    onClick={() => takePhoto(setCurrentFotoAficheQualid, 'fotoAficheQualidIndividual')}
+                    disabled={!hasCameraPermission || !!capturingType}
+                    className="w-full text-white"
+                    style={{ backgroundImage: 'linear-gradient(to right, #fcce05, #ff0000)' }}
+                  >
+                    {capturingType === 'fotoAficheQualidIndividual' ? 'Capturando...' : (hasCameraPermission ? (
+                      <>
+                        <Camera className="mr-2 h-4 w-4" /> Tomar Foto de este Afiche
+                      </>
+                    ) : (
+                      'Cámara no permitida'
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-1/3 space-y-1">
-                <Label htmlFor="cantidad-afiche-qualid-input">Cantidad</Label>
-                <Input
-                  id="cantidad-afiche-qualid-input"
-                  type="number"
-                  placeholder="Ingresar cantidad"
-                  value={currentCantidadAficheQualid}
-                  onChange={(e) => setCurrentCantidadAficheQualid(e.target.value)}
-                  inputMode="numeric"
-                  min="0"
-                  disabled={isSyncing || !!capturingType}
-                />
-              </div>
+                  </Button>
+                  {currentFotoAficheQualid && (
+                    <img
+                      src={currentFotoAficheQualid}
+                      alt={`Foto de ${currentTipoAficheQualid}`}
+                      className="mt-2 rounded-md object-cover w-full h-auto"
+                      data-ai-hint="individual qualid poster photo"
+                    />
+                  )}
+                </div>
+              )}
+
               <Button 
                 onClick={handleAddAficheQualid} 
-                disabled={!currentTipoAficheQualid || currentCantidadAficheQualid === '' || availableAficheQualidTypes.length === 0 || isSyncing || !!capturingType}
-                className="shrink-0"
+                disabled={!currentTipoAficheQualid || currentCantidadAficheQualid === '' || availableAficheQualidTypes.length === 0 || isSyncing || !!capturingType || (parseInt(currentCantidadAficheQualid || '0') > 0 && !currentFotoAficheQualid)}
+                className="w-full"
               >
-                Agregar
+                Agregar Afiche
               </Button>
             </div>
 
             {afichesQualidAgregados.length > 0 && (
               <div className="mt-4 space-y-2">
                 <Label className="text-sm text-muted-foreground">Afiches Qualid agregados:</Label>
-                <ul className="space-y-1">
+                <div className="space-y-3">
                   {afichesQualidAgregados.map((afiche, index) => (
-                    <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
-                      <span className="text-sm">{afiche.tipo}: {afiche.cantidad}</span>
-                      <Button variant="ghost" size="sm" onClick={() => handleRemoveAficheQualid(index)} disabled={isSyncing || !!capturingType}>
-                        <Trash className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </li>
+                    <div key={index} className="p-3 border rounded-md bg-background space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">{afiche.tipo}: {afiche.cantidad}</span>
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveAficheQualid(index)} disabled={isSyncing || !!capturingType}>
+                          <Trash className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                      {afiche.foto && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Foto del afiche:</Label>
+                          <img
+                            src={afiche.foto}
+                            alt={`Foto de ${afiche.tipo}`}
+                            className="mt-1 rounded-md object-cover w-full h-32"
+                            data-ai-hint="individual qualid poster photo"
+                          />
+                        </div>
+                      )}
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
              {availableAficheQualidTypes.length === 0 && AFICHES_QUALID_TYPES.length > 0 && afichesQualidAgregados.length === AFICHES_QUALID_TYPES.length && (
@@ -474,33 +619,7 @@ export default function QualidMerchandising() {
             )}
           </div>
 
-          {afichesQualidAgregados.length > 0 && (
-            <div>
-              <Label htmlFor="foto-afiches-qualid">Foto de los Afiches Qualid Colocados</Label>
-              <Button
-                onClick={() => takePhoto(setFotoAfichesQualidColocados, 'fotoAfichesQualid')}
-                disabled={!hasCameraPermission || !!capturingType || isSyncing}
-                className="w-full mt-1 text-white"
-                style={{ backgroundImage: 'linear-gradient(to right, #fcce05, #ff0000)' }}
-              >
-                {capturingType === 'fotoAfichesQualid' ? 'Capturando...' : (hasCameraPermission ? (
-                  <>
-                    <Camera className="mr-2 h-4 w-4" /> Tomar Foto de Afiches Qualid
-                  </>
-                ) : (
-                  'Cámara no permitida'
-                ))}
-              </Button>
-              {fotoAfichesQualidColocados && (
-                <img
-                  src={fotoAfichesQualidColocados}
-                  alt="Afiches Qualid Colocados"
-                  className="mt-2 rounded-md object-cover w-full h-auto"
-                  data-ai-hint="qualid posters display"
-                />
-              )}
-            </div>
-          )}
+
 
           <div className="space-y-4 border-t pt-4">
             <Label className="font-medium">Exhibidores de Cauchos Qualid</Label>

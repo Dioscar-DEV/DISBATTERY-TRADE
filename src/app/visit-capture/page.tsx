@@ -1,4 +1,3 @@
-
 'use client';
 
 import {useRouter} from 'next/navigation';
@@ -20,36 +19,64 @@ import {cn}from '@/lib/utils';
 import {useToast}from '@/hooks/use-toast';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue}from '@/components/ui/select';
 import { UserCircle, MapPin } from 'lucide-react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/firebase/clientApp';
 
-// Mock function to simulate fetching client data from a database
+// Function to fetch client data from Firestore by RIF
 const fetchClientData = async (rif: string) => {
-  return new Promise(resolve => {
-    setTimeout(() => {
-      if (rif === 'J075852052') {
-        resolve({name: 'Blitz 2000'});
-      } else {
-        resolve(null); 
-      }
-    }, 500); 
-  });
+  try {
+    const clientesRef = collection(db, 'clientes');
+    const q = query(clientesRef, where('rif', '==', rif));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const clientDoc = querySnapshot.docs[0];
+      const clientData = clientDoc.data();
+      return {
+        id: clientDoc.id,
+        name: clientData.nombre,
+        rif: clientData.rif,
+        direccion: clientData.direccion,
+        telefono: clientData.telefono,
+        email: clientData.email
+      };
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error('Error fetching client data:', error);
+    return null;
+  }
 };
 
 export default function VisitCapture() {
   const [location, setLocation] = useState<GeolocationCoordinates | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [timestamp, setTimestamp] = useState<string>(new Date().toLocaleString());
-  const [clientRif, setClientRif] = useState('');
   const {toast} = useToast();
-  const [clientName, setClientName] = useState<string | null>(null);
-  const [isClientIdentified, setIsClientIdentified] = useState(false);
-  const [clientNotFound, setClientNotFound] = useState(false);
-  const router = useRouter();
-  const [isRifValid, setIsRifValid] = useState(false);
   const [visitType, setVisitType] = useState<string>('');
-  const [tradeSubType, setTradeSubType] = useState<string>('');
+  const [isCheckingClientVisitType, setIsCheckingClientVisitType] = useState(true);
+  const [showVisitTypeSelector, setShowVisitTypeSelector] = useState(false);
+  const router = useRouter();
+
+  // ✅ Mostrar mensaje de bienvenida offline
+  useEffect(() => {
+    if (!navigator.onLine) {
+      toast({
+        title: '🔄 Modo Offline Activado',
+        description: 'Los formularios funcionan sin internet. Los datos se guardarán localmente.',
+      });
+    }
+  }, [toast]);
 
   useEffect(() => {
     const getLocation = () => {
+      // ✅ MEJORA OFFLINE: Solo intentar ubicación si hay internet
+      if (!navigator.onLine) {
+        console.log('🔄 Modo offline: saltando obtención de ubicación GPS');
+        return;
+      }
+
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           position => {
@@ -59,6 +86,11 @@ export default function VisitCapture() {
           },
           error => {
             console.error('Error getting location:', error);
+            // ✅ MEJORA: Mensaje menos alarmante si no hay internet
+            if (!navigator.onLine) {
+              console.log('📍 Ubicación no disponible en modo offline');
+              return;
+            }
             toast({
               variant: 'destructive',
               title: 'Acceso a la Ubicación Denegado',
@@ -73,6 +105,79 @@ export default function VisitCapture() {
 
     getLocation();
   }, [toast]);
+
+  // Verificar si el cliente tiene un tipo de visita predeterminado
+  useEffect(() => {
+    const checkClientVisitType = async () => {
+      try {
+        setIsCheckingClientVisitType(true);
+        
+        // Obtener datos del cliente desde localStorage
+        const clienteDataString = localStorage.getItem('clienteData');
+        if (!clienteDataString) {
+          console.log('No hay datos del cliente en localStorage');
+          setShowVisitTypeSelector(true);
+          setIsCheckingClientVisitType(false);
+          return;
+        }
+
+        const clienteData = JSON.parse(clienteDataString);
+        console.log('🔍 Datos del cliente desde localStorage:', clienteData);
+        
+        // ✅ CORREGIDO: Usar directamente el tipoVisita de la ruta
+        if (clienteData.tipoVisita) {
+          console.log('✅ Tipo de visita ya definido en la ruta:', clienteData.tipoVisita);
+          
+          toast({
+            title: '✅ Tipo de visita definido',
+            description: `Procesando visita: ${clienteData.tipoVisita}`,
+          });
+
+          // Redirigir automáticamente con el tipo de visita de la ruta
+          const queryParams = new URLSearchParams({
+            visitType: clienteData.tipoVisita,
+          });
+
+          router.push(`/signage-capture?${queryParams.toString()}`);
+          return;
+        }
+        
+        // ✅ FALLBACK: Solo si no hay tipoVisita definido, verificar si es evento
+        if (clienteData.isEvent === true) {
+          console.log('🎪 Es un evento sin tipoVisita - usando Trade (Eventos)');
+          
+          toast({
+            title: '🎪 Evento detectado',
+            description: `Procesando evento: ${clienteData.nombre}`,
+          });
+
+          const queryParams = new URLSearchParams({
+            visitType: 'Trade (Eventos)',
+          });
+
+          router.push(`/signage-capture?${queryParams.toString()}`);
+          return;
+        }
+        
+        // ✅ ÚLTIMO RECURSO: Solo preguntar si no hay tipoVisita definido
+        console.log('⚠️ No se encontró tipoVisita definido, preguntando al usuario');
+        setShowVisitTypeSelector(true);
+        
+      } catch (error) {
+        console.error('❌ Error verificando tipo de visita del cliente:', error);
+        setShowVisitTypeSelector(true);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Hubo un error al verificar la configuración del cliente. Seleccione el tipo de visita manualmente.',
+        });
+      } finally {
+        setIsCheckingClientVisitType(false);
+      }
+    };
+
+    checkClientVisitType();
+  }, [router, toast]);
 
   useEffect(() => {
     const fetchAddress = async () => {
@@ -89,52 +194,8 @@ export default function VisitCapture() {
     fetchAddress();
   }, [location]);
 
-
-  const handleClientRifChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toUpperCase();
-      setClientRif(value);
-    if (/^[J]\d{9}$/.test(value)) {
-      setIsRifValid(true);
-      setClientNotFound(false);
-      const clientData = await fetchClientData(value) as { name: string } | null;
-      if (clientData) {
-        setClientName(clientData.name as string);
-        setIsClientIdentified(true);
-        setClientNotFound(false);
-      } else {
-        setClientName(null);
-        setIsClientIdentified(false);
-        setClientNotFound(true);
-      }
-    } else if (value === '') {
-      setClientRif('');
-      setClientName(null);
-      setIsClientIdentified(false);
-      setClientNotFound(false);
-      setIsRifValid(false);
-    } else {
-      setClientName(null);
-      setIsClientIdentified(false);
-      setClientNotFound(false);
-      setIsRifValid(false);
-       if (value.length > 0 && !/^[J]\d{0,9}$/.test(value)) {
-        toast({
-          variant: 'destructive',
-          title: 'Formato de RIF Inválido',
-          description: 'Por favor, ingrese el RIF en el formato J123456789.',
-        });
-       }
-    }
-  };
-
   const handleVisitTypeChange = (value: string) => {
     setVisitType(value);
-    setTradeSubType(''); 
-    setClientRif('');
-    setClientName(null);
-    setIsClientIdentified(false);
-    setClientNotFound(false);
-    setIsRifValid(false);
   };
 
   const handleNextPage = () => {
@@ -147,65 +208,15 @@ export default function VisitCapture() {
         return;
       }
       
-      if (!clientRif) {
-          toast({
-              variant: 'destructive',
-              title: 'RIF Requerido',
-              description: 'Por favor, ingrese el RIF del cliente.',
-          });
-          return;
-      }
-
-      if (!isRifValid) {
-        toast({
-          variant: 'destructive',
-          title: 'Formato de RIF Inválido',
-          description: 'Por favor, ingrese el RIF en el formato J123456789.',
-        });
-        return;
-      }
-      
-      if (clientNotFound && !isClientIdentified) {
-         toast({
-          variant: 'destructive',
-          title: 'Cliente No Encontrado',
-          description: 'Por favor, revise el RIF o asegúrese de que el cliente esté registrado.',
-        });
-        return;
-      }
-
-      if (!isClientIdentified) {
-          toast({
-              variant: 'destructive',
-              title: 'Identificación del Cliente Requerida',
-              description: 'Por favor, identifique al cliente antes de proceder.',
-          });
-          return;
-      }
-      
-      if (visitType === 'Trade (Eventos)' && !tradeSubType) {
-          toast({
-              variant: 'destructive',
-              title: 'Subtipo de Trade Requerido',
-              description: 'Por favor, seleccione si es Impulso o Evento.',
-          });
-          return;
-      }
-      
       const queryParams = new URLSearchParams({
-          clientRif,
-          clientName: clientName || '',
-          address: address || '',
-          timestamp,
           visitType,
-          ...(visitType === 'Trade (Eventos)' && { tradeSubType }),
       });
 
       router.push(`/signage-capture?${queryParams.toString()}`);
   };
 
   const canProceedToClientDetails = !!visitType;
-  const isFormValid = visitType && isClientIdentified && (visitType !== 'Trade (Eventos)' || tradeSubType);
+  const isFormValid = showVisitTypeSelector && visitType;
 
 
   return (
@@ -257,62 +268,29 @@ export default function VisitCapture() {
               />
            </div>
           
-
-          <div>
-            <Label htmlFor="visit-type" className="text-gray-700">Tipo de visita</Label>
-            <Select onValueChange={handleVisitTypeChange} value={visitType}>
-              <SelectTrigger className="w-full mt-1" id="visit-type">
-                <SelectValue placeholder="Seleccionar tipo de visita" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Merchandising">Merchandising</SelectItem>
-                <SelectItem value="Trade (Eventos)">Trade (Eventos)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {canProceedToClientDetails && (
-            <>
-              <div className="pt-2">
-                <Label htmlFor="client-rif" className="text-gray-700">RIF del Cliente (J123456789)</Label>
-                <Input
-                  id="client-rif"
-                  placeholder="J123456789"
-                  value={clientRif}
-                  onChange={handleClientRifChange}
-                  maxLength={10}
-                  className="mt-1"
-                />
-                  {clientNotFound && !isClientIdentified && (
-                      <p className="mt-1 text-xs text-red-500">Cliente no registrado</p>
-                  )}
-              </div>
-            
-              {isClientIdentified && (
-                <>
-                  <div className="mt-2 mb-1 text-center">
-                      <p className="text-lg font-bold text-[#0A4B8B]">
-                        {clientName}
-                      </p>
-                  </div>
-
-                  {visitType === 'Trade (Eventos)' && (
-                    <div className="mt-2">
-                      <Label htmlFor="trade-subtype" className="text-gray-700">Subtipo de Trade</Label>
-                      <Select onValueChange={setTradeSubType} value={tradeSubType}>
-                        <SelectTrigger className="w-full mt-1" id="trade-subtype">
-                          <SelectValue placeholder="Seleccionar subtipo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Impulso">Impulso</SelectItem>
-                          <SelectItem value="Evento">Evento</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </>
-              )}
-            </>
+          {isCheckingClientVisitType ? (
+            <div className="text-center py-4">
+              <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+              <p className="text-sm text-gray-600">Verificando configuración del cliente...</p>
+            </div>
+          ) : showVisitTypeSelector ? (
+            <div>
+              <Label htmlFor="visit-type" className="text-gray-700">Tipo de visita</Label>
+              <Select onValueChange={handleVisitTypeChange} value={visitType}>
+                <SelectTrigger className="w-full mt-1" id="visit-type">
+                  <SelectValue placeholder="Seleccionar tipo de visita" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Merchandising">Merchandising</SelectItem>
+                  <SelectItem value="Trade (Impulso)">Trade (Impulso)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <div className="animate-spin h-8 w-8 border-4 border-green-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+              <p className="text-sm text-gray-600">Configurando visita...</p>
+            </div>
           )}
           
           <Input
@@ -323,20 +301,22 @@ export default function VisitCapture() {
           />
 
           </CardContent>
-          <CardFooter className="px-6 pb-6">
-            <Button 
-              onClick={handleNextPage} 
-              className={cn(
-                "w-full text-white font-semibold py-3 rounded-full",
-                isFormValid 
-                  ? "bg-gradient-to-r from-[#007BFF] to-[#0056b3]" 
-                  : "bg-gradient-to-r from-[#A9C9E8] to-[#B0B9D1]"
-              )}
-              disabled={!isFormValid}
-            >
-              Siguiente
-            </Button>
-          </CardFooter>
+          {showVisitTypeSelector && (
+            <CardFooter className="px-6 pb-6">
+              <Button 
+                onClick={handleNextPage} 
+                className={cn(
+                  "w-full text-white font-semibold py-3 rounded-full",
+                  isFormValid 
+                    ? "bg-gradient-to-r from-[#007BFF] to-[#0056b3]" 
+                    : "bg-gradient-to-r from-[#A9C9E8] to-[#B0B9D1]"
+                )}
+                disabled={!isFormValid}
+              >
+                Siguiente
+              </Button>
+            </CardFooter>
+          )}
         </Card>
       </main>
 
@@ -345,12 +325,7 @@ export default function VisitCapture() {
         <div className="w-1/4 h-full bg-[#0033A0]"></div>
         <div className="w-1/4 h-full bg-[#D90429]"></div>
         <div className="w-1/2 h-full bg-[#FFC72C] flex items-center justify-end px-4">
-          <img
-            src="https://storage.googleapis.com/iandai/imagenes/shell.png"
-            alt="Shell Logo"
-            className="max-h-[4.5rem]" 
-            data-ai-hint="shell pecten"
-          />
+          {/* Logo de Shell removido */}
         </div>
       </footer>
     </div>

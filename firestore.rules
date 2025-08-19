@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función para verificar si es AdminMaster
+    function isAdminMaster() {
+      return request.auth != null && 
+             request.auth.token.email in [
+               'administraciongeneral@gmail.com',
+               'anibalconcepcion@gmail.com',
+               'dsalcedo@smartautomatai.com'
+             ];
+    }
+    
+    // Reglas para usuarios - permisivas para administradores
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write, delete: if request.auth != null && (
+        request.auth.uid == userId || // El usuario puede escribir sus propios datos
+        isAdminMaster() || // AdminMaster puede hacer todo
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor'] // Administradores pueden gestionar usuarios
+      );
+      allow create: if request.auth != null;
+    }
+    
+    // Reglas para rutas - BALANCEADAS para admins y privacidad
+    match /routes/{routeId} {
+      allow read: if request.auth != null && (
+        // AdminMaster puede ver todo
+        isAdminMaster() ||
+        // Administradores y Supervisores pueden ver todas las rutas para gestionarlas
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor'] ||
+        // Mercaderista solo puede ver sus propias rutas - CRÍTICO PARA PRIVACIDAD
+        resource.data.mercaderistoId == request.auth.uid
+      );
+      
+      allow write: if request.auth != null && (
+        // AdminMaster puede escribir todo
+        isAdminMaster() ||
+        // Administradores pueden escribir todas las rutas
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Administrador' ||
+        // Mercaderista solo puede escribir en sus propias rutas
+        resource.data.mercaderistoId == request.auth.uid
+      );
+      
+      allow create: if request.auth != null && (
+        // AdminMaster puede crear todo
+        isAdminMaster() ||
+        // Administradores pueden crear rutas
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor']
+      );
+    }
+    
+    // Reglas para clientes - permisivas temporalmente
+    match /clientes/{clienteId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Reglas para visitas - administradores pueden ver todas para gestión; mercaderista por su email
+    match /visitas/{visitaId} {
+      allow read: if request.auth != null && (
+        // AdminMaster puede ver todo
+        isAdminMaster() ||
+        // Administradores y Supervisores pueden ver todas las visitas para gestión
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor'] ||
+        // Mercaderista puede leer sus propias visitas por UID (si existe) o por email
+        resource.data.mercaderistoId == request.auth.uid ||
+        resource.data.direccionCorreo == request.auth.token.email
+      );
+      allow write: if request.auth != null && (
+        // AdminMaster puede escribir todo
+        isAdminMaster() ||
+        // Administradores y Supervisores pueden gestionar visitas
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor'] ||
+        // Permitir al usuario crear/actualizar sus propias visitas
+        resource.data.direccionCorreo == request.auth.token.email
+      );
+      allow create: if request.auth != null;
+    }
+    
+    // Reglas para tokens de notificaciones
+    match /notificationTokens/{tokenId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Reglas para eventos y otras colecciones necesarias
+    match /eventos/{eventoId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Reglas para usuarios - se controla acceso por status en login
+    // Los usuarios con status 'pending_approval' o 'rejected' no podrán hacer login exitoso
+    
+    // Permitir operaciones básicas para colecciones administrativas
+    match /{document=**} {
+      allow read, write: if request.auth != null && isAdminMaster();
+    }
+  }
+} 

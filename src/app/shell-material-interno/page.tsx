@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -37,6 +36,7 @@ const AFICHES_SHELL_TYPES: string[] = [
 interface AficheColocado {
   tipo: string;
   cantidad: number;
+  foto?: string | null; // Nueva propiedad para foto individual de cada afiche
 }
 
 export default function ShellMaterialInternoPage() {
@@ -50,7 +50,7 @@ export default function ShellMaterialInternoPage() {
   const [afichesAgregados, setAfichesAgregados] = useState<AficheColocado[]>([]);
   const [currentTipoAfiche, setCurrentTipoAfiche] = useState<string>('');
   const [currentCantidadAfiche, setCurrentCantidadAfiche] = useState<string>('');
-  const [fotoAfichesColocados, setFotoAfichesColocados] = useState<string | null>(null);
+  const [currentFotoAfiche, setCurrentFotoAfiche] = useState<string | null>(null);
 
   const [colocoBanderines, setColocoBanderines] = useState<string>('');
   const [cantidadTirasBanderines, setCantidadTirasBanderines] = useState<number | null>(null);
@@ -189,9 +189,24 @@ export default function ShellMaterialInternoPage() {
       return;
     }
 
-    setAfichesAgregados([...afichesAgregados, { tipo: currentTipoAfiche, cantidad: cantidadNum }]);
+    // Solo permitir agregar si hay foto para afiches con cantidad > 0
+    if (cantidadNum > 0 && !currentFotoAfiche) {
+      toast({
+        variant: 'destructive',
+        title: 'Foto Requerida',
+        description: 'Por favor, tome una foto del afiche antes de agregarlo.',
+      });
+      return;
+    }
+
+    setAfichesAgregados([...afichesAgregados, { 
+      tipo: currentTipoAfiche, 
+      cantidad: cantidadNum,
+      foto: cantidadNum > 0 ? currentFotoAfiche : undefined
+    }]);
     setCurrentTipoAfiche('');
     setCurrentCantidadAfiche('');
+    setCurrentFotoAfiche(null);
   };
 
   const handleRemoveAfiche = (indexToRemove: number) => {
@@ -218,15 +233,8 @@ export default function ShellMaterialInternoPage() {
     }
   };
 
-  const saveDataLocally = (data: any) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const materialInternoData = JSON.parse(localStorage.getItem('shellMaterialInternoData') || '[]');
-      materialInternoData.push(data);
-      localStorage.setItem('shellMaterialInternoData', JSON.stringify(materialInternoData));
-    }
-  };
-
   const handleSubmit = () => {
+    // Validaciones (puedes agregar más según sea necesario)
     if (tieneExhibidores === '') {
       toast({
         variant: 'destructive',
@@ -236,73 +244,88 @@ export default function ShellMaterialInternoPage() {
       return;
     }
 
-    if (tieneExhibidores === 'Yes' && (cantidadExhibidores === null || cantidadExhibidores < 0)) {
+    // ✅ VALIDACIÓN OBLIGATORIA: Foto de exhibidores cuando el cliente SÍ tiene
+    if (tieneExhibidores === 'Yes' && !fotoExhibidoresShell) {
       toast({
         variant: 'destructive',
-        title: 'Campo Requerido',
-        description: 'Por favor, ingrese una cantidad válida de exhibidores (0 o más).',
-      });
-      return;
-    }
-     if (tieneExhibidores === 'Yes' && !fotoExhibidoresShell) {
-      toast({
-        variant: 'destructive',
-        title: 'Foto Requerida',
-        description: 'Por favor, tome una foto del exhibidor Shell.',
+        title: 'Foto de Exhibidores Requerida',
+        description: 'Debe tomar una foto de los exhibidores Shell cuando indica que el cliente SÍ tiene.',
       });
       return;
     }
 
-
-    if (colocoBanderines === '') {
+    // ✅ VALIDACIÓN OBLIGATORIA: Foto de banderines cuando se colocaron
+    if (colocoBanderines === 'Yes' && !fotoBanderines) {
       toast({
         variant: 'destructive',
-        title: 'Campo Requerido',
-        description: 'Por favor, indique si colocó banderines.',
+        title: 'Foto de Banderines Requerida',
+        description: 'Debe tomar una foto de los banderines cuando indica que SÍ los colocó.',
       });
       return;
     }
 
-    if (colocoBanderines === 'Yes' && (cantidadTirasBanderines === null || cantidadTirasBanderines < 0)) {
+    // ✅ VALIDACIÓN OBLIGATORIA: Foto de aviso acrílico cuando se colocó
+    if (colocoAvisoAcrilico === 'Yes' && !fotoAvisoAcrilico) {
       toast({
         variant: 'destructive',
-        title: 'Campo Requerido',
-        description: 'Por favor, ingrese una cantidad válida de tiras de banderines (0 o más).',
+        title: 'Foto de Aviso Acrílico Requerida',
+        description: 'Debe tomar una foto del aviso acrílico cuando indica que SÍ lo colocó.',
       });
       return;
     }
 
-    if (colocoAvisoAcrilico === '') {
-      toast({
-        variant: 'destructive',
-        title: 'Campo Requerido',
-        description: 'Por favor, indique si colocó el aviso acrílico para exteriores.',
-      });
-      return;
-    }
-    
-    const data = {
-      tieneExhibidores,
-      cantidadExhibidores: tieneExhibidores === 'Yes' ? (cantidadExhibidores ?? 0) : null,
-      fotoExhibidoresShell,
-      afichesColocados: afichesAgregados.map(af => ({ nombre: af.tipo, cantidad: af.cantidad })),
-      fotoAfichesColocados,
-      colocoBanderines,
-      cantidadTirasBanderines: colocoBanderines === 'Yes' ? (cantidadTirasBanderines ?? 0) : null,
-      fotoBanderines,
-      colocoAvisoAcrilico,
-      fotoAvisoAcrilico,
+    // Preparar los datos de material interno
+    const datosMaterialInterno = {
+      // Exhibidores
+      tieneExhibidoresShell: tieneExhibidores === 'Yes',
+      cantidadExhibidoresShell: cantidadExhibidores,
+      fotoExhibidoresShell: fotoExhibidoresShell,
+
+      // Afiches con fotos individuales
+      afichesColocadosShell: afichesAgregados, // Guardamos la lista completa con fotos individuales
+
+      // Banderines
+      colocoBanderinesShell: colocoBanderines === 'Yes',
+      cantidadTirasBanderinesShell: cantidadTirasBanderines,
+      fotoBanderinesShell: fotoBanderines,
+
+      // Aviso Acrílico
+      colocoAvisoAcrilicoShell: colocoAvisoAcrilico === 'Yes',
+      fotoAvisoAcrilicoShell: fotoAvisoAcrilico,
+      
       timestamp: new Date().toISOString(),
+      seccion: 'shell-material-interno'
     };
 
-    saveDataLocally(data);
-    toast({
-      title: 'Datos de Material Interno Guardados Localmente',
-      description: 'Los datos se sincronizarán cuando haya conexión.',
-    });
+    try {
+      // Obtener datos acumulados
+      const datosAcumulados = JSON.parse(localStorage.getItem('datosFormularioCompleto') || '{}');
 
-    console.log('Shell Material Interno Data:', data);
-    router.push('/qualid-merchandising');
+      // Agregar los nuevos datos
+      datosAcumulados.shellMaterialInterno = datosMaterialInterno;
+
+      // Guardar de nuevo en localStorage
+      localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosAcumulados));
+
+      console.log('=== DATOS DE MATERIAL INTERNO GUARDADOS ===');
+      console.log(datosAcumulados);
+
+      toast({
+        title: 'Datos de Material Interno Guardados',
+        description: 'Progreso guardado. Continuando con el formulario...',
+      });
+
+      // Flujo simplificado - continuar con Qualid merchandising
+      router.push('/qualid-merchandising');
+
+    } catch (error) {
+      console.error('Error guardando datos de material interno:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error al Guardar',
+        description: 'Hubo un problema guardando el progreso. Intente nuevamente.',
+      });
+    }
   };
 
   useEffect(() => {
@@ -454,59 +477,104 @@ export default function ShellMaterialInternoPage() {
 
           <div className="space-y-4 border-t pt-4">
             <Label className="font-medium">Afiches Shell Colocados</Label>
-            <div className="flex items-end space-x-2">
-              <div className="flex-grow space-y-1">
-                <Label htmlFor="tipo-afiche-select">Tipo de Afiche</Label>
-                <Select
-                  value={currentTipoAfiche}
-                  onValueChange={setCurrentTipoAfiche}
-                  disabled={availableAficheTypes.length === 0 || !!capturingType}
-                >
-                  <SelectTrigger id="tipo-afiche-select">
-                    <SelectValue placeholder={availableAficheTypes.length > 0 ? "Seleccionar tipo" : "Todos agregados"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableAficheTypes.map(tipo => (
-                      <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+            <div className="space-y-3">
+              <div className="flex items-end space-x-2">
+                <div className="flex-grow space-y-1">
+                  <Label htmlFor="tipo-afiche-select">Tipo de Afiche</Label>
+                  <Select
+                    value={currentTipoAfiche}
+                    onValueChange={setCurrentTipoAfiche}
+                    disabled={availableAficheTypes.length === 0 || !!capturingType}
+                  >
+                    <SelectTrigger id="tipo-afiche-select">
+                      <SelectValue placeholder={availableAficheTypes.length > 0 ? "Seleccionar tipo" : "Todos agregados"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableAficheTypes.map(tipo => (
+                        <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-1/3 space-y-1">
+                  <Label htmlFor="cantidad-afiche-input">Cantidad</Label>
+                  <Input
+                    id="cantidad-afiche-input"
+                    type="number"
+                    placeholder="Ingresar cantidad"
+                    value={currentCantidadAfiche}
+                    onChange={(e) => setCurrentCantidadAfiche(e.target.value)}
+                    inputMode="numeric"
+                    min="0"
+                    disabled={!!capturingType}
+                  />
+                </div>
+              </div>
+
+              {/* Captura de foto para el afiche actual */}
+              {currentTipoAfiche && currentCantidadAfiche && parseInt(currentCantidadAfiche) > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="foto-afiche-individual">Foto del {currentTipoAfiche}</Label>
+                  <Button
+                    onClick={() => takePhoto(setCurrentFotoAfiche, 'fotoAficheIndividual')}
+                    disabled={!hasCameraPermission || !!capturingType}
+                    className="w-full text-white"
+                    style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
+                  >
+                    {capturingType === 'fotoAficheIndividual' ? 'Capturando...' : (hasCameraPermission ? (
+                      <>
+                        <Camera className="mr-2 h-4 w-4" /> Tomar Foto de este Afiche
+                      </>
+                    ) : (
+                      'Cámara no permitida'
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-1/3 space-y-1">
-                <Label htmlFor="cantidad-afiche-input">Cantidad</Label>
-                <Input
-                  id="cantidad-afiche-input"
-                  type="number"
-                  placeholder="Ingresar cantidad"
-                  value={currentCantidadAfiche}
-                  onChange={(e) => setCurrentCantidadAfiche(e.target.value)}
-                  inputMode="numeric"
-                  min="0"
-                  disabled={!!capturingType}
-                />
-              </div>
+                  </Button>
+                  {currentFotoAfiche && (
+                    <img
+                      src={currentFotoAfiche}
+                      alt={`Foto de ${currentTipoAfiche}`}
+                      className="mt-2 rounded-md object-cover w-full h-auto"
+                      data-ai-hint="individual poster photo"
+                    />
+                  )}
+                </div>
+              )}
+
               <Button 
                 onClick={handleAddAfiche} 
-                disabled={!currentTipoAfiche || currentCantidadAfiche === '' || availableAficheTypes.length === 0 || !!capturingType}
-                className="shrink-0"
+                disabled={!currentTipoAfiche || currentCantidadAfiche === '' || availableAficheTypes.length === 0 || !!capturingType || (parseInt(currentCantidadAfiche || '0') > 0 && !currentFotoAfiche)}
+                className="w-full"
               >
-                Agregar
+                Agregar Afiche
               </Button>
             </div>
 
             {afichesAgregados.length > 0 && (
               <div className="mt-4 space-y-2">
                 <Label className="text-sm text-muted-foreground">Afiches agregados:</Label>
-                <ul className="space-y-1">
+                <div className="space-y-3">
                   {afichesAgregados.map((afiche, index) => (
-                    <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
-                      <span className="text-sm">{afiche.tipo}: {afiche.cantidad}</span>
-                      <Button variant="ghost" size="sm" onClick={() => handleRemoveAfiche(index)} disabled={!!capturingType}>
-                        <Trash className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </li>
+                    <div key={index} className="p-3 border rounded-md bg-background space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">{afiche.tipo}: {afiche.cantidad}</span>
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveAfiche(index)} disabled={!!capturingType}>
+                          <Trash className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                      {afiche.foto && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Foto del afiche:</Label>
+                          <img
+                            src={afiche.foto}
+                            alt={`Foto de ${afiche.tipo}`}
+                            className="mt-1 rounded-md object-cover w-full h-32"
+                            data-ai-hint="individual poster photo"
+                          />
+                        </div>
+                      )}
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
              {availableAficheTypes.length === 0 && AFICHES_SHELL_TYPES.length > 0 && afichesAgregados.length === AFICHES_SHELL_TYPES.length && (
@@ -514,33 +582,7 @@ export default function ShellMaterialInternoPage() {
             )}
           </div>
 
-          {afichesAgregados.length > 0 && (
-            <div>
-              <Label htmlFor="foto-afiches-colocados">Foto de los Afiches Colocados</Label>
-              <Button
-                onClick={() => takePhoto(setFotoAfichesColocados, 'fotoAfiches')}
-                disabled={!hasCameraPermission || !!capturingType}
-                className="w-full mt-1 text-white"
-                style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
-              >
-                {capturingType === 'fotoAfiches' ? 'Capturando...' : (hasCameraPermission ? (
-                  <>
-                    <Camera className="mr-2 h-4 w-4" /> Tomar Foto de Afiches
-                  </>
-                ) : (
-                  'Cámara no permitida'
-                ))}
-              </Button>
-              {fotoAfichesColocados && (
-                <img
-                  src={fotoAfichesColocados}
-                  alt="Afiches Colocados"
-                  className="mt-2 rounded-md object-cover w-full h-auto"
-                  data-ai-hint="posters display"
-                />
-              )}
-            </div>
-          )}
+
 
           {/* Banderines Section */}
           <div className="space-y-2 border-t pt-4">
@@ -649,7 +691,7 @@ export default function ShellMaterialInternoPage() {
             disabled={isSyncing || !!capturingType} 
             className="w-full"
           >
-            {isSyncing ? 'Sincronizando...' : 'Guardar y Continuar a Qualid'}
+            {isSyncing ? 'Sincronizando...' : 'Guardar y Continuar a Ventas'}
           </Button>
         </CardFooter>
       </Card>

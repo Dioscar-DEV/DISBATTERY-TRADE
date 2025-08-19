@@ -1,0 +1,232 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+:root {
+    --blue-dark: #003366;
+    --yellow-gold: #FFD700;
+    --red-main: #CC0000;
+    --grey-light: #F0F2F5;
+    --grey-text: #6c757d;
+    --white: #FFFFFF;
+    --input-border: #ced4da;
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--grey-light);
+    position: relative;
+    overflow: hidden;
+    background-image:
+        linear-gradient(to bottom right,
+            var(--blue-dark) 0%, var(--blue-dark) 12%,
+            transparent 12.1%),
+        linear-gradient(to bottom right,
+            transparent 75%,
+            var(--red-main) 75.1%, var(--red-main) 80%,
+            var(--yellow-gold) 80.1%, var(--yellow-gold) 100%);
+    background-repeat: no-repeat;
+    background-position: top left, top left;
+    background-size: 100% 100%;
+}
+
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    width: 70vmax;
+    height: 70vmax;
+    z-index: -1;
+}
+
+body::before {
+    background-color: var(--blue-dark);
+    top: -25vmax;
+    left: -25vmax;
+    transform: rotate(-15deg);
+}
+
+body::after {
+    background: var(--yellow-gold);
+    bottom: -35vmax;
+    right: -35vmax;
+    transform: rotate(-15deg);
+}
+
+.disbattery-logo-top {
+    position: fixed;
+    top: 20px;
+    right: 30px;
+    width: 120px;
+    z-index: 1;
+}
+
+.shell-logo-bottom {
+    position: fixed;
+    bottom: 20px;
+    right: 50px; /* Movido más a la derecha */
+    width: 120px; /* Aumentado de tamaño */
+    z-index: 1;
+}
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+    position: relative;
+    z-index: 2;
+}
+
+.login-card {
+    background-color: rgba(255, 255, 255, 0.85); /* Fondo blanco con ligera transparencia */
+    backdrop-filter: blur(8px); /* Efecto de desenfoque para el fondo */
+    padding: 40px 30px;
+    border-radius: 24px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.disbattery-logo {
+    width: 200px;
+    margin-bottom: 20px;
+}
+
+.title {
+    color: var(--blue-dark);
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 5px 0;
+}
+
+.subtitle {
+    color: var(--grey-text);
+    font-size: 14px;
+    margin-bottom: 30px;
+}
+
+.input-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    box-sizing: border-box; /* Asegura que el padding no afecte el ancho total */
+    font-size: 14px;
+}
+
+.input-group input::placeholder {
+    color: #aaa;
+}
+
+.password-wrapper {
+    position: relative;
+}
+
+.password-wrapper input {
+    padding-right: 40px; /* Espacio para el ícono */
+}
+
+.password-wrapper .fa-eye,
+.password-wrapper .fa-eye-slash {
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: var(--grey-text);
+}
+
+.login-button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--blue-dark);
+    color: var(--white);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.login-button:hover {
+    background-color: #002244; /* Un azul un poco más oscuro */
+}
+
+.login-button:active {
+    transform: scale(0.98);
+}
+
+.forgot-password-link {
+    display: block;
+    margin-top: 15px;
+    font-size: 12px;
+    color: #333; /* Color negro/gris oscuro */
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.forgot-password-link:hover {
+    color: var(--blue-dark);
+    text-decoration: underline;
+}
+
+/* Media Query para Responsividad */
+@media (max-width: 768px) {
+    body, html {
+        overflow: auto; /* Permite scroll en móviles si es necesario */
+    }
+
+    .login-card {
+        padding: 30px 20px;
+    }
+}
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 30px;
+    min-width: 260px;
+    max-width: 350px;
+    background: #222;
+    color: #fff;
+    padding: 16px 24px;
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 40px);
+    transition: opacity 0.4s, transform 0.4s;
+    z-index: 9999;
+    font-size: 15px;
+    font-family: inherit;
+}
+.toast.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+    animation: toast-in 0.4s cubic-bezier(.4,0,.2,1);
+}
+@keyframes toast-in {
+    from { opacity: 0; transform: translate(-50%, 40px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+} 

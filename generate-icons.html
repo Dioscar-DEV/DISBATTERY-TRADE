@@ -1,0 +1,68 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Generator</title>
+</head>
+<body>
+    <canvas id="canvas" style="display: none;"></canvas>
+    <div id="svgContainer" style="display: none;"> </div>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const svgContainer = document.getElementById('svgContainer');
+        const svgElement = svgContainer.querySelector('svg');
+        
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        
+        function generateIcon(size) {
+            return new Promise((resolve) => {
+                canvas.width = size;
+                canvas.height = size;
+                
+                const img = new Image();
+                const svgBlob = new Blob([svgElement.outerHTML], {type: 'image/svg+xml'});
+                const url = URL.createObjectURL(svgBlob);
+                
+                img.onload = function() {
+                    ctx.clearRect(0, 0, size, size);
+                    ctx.drawImage(img, 0, 0, size, size);
+                    
+                    canvas.toBlob(function(blob) {
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `icon-${size}x${size}.png`;
+                        link.click();
+                        
+                        URL.revokeObjectURL(link.href);
+                        URL.revokeObjectURL(url);
+                        resolve();
+                    });
+                };
+                
+                img.src = url;
+            });
+        }
+        
+        async function generateAllIcons() {
+            console.log('Generando iconos...');
+            for (let size of sizes) {
+                await generateIcon(size);
+                console.log(`Icono ${size}x${size} generado`);
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            console.log('Todos los iconos han sido generados!');
+        }
+        
+        // Iniciar la generación automáticamente
+        generateAllIcons();
+    </script>
+    
+    <div>
+        <h1>Generador de Iconos Disbattery Trade</h1>
+        <p>Los iconos se están descargando automáticamente...</p>
+        <p>Una vez descargados, muévelos a la carpeta public/</p>
+    </div>
+</body>
+</html>

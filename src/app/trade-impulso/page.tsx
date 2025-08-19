@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -19,6 +18,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Camera, Trash } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
+import { crearVisita, setN8NWebhookURL } from '@/services/visitas';
+import { RespuestasTrade } from '@/types/visitas';
+import { getCurrentUser, getUserFromStorage } from '@/services/auth';
 
 interface RecursoUsado {
   tipo: string;
@@ -76,6 +78,123 @@ export default function TradeImpulsoPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  // Configurar URL del webhook N8N al inicializar
+  useEffect(() => {
+    setN8NWebhookURL('https://n8n.con-visas.com/webhook/Disbattery-Trade-app');
+  }, []);
+
+  // Establecer marca automáticamente desde la ruta
+  useEffect(() => {
+    const marcaFromRoute = getMarcaFromRoute();
+    if (marcaFromRoute) {
+      setSelectedBrand(marcaFromRoute);
+      console.log('🎯 Marca establecida automáticamente desde ruta:', marcaFromRoute);
+    }
+  }, []);
+
+  // Función para obtener la marca desde la ruta
+  const getMarcaFromRoute = () => {
+    try {
+      console.log('🔍 === INICIANDO BÚSQUEDA DE MARCA (IMPULSO) ===');
+      
+      const clienteDataString = localStorage.getItem('clienteData');
+      if (!clienteDataString) {
+        console.log('❌ No hay clienteData en localStorage');
+        return null;
+      }
+      
+      const clienteData = JSON.parse(clienteDataString);
+      console.log('🎯 Cliente actual:', clienteData.nombre, 'RIF:', clienteData.rif);
+      
+      // 1. BUSCAR EN EVENTOS INDEPENDIENTES PRIMERO
+      console.log('🔍 Buscando en eventos independientes...');
+      const eventosString = localStorage.getItem('todaysEventsOffline');
+      if (eventosString) {
+        try {
+          const eventos = JSON.parse(eventosString);
+          console.log('📋 Eventos encontrados:', eventos.length);
+          
+          for (const evento of eventos) {
+            console.log('🔍 Revisando evento:', evento.nombreEvento, 'Marca:', evento.marcaTrabajada);
+            if (evento.marcaTrabajada) {
+              console.log('✅ MARCA ENCONTRADA EN EVENTO:', evento.marcaTrabajada);
+              return evento.marcaTrabajada;
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error parseando eventos:', error);
+        }
+      } else {
+        console.log('ℹ️ No hay eventos en localStorage');
+      }
+      
+      // 2. BUSCAR EN RUTAS REGULARES
+      console.log('🔍 Buscando en rutas regulares...');
+      const todaysRoutesString = localStorage.getItem('todaysRoutesOffline');
+      if (todaysRoutesString) {
+        try {
+          const todaysRoutes = JSON.parse(todaysRoutesString);
+          console.log('📋 Rutas encontradas:', todaysRoutes.length);
+          
+          const currentRoute = todaysRoutes.find((route: any) => 
+            route.points && route.points.some((point: any) => 
+              point.rif === clienteData.rif && point.tipoVisita === 'Trade (Impulso)'
+            )
+          );
+          
+          if (currentRoute) {
+            console.log('🎯 Ruta encontrada para el cliente:', currentRoute.mercaderista);
+            
+            // Buscar el punto específico que coincida con el cliente
+            const matchingPoint = currentRoute.points.find((point: any) => 
+              point.rif === clienteData.rif && point.tipoVisita === 'Trade (Impulso)'
+            );
+            
+            if (matchingPoint && matchingPoint.marcaTrabajada) {
+              console.log('✅ MARCA ENCONTRADA EN PUNTO:', matchingPoint.marcaTrabajada);
+              return matchingPoint.marcaTrabajada;
+            }
+            
+            // Fallback a la marca de la ruta si no hay marca específica en el punto
+            if (currentRoute.marcaTrabajada) {
+              console.log('✅ MARCA ENCONTRADA EN RUTA:', currentRoute.marcaTrabajada);
+              return currentRoute.marcaTrabajada;
+            }
+            
+            console.log('⚠️ Ruta encontrada pero sin marca asignada');
+          } else {
+            console.log('❌ No se encontró ruta para este cliente con Trade (Impulso)');
+          }
+        } catch (error) {
+          console.error('❌ Error parseando rutas:', error);
+        }
+      } else {
+        console.log('ℹ️ No hay rutas en localStorage');
+      }
+      
+      // 3. BUSCAR DIRECTAMENTE EN VISIT DATA
+      console.log('🔍 Buscando en visit data...');
+      const visitDataString = localStorage.getItem('currentVisitData');
+      if (visitDataString) {
+        try {
+          const visitData = JSON.parse(visitDataString);
+          if (visitData.marcaTrabajada) {
+            console.log('✅ MARCA ENCONTRADA EN VISIT DATA:', visitData.marcaTrabajada);
+            return visitData.marcaTrabajada;
+          }
+        } catch (error) {
+          console.error('❌ Error parseando visit data:', error);
+        }
+      }
+      
+      console.log('❌ === NO SE ENCONTRÓ MARCA ASIGNADA ===');
+      return null;
+    } catch (error) {
+      console.error('❌ Error obteniendo marca desde ruta:', error);
+      return null;
+    }
+  };
+
   const [selectedBrand, setSelectedBrand] = useState<string>('');
   const [recursosAgregados, setRecursosAgregados] = useState<RecursoUsado[]>([]);
   const [currentTipoRecurso, setCurrentTipoRecurso] = useState<string>('');
@@ -94,94 +213,64 @@ export default function TradeImpulsoPage() {
   const [fotoImpulsoQualid, setFotoImpulsoQualid] = useState<string | null>(null);
   const [fotoPromotorasQualid, setFotoPromotorasQualid] = useState<string | null>(null);
   
+  // Estados para ventas
+  const [huboVentasShell, setHuboVentasShell] = useState<boolean | null>(null);
+  const [huboVentasQualid, setHuboVentasQualid] = useState<boolean | null>(null);
+  
+  // Ventas Shell
+  const [ventasShell, setVentasShell] = useState({
+    advance: '',
+    helixHX5: '',
+    helixHX7: '',
+    helixHX8: '',
+    helixUltra: '',
+    rimula: '',
+    spirax: '',
+    gadus: '',
+    otros: ''
+  });
+  
+  // Ventas Qualid
+  const [ventasQualid, setVentasQualid] = useState({
+    fluidos: '',
+    spray: '',
+    filtroAutomotriz: '',
+    servicioPesado: '',
+    cauchos: ''
+  });
+  
   const [isSyncing, setIsSyncing] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState(true);
-  const [capturingType, setCapturingType] = useState<string | null>(null);
 
-
-  useEffect(() => {
-    const getCameraPermission = async () => {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-             toast({
-                variant: 'destructive',
-                title: 'Cámara no Soportada',
-                description: 'Su navegador no soporta el acceso a la cámara.',
-            });
-            setHasCameraPermission(false);
-            return;
-        }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: "environment"
-                },
-            });
-            setHasCameraPermission(true);
-            stream.getTracks().forEach(track => track.stop());
-        } catch (error) {
-            console.error('Error accessing camera:', error);
-            setHasCameraPermission(false);
-            toast({
-                variant: 'destructive',
-                title: 'Acceso a la Cámara Denegado',
-                description: 'Por favor, active los permisos de la cámara en la configuración de su navegador para usar esta aplicación.',
-            });
-        }
-    };
-    getCameraPermission();
-  }, [toast]);
-
-  const takePhoto = async (setter: React.Dispatch<React.SetStateAction<string | null>>, photoType: string) => {
-    if (!videoRef.current || !hasCameraPermission) {
-        toast({
-            variant: 'destructive',
-            title: 'Cámara no lista',
-            description: 'Permiso de cámara no concedido o cámara no disponible.',
-        });
-        return;
-    }
+  // Función para subir imagen desde galería
+  const uploadImage = async (setter: React.Dispatch<React.SetStateAction<string | null>>, photoType: string) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-
-      videoRef.current.classList.remove('hidden');
-      setCapturingType(photoType); 
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      const context = canvas.getContext('2d');
-       if (context) {
-        context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const photoURL = canvas.toDataURL('image/png');
-        setter(photoURL);
-      } else {
-        throw new Error('Could not get canvas context');
-      }
-
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-      videoRef.current.classList.add('hidden');
-      setCapturingType(null);
-
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      // Remover capture para que abra la galería en lugar de la cámara
+      input.onchange = (event) => {
+        const file = (event.target as HTMLInputElement).files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const result = e.target?.result as string;
+            setter(result);
+            toast({
+              title: '✅ Imagen subida',
+              description: 'La imagen se ha cargado correctamente.',
+            });
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
     } catch (error) {
-      console.error("Error accessing camera or taking photo:", error);
+      console.error("Error uploading image:", error);
       toast({
         variant: 'destructive',
-        title: 'Error al tomar foto',
-        description: 'Asegúrese de que la cámara esté disponible y los permisos habilitados.',
+        title: 'Error al subir imagen',
+        description: 'Asegúrese de que el archivo sea una imagen válida.',
       });
-      videoRef.current?.classList.add('hidden');
-      setCapturingType(null);
-      const currentStream = videoRef.current?.srcObject;
-      if (currentStream instanceof MediaStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-      }
-      if(videoRef.current) videoRef.current.srcObject = null;
     }
   };
 
@@ -302,7 +391,29 @@ export default function TradeImpulsoPage() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    console.log('=== GUARDANDO DATOS TRADE IMPULSO PARCIAL ===');
+    
+    // 🔍 DEBUGGING DETALLADO DE FOTOS ANTES DE GUARDAR
+    console.log('🔍 ====== DEBUG DE FOTOS TRADE IMPULSO ======');
+    console.log('🔍 selectedBrand:', selectedBrand);
+    console.log('🔍 fotoImpulsoShell existe:', !!fotoImpulsoShell);
+    console.log('🔍 fotoImpulsoShell longitud:', fotoImpulsoShell ? fotoImpulsoShell.length : 0);
+    console.log('🔍 fotoImpulsoShell es base64 válido:', fotoImpulsoShell ? fotoImpulsoShell.startsWith('data:image/') : false);
+    
+    console.log('🔍 fotoPromotorasShell existe:', !!fotoPromotorasShell);
+    console.log('🔍 fotoPromotorasShell longitud:', fotoPromotorasShell ? fotoPromotorasShell.length : 0);
+    console.log('🔍 fotoPromotorasShell es base64 válido:', fotoPromotorasShell ? fotoPromotorasShell.startsWith('data:image/') : false);
+    
+    console.log('🔍 fotoImpulsoQualid existe:', !!fotoImpulsoQualid);
+    console.log('🔍 fotoImpulsoQualid longitud:', fotoImpulsoQualid ? fotoImpulsoQualid.length : 0);
+    console.log('🔍 fotoImpulsoQualid es base64 válido:', fotoImpulsoQualid ? fotoImpulsoQualid.startsWith('data:image/') : false);
+    
+    console.log('🔍 fotoPromotorasQualid existe:', !!fotoPromotorasQualid);
+    console.log('🔍 fotoPromotorasQualid longitud:', fotoPromotorasQualid ? fotoPromotorasQualid.length : 0);
+    console.log('🔍 fotoPromotorasQualid es base64 válido:', fotoPromotorasQualid ? fotoPromotorasQualid.startsWith('data:image/') : false);
+    console.log('🔍 ====== FIN DEBUG DE FOTOS ======');
+    
     if (!selectedBrand) {
       toast({
         variant: 'destructive',
@@ -311,30 +422,125 @@ export default function TradeImpulsoPage() {
       });
       return;
     }
-    
-    const data = {
-      marca: selectedBrand,
-      recursosUsados: recursosAgregados.map(r => ({ nombre: r.tipo, cantidad: r.cantidad })),
-      entregablesShell: selectedBrand === 'Shell' ? entregablesShellAgregados.map(e => ({ nombre: e.tipo, cantidad: e.cantidad })) : [],
-      entregablesQualid: selectedBrand === 'Qualid' ? entregablesQualidAgregados.map(e => ({ nombre: e.tipo, cantidad: e.cantidad })) : [],
-      fotoImpulso: selectedBrand === 'Shell' ? fotoImpulsoShell : (selectedBrand === 'Qualid' ? fotoImpulsoQualid : null),
-      fotoPromotoras: selectedBrand === 'Shell' ? fotoPromotorasShell : (selectedBrand === 'Qualid' ? fotoPromotorasQualid : null),
-      timestamp: new Date().toISOString(),
-    };
 
-    saveDataLocally(data);
-    toast({
-      title: 'Datos de Impulso Guardados Localmente',
-      description: 'Los datos se sincronizarán cuando haya conexión.',
-    });
+    if (huboVentasShell === null || huboVentasQualid === null) {
+      toast({
+        variant: 'destructive',
+        title: 'Respuestas de Ventas Requeridas',
+        description: 'Por favor, responda las preguntas sobre ventas de SHELL y QUALID.',
+      });
+      return;
+    }
 
-    console.log('Trade Impulso Data:', data);
-    router.push('/visit-capture'); // Navigate back to Visit Capture page
+    try {
+      setIsSyncing(true);
+
+      // Obtener datos del cliente desde localStorage
+      const clienteData = localStorage.getItem('clienteData');
+      console.log('clienteData raw:', clienteData);
+      
+      if (!clienteData) {
+        console.log('Error: No hay clienteData en localStorage');
+        toast({
+          variant: 'destructive',
+          title: 'Error de Cliente',
+          description: 'No se encontraron datos del cliente. Vuelva al inicio.',
+        });
+        return;
+      }
+
+      const cliente = JSON.parse(clienteData);
+      console.log('cliente parsed:', cliente);
+
+      // Obtener datos del usuario logueado
+      let currentUser = await getCurrentUser();
+      if (!currentUser) {
+        currentUser = getUserFromStorage();
+      }
+      
+      const mercaderista = currentUser?.fullName || 'Usuario App';
+      const correoMercaderista = currentUser?.email || '';
+
+      // 🔍 MAPEO DE FOTOS CON DEBUGGING DETALLADO
+      const fotoImpulsoFinal = selectedBrand === 'Shell' ? fotoImpulsoShell : fotoImpulsoQualid;
+      const fotoPromotorasFinal = selectedBrand === 'Shell' ? fotoPromotorasShell : fotoPromotorasQualid;
+      
+      console.log('🔍 MAPEO DE FOTOS FINALES:');
+      console.log('🔍 fotoImpulsoFinal existe:', !!fotoImpulsoFinal);
+      console.log('🔍 fotoImpulsoFinal longitud:', fotoImpulsoFinal ? fotoImpulsoFinal.length : 0);
+      console.log('🔍 fotoImpulsoFinal es base64 válido:', fotoImpulsoFinal ? fotoImpulsoFinal.startsWith('data:image/') : false);
+      
+      console.log('🔍 fotoPromotorasFinal existe:', !!fotoPromotorasFinal);
+      console.log('🔍 fotoPromotorasFinal longitud:', fotoPromotorasFinal ? fotoPromotorasFinal.length : 0);
+      console.log('🔍 fotoPromotorasFinal es base64 válido:', fotoPromotorasFinal ? fotoPromotorasFinal.startsWith('data:image/') : false);
+
+      // Preparar datos para guardar localmente (sin enviar aún)
+      const tradeImpulsoData = {
+        tipoVisita: 'Trade (Impulso)',
+        marca: selectedBrand,
+        recursosUsados: recursosAgregados,
+        entregablesShell: entregablesShellAgregados,
+        entregablesQualid: entregablesQualidAgregados,
+        fotoImpulso: fotoImpulsoFinal,
+        fotoPromotoras: fotoPromotorasFinal,
+        // 🔍 AGREGAR TAMBIÉN LOS CAMPOS ESPECÍFICOS POR MARCA PARA DEBUGGING
+        fotoImpulsoShell: fotoImpulsoShell,
+        fotoPromotorasShell: fotoPromotorasShell,
+        fotoImpulsoQualid: fotoImpulsoQualid,
+        fotoPromotorasQualid: fotoPromotorasQualid,
+        huboVentasShell: huboVentasShell,
+        huboVentasQualid: huboVentasQualid,
+        clienteData: cliente,
+        mercaderista: mercaderista,
+        correoMercaderista: correoMercaderista,
+        timestamp: new Date().toISOString()
+      };
+
+      // 🔍 VERIFICAR DATOS FINALES ANTES DE GUARDAR
+      console.log('🔍 VERIFICACIÓN FINAL DE DATOS:');
+      console.log('🔍 tradeImpulsoData.fotoImpulso existe:', !!tradeImpulsoData.fotoImpulso);
+      console.log('🔍 tradeImpulsoData.fotoPromotoras existe:', !!tradeImpulsoData.fotoPromotoras);
+      console.log('🔍 tradeImpulsoData.fotoImpulsoShell existe:', !!tradeImpulsoData.fotoImpulsoShell);
+      console.log('🔍 tradeImpulsoData.fotoPromotorasShell existe:', !!tradeImpulsoData.fotoPromotorasShell);
+      console.log('🔍 tradeImpulsoData.fotoImpulsoQualid existe:', !!tradeImpulsoData.fotoImpulsoQualid);
+      console.log('🔍 tradeImpulsoData.fotoPromotorasQualid existe:', !!tradeImpulsoData.fotoPromotorasQualid);
+
+      // Guardar en localStorage para usar después
+      localStorage.setItem('datosFormularioCompleto', JSON.stringify(tradeImpulsoData));
+
+      console.log('=== DATOS TRADE IMPULSO GUARDADOS LOCALMENTE ===');
+      console.log('Datos guardados:', tradeImpulsoData);
+
+      toast({
+        title: 'Datos Guardados',
+        description: 'Continuando a reportes finales...',
+      });
+
+      // Navegar a ventas detalladas si hay ventas, sino a reportes finales
+      if (huboVentasShell === true || huboVentasQualid === true) {
+        router.push('/ventas-productos');
+      } else {
+        router.push('/reportes-finales');
+      }
+
+    } catch (error) {
+      console.log('=== ERROR GUARDANDO DATOS TRADE IMPULSO ===');
+      console.error('Error completo:', error);
+      
+      toast({
+        variant: 'destructive',
+        title: 'Error al Guardar',
+        description: 'Hubo un problema guardando los datos. Intente nuevamente.',
+      });
+      
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   useEffect(() => {
     const syncData = async () => {
-      if (isSyncing || typeof window !== 'undefined' || !window.localStorage) return;
+      if (isSyncing || typeof window === 'undefined' || !window.localStorage) return;
       setIsSyncing(true);
 
       try {
@@ -405,6 +611,22 @@ export default function TradeImpulsoPage() {
     tipo => !entregablesQualidAgregados.find(e => e.tipo === tipo)
   );
   
+  // Funciones para manejar ventas Shell
+  const handleVentasShellChange = (producto: string, valor: string) => {
+    setVentasShell(prev => ({
+      ...prev,
+      [producto]: valor
+    }));
+  };
+
+  // Funciones para manejar ventas Qualid
+  const handleVentasQualidChange = (producto: string, valor: string) => {
+    setVentasQualid(prev => ({
+      ...prev,
+      [producto]: valor
+    }));
+  };
+
   const handleBrandChange = (value: string) => {
     setSelectedBrand(value);
     setRecursosAgregados([]);
@@ -420,6 +642,27 @@ export default function TradeImpulsoPage() {
     setFotoPromotorasShell(null);
     setFotoImpulsoQualid(null);
     setFotoPromotorasQualid(null);
+    // Reset ventas
+    setHuboVentasShell(null);
+    setHuboVentasQualid(null);
+    setVentasShell({
+      advance: '',
+      helixHX5: '',
+      helixHX7: '',
+      helixHX8: '',
+      helixUltra: '',
+      rimula: '',
+      spirax: '',
+      gadus: '',
+      otros: ''
+    });
+    setVentasQualid({
+      fluidos: '',
+      spray: '',
+      filtroAutomotriz: '',
+      servicioPesado: '',
+      cauchos: ''
+    });
   };
 
 
@@ -449,25 +692,17 @@ export default function TradeImpulsoPage() {
           </CardTitle>
           <CardDescription>Ingrese los detalles del impulso realizado.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-           <video ref={videoRef} className="hidden w-full aspect-video rounded-md" autoPlay muted playsInline />
-
-          { !(hasCameraPermission) && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertTitle>Acceso a la Cámara Requerido</AlertTitle>
-                <AlertDescription>Por favor, permita el acceso a la cámara para usar esta función.</AlertDescription>
-              </Alert>
-          )}
+                  <CardContent className="space-y-6">
 
           <div>
             <Label htmlFor="marca-select">Marca Trabajada</Label>
             <Select
               value={selectedBrand}
               onValueChange={handleBrandChange}
-              disabled={isSyncing || !!capturingType}
+              disabled={true}
             >
               <SelectTrigger id="marca-select" className="w-full mt-1">
-                <SelectValue placeholder="Seleccionar marca" />
+                <SelectValue placeholder={selectedBrand || "Marca no asignada"} />
               </SelectTrigger>
               <SelectContent>
                 {MARCAS_TRADE.map(marca => (
@@ -475,6 +710,11 @@ export default function TradeImpulsoPage() {
                 ))}
               </SelectContent>
             </Select>
+            {!selectedBrand && (
+              <p className="text-sm text-orange-600 mt-1">
+                ⚠️ Marca no asignada. Verifique que el evento tenga marca trabajada configurada.
+              </p>
+            )}
           </div>
 
           {selectedBrand && (
@@ -486,7 +726,7 @@ export default function TradeImpulsoPage() {
                   <Select
                     value={currentTipoRecurso}
                     onValueChange={setCurrentTipoRecurso}
-                    disabled={availableRecursoTypes.length === 0 || isSyncing || !!capturingType}
+                    disabled={availableRecursoTypes.length === 0 || isSyncing}
                   >
                     <SelectTrigger id="tipo-recurso-select">
                       <SelectValue placeholder={availableRecursoTypes.length > 0 ? "Seleccionar recurso" : "Todos agregados"} />
@@ -508,12 +748,12 @@ export default function TradeImpulsoPage() {
                     onChange={(e) => setCurrentCantidadRecurso(e.target.value)}
                     inputMode="numeric"
                     min="1" 
-                    disabled={isSyncing || !!capturingType}
+                    disabled={isSyncing}
                   />
                 </div>
                 <Button 
                   onClick={handleAddRecurso} 
-                  disabled={!currentTipoRecurso || currentCantidadRecurso === '' || parseInt(currentCantidadRecurso) <= 0 || availableRecursoTypes.length === 0 || isSyncing || !!capturingType}
+                  disabled={!currentTipoRecurso || currentCantidadRecurso === '' || parseInt(currentCantidadRecurso) <= 0 || availableRecursoTypes.length === 0 || isSyncing}
                   className="shrink-0"
                 >
                   Agregar
@@ -527,7 +767,7 @@ export default function TradeImpulsoPage() {
                     {recursosAgregados.map((recurso, index) => (
                       <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
                         <span className="text-sm">{recurso.tipo}: {recurso.cantidad}</span>
-                        <Button variant="ghost" size="sm" onClick={() => handleRemoveRecurso(index)} disabled={isSyncing || !!capturingType}>
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveRecurso(index)} disabled={isSyncing}>
                           <Trash className="h-4 w-4 text-destructive" />
                         </Button>
                       </li>
@@ -551,7 +791,7 @@ export default function TradeImpulsoPage() {
                     <Select
                       value={currentTipoEntregableShell}
                       onValueChange={setCurrentTipoEntregableShell}
-                      disabled={availableEntregableShellTypes.length === 0 || isSyncing || !!capturingType}
+                      disabled={availableEntregableShellTypes.length === 0 || isSyncing}
                     >
                       <SelectTrigger id="tipo-entregable-shell-select">
                         <SelectValue placeholder={availableEntregableShellTypes.length > 0 ? "Seleccionar entregable" : "Todos agregados"} />
@@ -573,12 +813,12 @@ export default function TradeImpulsoPage() {
                       onChange={(e) => setCurrentCantidadEntregableShell(e.target.value)}
                       inputMode="numeric"
                       min="1"
-                      disabled={isSyncing || !!capturingType}
+                      disabled={isSyncing}
                     />
                   </div>
                   <Button 
                     onClick={handleAddEntregableShell} 
-                    disabled={!currentTipoEntregableShell || currentCantidadEntregableShell === '' || parseInt(currentCantidadEntregableShell) <= 0 || availableEntregableShellTypes.length === 0 || isSyncing || !!capturingType}
+                    disabled={!currentTipoEntregableShell || currentCantidadEntregableShell === '' || parseInt(currentCantidadEntregableShell) <= 0 || availableEntregableShellTypes.length === 0 || isSyncing}
                     className="shrink-0"
                   >
                     Agregar
@@ -592,7 +832,7 @@ export default function TradeImpulsoPage() {
                       {entregablesShellAgregados.map((entregable, index) => (
                         <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
                           <span className="text-sm">{entregable.tipo}: {entregable.cantidad}</span>
-                          <Button variant="ghost" size="sm" onClick={() => handleRemoveEntregableShell(index)} disabled={isSyncing || !!capturingType}>
+                          <Button variant="ghost" size="sm" onClick={() => handleRemoveEntregableShell(index)} disabled={isSyncing}>
                             <Trash className="h-4 w-4 text-destructive" />
                           </Button>
                         </li>
@@ -613,17 +853,15 @@ export default function TradeImpulsoPage() {
                 <Button
                   id="foto-impulso-shell-button"
                   variant="outline"
-                  onClick={() => takePhoto(setFotoImpulsoShell, 'fotoImpulsoShell')}
-                  disabled={!hasCameraPermission || !!capturingType || isSyncing}
+                  onClick={() => uploadImage(setFotoImpulsoShell, 'fotoImpulsoShell')}
+                  disabled={isSyncing}
                   className="w-full mt-1"
                 >
-                  {capturingType === 'fotoImpulsoShell' ? 'Capturando...' : (hasCameraPermission ? (
+                                     {(
                     <>
                       <Camera className="mr-2 h-4 w-4" /> Tomar Foto del Impulso Shell
                     </>
-                  ) : (
-                    'Cámara no permitida'
-                  ))}
+                  )}
                 </Button>
                 {fotoImpulsoShell && (
                   <img
@@ -643,17 +881,15 @@ export default function TradeImpulsoPage() {
                 <Button
                   id="foto-promotoras-shell-button"
                   variant="outline"
-                  onClick={() => takePhoto(setFotoPromotorasShell, 'fotoPromotorasShell')}
-                  disabled={!hasCameraPermission || !!capturingType || isSyncing}
+                  onClick={() => uploadImage(setFotoPromotorasShell, 'fotoPromotorasShell')}
+                  disabled={isSyncing}
                   className="w-full mt-1"
                 >
-                  {capturingType === 'fotoPromotorasShell' ? 'Capturando...' : (hasCameraPermission ? (
+                                     {(
                     <>
                       <Camera className="mr-2 h-4 w-4" /> Tomar Foto de Promotoras Shell
                     </>
-                  ) : (
-                    'Cámara no permitida'
-                  ))}
+                  )}
                 </Button>
                 {fotoPromotorasShell && (
                   <img
@@ -677,7 +913,7 @@ export default function TradeImpulsoPage() {
                     <Select
                       value={currentTipoEntregableQualid}
                       onValueChange={setCurrentTipoEntregableQualid}
-                      disabled={availableEntregableQualidTypes.length === 0 || isSyncing || !!capturingType}
+                      disabled={availableEntregableQualidTypes.length === 0 || isSyncing}
                     >
                       <SelectTrigger id="tipo-entregable-qualid-select">
                         <SelectValue placeholder={availableEntregableQualidTypes.length > 0 ? "Seleccionar entregable" : "Todos agregados"} />
@@ -699,12 +935,12 @@ export default function TradeImpulsoPage() {
                       onChange={(e) => setCurrentCantidadEntregableQualid(e.target.value)}
                       inputMode="numeric"
                       min="1"
-                      disabled={isSyncing || !!capturingType}
+                      disabled={isSyncing}
                     />
                   </div>
                   <Button 
                     onClick={handleAddEntregableQualid} 
-                    disabled={!currentTipoEntregableQualid || currentCantidadEntregableQualid === '' || parseInt(currentCantidadEntregableQualid) <= 0 || availableEntregableQualidTypes.length === 0 || isSyncing || !!capturingType}
+                    disabled={!currentTipoEntregableQualid || currentCantidadEntregableQualid === '' || parseInt(currentCantidadEntregableQualid) <= 0 || availableEntregableQualidTypes.length === 0 || isSyncing}
                     className="shrink-0"
                   >
                     Agregar
@@ -718,7 +954,7 @@ export default function TradeImpulsoPage() {
                       {entregablesQualidAgregados.map((entregable, index) => (
                         <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
                           <span className="text-sm">{entregable.tipo}: {entregable.cantidad}</span>
-                          <Button variant="ghost" size="sm" onClick={() => handleRemoveEntregableQualid(index)} disabled={isSyncing || !!capturingType}>
+                          <Button variant="ghost" size="sm" onClick={() => handleRemoveEntregableQualid(index)} disabled={isSyncing}>
                             <Trash className="h-4 w-4 text-destructive" />
                           </Button>
                         </li>
@@ -739,17 +975,15 @@ export default function TradeImpulsoPage() {
                 <Button
                   id="foto-impulso-qualid-button"
                   variant="outline"
-                  onClick={() => takePhoto(setFotoImpulsoQualid, 'fotoImpulsoQualid')}
-                  disabled={!hasCameraPermission || !!capturingType || isSyncing}
+                  onClick={() => uploadImage(setFotoImpulsoQualid, 'fotoImpulsoQualid')}
+                  disabled={isSyncing}
                   className="w-full mt-1"
                 >
-                  {capturingType === 'fotoImpulsoQualid' ? 'Capturando...' : (hasCameraPermission ? (
+                                     {(
                     <>
                       <Camera className="mr-2 h-4 w-4" /> Tomar Foto del Impulso Qualid
                     </>
-                  ) : (
-                    'Cámara no permitida'
-                  ))}
+                  )}
                 </Button>
                 {fotoImpulsoQualid && (
                   <img
@@ -769,17 +1003,15 @@ export default function TradeImpulsoPage() {
                 <Button
                   id="foto-promotoras-qualid-button"
                   variant="outline"
-                  onClick={() => takePhoto(setFotoPromotorasQualid, 'fotoPromotorasQualid')}
-                  disabled={!hasCameraPermission || !!capturingType || isSyncing}
+                  onClick={() => uploadImage(setFotoPromotorasQualid, 'fotoPromotorasQualid')}
+                  disabled={isSyncing}
                   className="w-full mt-1"
                 >
-                  {capturingType === 'fotoPromotorasQualid' ? 'Capturando...' : (hasCameraPermission ? (
+                                     {(
                     <>
                       <Camera className="mr-2 h-4 w-4" /> Tomar Foto de Promotoras Qualid
                     </>
-                  ) : (
-                    'Cámara no permitida'
-                  ))}
+                  )}
                 </Button>
                 {fotoPromotorasQualid && (
                   <img
@@ -793,16 +1025,86 @@ export default function TradeImpulsoPage() {
             </>
           )}
 
+          {/* Sección de Ventas Shell - Solo mostrar después de tomar fotos */}
+          {((selectedBrand === 'Shell' && fotoImpulsoShell && fotoPromotorasShell) || 
+            (selectedBrand === 'Qualid' && fotoImpulsoQualid && fotoPromotorasQualid)) && (
+            <>
+              <div className="space-y-4 border-t pt-6">
+                <div className="space-y-4">
+                  <Label className="text-lg font-semibold">¿Se reportó venta de productos SHELL?</Label>
+                  <div className="flex space-x-4">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        name="ventasShell"
+                        checked={huboVentasShell === true}
+                        onChange={() => setHuboVentasShell(true)}
+                        disabled={isSyncing}
+                      />
+                      <span>Sí</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        name="ventasShell"
+                        checked={huboVentasShell === false}
+                        onChange={() => setHuboVentasShell(false)}
+                        disabled={isSyncing}
+                      />
+                      <span>No</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección de Ventas Qualid */}
+              <div className="space-y-4 border-t pt-6">
+                <div className="space-y-4">
+                  <Label className="text-lg font-semibold">¿Se reportó venta de productos QUALID?</Label>
+                  <div className="flex space-x-4">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        name="ventasQualid"
+                        checked={huboVentasQualid === true}
+                        onChange={() => setHuboVentasQualid(true)}
+                        disabled={isSyncing}
+                      />
+                      <span>Sí</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        name="ventasQualid"
+                        checked={huboVentasQualid === false}
+                        onChange={() => setHuboVentasQualid(false)}
+                        disabled={isSyncing}
+                      />
+                      <span>No</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
 
         </CardContent>
         <CardFooter>
           <Button 
             onClick={handleSubmit} 
-            disabled={isSyncing || !selectedBrand || !!capturingType} 
+            disabled={
+              isSyncing || 
+              !selectedBrand || 
+              huboVentasShell === null ||
+              huboVentasQualid === null ||
+              !((selectedBrand === 'Shell' && fotoImpulsoShell && fotoPromotorasShell) || 
+                (selectedBrand === 'Qualid' && fotoImpulsoQualid && fotoPromotorasQualid))
+            } 
             className="w-full"
             style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
           >
-            {isSyncing ? 'Sincronizando...' : 'Guardar Datos de Impulso y Finalizar'}
+            {isSyncing ? 'Guardando...' : 'Siguiente'}
           </Button>
         </CardFooter>
       </Card>

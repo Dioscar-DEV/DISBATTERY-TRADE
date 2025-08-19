@@ -2,7 +2,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { autoUpdateRouteStatus } from '@/services/routes';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '@/firebase/clientApp';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { format } from 'date-fns';
 import {
   Card,
   CardContent,
@@ -15,13 +22,104 @@ import { CheckCircle } from 'lucide-react';
 
 export default function RegistroExitosoPage() {
   const router = useRouter();
+  const { toast } = useToast();
+  const [user, setUser] = useState<any>(null);
+  const [countdown, setCountdown] = useState(5); // ✅ Contador de 5 segundos
 
-  const handleRegistrarVisita = () => {
+  // ✅ LOGGING DETALLADO AL CARGAR LA PÁGINA DE ÉXITO
+  useEffect(() => {
+    console.log('🎉 ========= PÁGINA DE REGISTRO EXITOSO CARGADA =========');
+    
+    // Verificar qué hay en localStorage
+    const clienteDataString = localStorage.getItem('clienteData');
+    const currentUserString = localStorage.getItem('currentUser');
+    
+    console.log('📊 [REGISTRO-EXITOSO] ClienteData en localStorage:', clienteDataString);
+    console.log('👤 [REGISTRO-EXITOSO] CurrentUser en localStorage:', currentUserString);
+    
+    if (clienteDataString) {
+      try {
+        const clienteData = JSON.parse(clienteDataString);
+        console.log('📋 [REGISTRO-EXITOSO] Datos del cliente procesado:', {
+          pointId: clienteData.pointId,
+          rif: clienteData.rif,
+          nombre: clienteData.nombre,
+          tipoVisita: clienteData.tipoVisita,
+          isEvent: clienteData.isEvent,
+          eventId: clienteData.eventId
+        });
+        
+        if (!clienteData.pointId) {
+          console.error('❌ [PROBLEMA DETECTADO] El pointId está vacío en el clienteData:', clienteData.pointId);
+        } else {
+          console.log('✅ [ÉXITO] PointId correcto encontrado:', clienteData.pointId);
+        }
+        
+
+      } catch (error) {
+        console.error('❌ [ERROR] No se pudo parsear clienteData:', error);
+      }
+    } else {
+      console.warn('⚠️ [ADVERTENCIA] No se encontró clienteData en localStorage');
+    }
+    
+    console.log('🎉 ========= INICIANDO COUNTDOWN DE REDIRECCIÓN =========');
+  }, [toast]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          console.log('🔄 [REDIRECT] Redirigiendo a /mi-ruta después de countdown');
+          clearInterval(timer);
+          router.push('/mi-ruta');
+          return 0;
+        }
+        console.log(`⏱️ [COUNTDOWN] ${prev - 1} segundos restantes para redirección`);
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(timer);
+      console.log('🧹 [CLEANUP] Timer de countdown limpiado');
+    };
+  }, [router]);
+
+  const handleRegistrarVisitaMerchandising = () => {
     router.push('/visit-capture');
+  };
+
+  const handleRegistrarVisitaTrade = () => {
+    console.log('🔄 [REDIRECT] Navegando a /mi-ruta desde botón (sin autocompletado automático)');
+    router.push('/mi-ruta');
   };
 
   const handleVolverAlInicio = () => {
     router.push('/');
+  };
+
+  // Configurar listener de autenticación y verificar auto-completación de ruta
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        // ✅ FUNCIÓN REMOVIDA: La función checkAndCompleteRoute causaba que rutas nuevas 
+        // aparecieran como completadas incorrectamente. El autocompletado debe ser manual
+        // o más específico para evitar confusiones entre rutas diferentes del mismo día.
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Función para verificar y auto-completar ruta SOLO si TODOS los puntos están visitados
+  // ✅ FUNCIÓN REMOVIDA: checkAndCompleteRoute causaba que rutas nuevas 
+  // aparecieran como completadas incorrectamente. El autocompletado automático
+  // se deshabilitó para evitar confusiones entre rutas diferentes del mismo día.
+  
+  const handleGoToMyRoute = () => {
+    console.log('🔄 [REDIRECT] Navegando manualmente a /mi-ruta (sin autocompletado automático)');
+    router.push('/mi-ruta');
   };
 
   return (
@@ -69,38 +167,43 @@ export default function RegistroExitosoPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="px-6 pb-4">
-            {/* Content can be added here if needed in the future */}
+            {/* ✅ INFORMACIÓN DE REDIRECCIÓN AUTOMÁTICA */}
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md">
+              <div className="flex items-center">
+                <div className="ml-3">
+                  <p className="text-sm text-blue-800 font-medium">
+                    🔄 Regresando a tu ruta automáticamente en {countdown} segundo{countdown !== 1 ? 's' : ''}...
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Puedes continuar con el siguiente punto de tu ruta
+                  </p>
+                </div>
+              </div>
+            </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3 px-6 pt-2">
             <Button
-              onClick={handleRegistrarVisita}
-              className="w-full shadow-md"
-              // Default primary blue gradient will be applied
+              onClick={handleRegistrarVisitaTrade}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-md"
             >
-              Registrar Visita Merchandising
+              ⚡ Ir Ahora a Mi Ruta
             </Button>
             <Button
-              onClick={handleRegistrarVisita} // Points to the same handler for now
+              onClick={handleRegistrarVisitaMerchandising}
+              variant="outline"
               className="w-full shadow-md"
             >
-              Registrar Visita Trade
+              Registrar Nueva Visita
             </Button>
             <Button
               onClick={handleVolverAlInicio}
-              className="w-full shadow-md" // Changed from outline
+              variant="ghost" 
+              className="w-full text-muted-foreground"
             >
-              Volver al Inicio y Cerrar Sesión
+              Volver al Inicio
             </Button>
             <div className="flex justify-between items-center w-full pt-5 mt-3 border-t border-gray-200">
-              <div className="flex items-center space-x-2">
-                <img
-                  src="https://storage.googleapis.com/iandai/imagenes/shell.png"
-                  alt="Shell Logo"
-                  className="max-h-8"
-                  data-ai-hint="shell logo"
-                />
-                <span className="text-xs text-gray-600">Macro Distribuidor<br/>de Lubricantes Shell</span>
-              </div>
+              {/* Logo y texto de Shell removido */}
               <img
                 src="https://placehold.co/100x30.png" // Placeholder for Qualid Logo
                 alt="Qualid Logo"

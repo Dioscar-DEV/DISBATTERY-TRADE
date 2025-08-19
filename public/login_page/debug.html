@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Login - Disbattery</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-box { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .error { background: #ffe6e6; color: #d00; }
+        .success { background: #e6ffe6; color: #0a0; }
+        input, button { padding: 10px; margin: 5px; width: 300px; }
+        button { width: 320px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Debug Login Firebase</h1>
+    
+    <div class="debug-box">
+        <h3>Configuración Firebase:</h3>
+        <div id="config-info"></div>
+    </div>
+
+    <div class="debug-box">
+        <h3>Test de Login:</h3>
+        <input type="email" id="email" placeholder="Email" value="dsalcedo@smartautomatai.com">
+        <input type="password" id="password" placeholder="Contraseña">
+        <button onclick="testLogin()">🔍 Test Login</button>
+        <button onclick="testPasswordReset()">📧 Test Reset Password</button>
+    </div>
+
+    <div class="debug-box">
+        <h3>Resultados:</h3>
+        <div id="results"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+
+    <script>
+        // Configuración Firebase - CORREGIDA
+        const firebaseConfig = {
+            apiKey: "AIzaSyCs73uDqTGuoy2u0fnZgngTqRWhuyIU5l8",
+            authDomain: "disbattery-trade.firebaseapp.com",
+            projectId: "disbattery-trade",
+            storageBucket: "disbattery-trade.firebasestorage.app",
+            messagingSenderId: "614937382806",
+            appId: "1:614937382806:web:5df489972e5eb4365117b7"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // Mostrar configuración
+        document.getElementById('config-info').innerHTML = `
+            <strong>Project ID:</strong> ${firebaseConfig.projectId}<br>
+            <strong>Auth Domain:</strong> ${firebaseConfig.authDomain}<br>
+            <strong>API Key:</strong> ${firebaseConfig.apiKey.substring(0, 10)}...<br>
+            <strong>SDK Version:</strong> ${firebase.SDK_VERSION}<br>
+        `;
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            results.innerHTML += `<div class="debug-box ${className}">[${timestamp}] ${message}</div>`;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            log(`🔄 Intentando login con: ${email}`);
+            
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                log(`✅ ¡Login exitoso! UID: ${userCredential.user.uid}`, 'success');
+                log(`📧 Email verificado: ${userCredential.user.emailVerified}`, 'success');
+                log(`👤 Display Name: ${userCredential.user.displayName || 'No definido'}`, 'success');
+            } catch (error) {
+                log(`❌ Error de login:`, 'error');
+                log(`📋 Código: ${error.code}`, 'error');
+                log(`💬 Mensaje: ${error.message}`, 'error');
+                log(`🔍 Detalles completos: ${JSON.stringify(error, null, 2)}`, 'error');
+                
+                // Información adicional del error
+                if (error.code) {
+                    switch(error.code) {
+                        case 'auth/user-not-found':
+                            log(`💡 El usuario ${email} no existe en Firebase Auth`, 'error');
+                            break;
+                        case 'auth/wrong-password':
+                            log(`💡 La contraseña es incorrecta para ${email}`, 'error');
+                            break;
+                        case 'auth/invalid-email':
+                            log(`💡 El formato del email es inválido`, 'error');
+                            break;
+                        case 'auth/too-many-requests':
+                            log(`💡 Demasiados intentos fallidos. Espera un poco.`, 'error');
+                            break;
+                        default:
+                            log(`💡 Error no reconocido: ${error.code}`, 'error');
+                    }
+                }
+            }
+        }
+
+        async function testPasswordReset() {
+            const email = document.getElementById('email').value;
+            
+            log(`🔄 Enviando reset de contraseña a: ${email}`);
+            
+            try {
+                await auth.sendPasswordResetEmail(email);
+                log(`✅ ¡Email de reset enviado correctamente!`, 'success');
+            } catch (error) {
+                log(`❌ Error al enviar reset:`, 'error');
+                log(`📋 Código: ${error.code}`, 'error');
+                log(`💬 Mensaje: ${error.message}`, 'error');
+                log(`🔍 Detalles: ${JSON.stringify(error, null, 2)}`, 'error');
+            }
+        }
+
+        // Log inicial
+        log('🚀 Página de debug cargada correctamente');
+        log('🔧 Firebase inicializado');
+    </script>
+</body>
+</html> 

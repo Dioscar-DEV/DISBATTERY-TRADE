@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sin Conexión - DISBATTERY TRADE</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+
+        .offline-container {
+            max-width: 400px;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .offline-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2rem;
+        }
+
+        h1 {
+            margin: 0 0 1rem;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        p {
+            margin: 0 0 2rem;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+
+        .retry-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .retry-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .connection-status {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 0.9rem;
+        }
+
+        .status-online {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .status-offline {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .logo {
+            width: 120px;
+            height: auto;
+            margin-bottom: 2rem;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 480px) {
+            .offline-container {
+                margin: 1rem;
+                padding: 1.5rem;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <!-- Logo de DISBATTERY -->
+        <img src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png" 
+             alt="DISBATTERY Logo" class="logo" 
+             onerror="this.style.display='none'">
+        
+        <div class="offline-icon">
+            📡
+        </div>
+        
+        <h1>Sin Conexión a Internet</h1>
+        
+        <p>
+            No se puede conectar a los servidores en este momento. 
+            Verifica tu conexión a internet e intenta nuevamente.
+        </p>
+        
+        <button class="retry-button" onclick="retryConnection()">
+            🔄 Reintentar Conexión
+        </button>
+        
+        <div id="connectionStatus" class="connection-status status-offline">
+            Estado: Sin conexión
+        </div>
+    </div>
+
+    <script>
+        // Función para reintentar la conexión
+        function retryConnection() {
+            if (navigator.onLine) {
+                // Si hay conexión, recargar la página
+                window.location.reload();
+            } else {
+                // Si no hay conexión, mostrar mensaje
+                showStatus('Aún sin conexión. Verifica tu red e intenta de nuevo.', false);
+            }
+        }
+
+        // Función para mostrar el estado de conexión
+        function showStatus(message, isOnline) {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.textContent = message;
+            statusEl.className = `connection-status ${isOnline ? 'status-online' : 'status-offline'}`;
+        }
+
+        // Escuchar eventos de conexión
+        window.addEventListener('online', () => {
+            showStatus('¡Conexión restaurada! Recargando...', true);
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        });
+
+        window.addEventListener('offline', () => {
+            showStatus('Estado: Sin conexión', false);
+        });
+
+        // Verificar estado inicial
+        if (navigator.onLine) {
+            showStatus('Verificando conexión...', true);
+            // Intentar una petición real para verificar conectividad
+            fetch('/favicon.ico', { method: 'HEAD', cache: 'no-cache' })
+                .then(() => {
+                    showStatus('¡Conexión disponible! Recargando...', true);
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                })
+                .catch(() => {
+                    showStatus('Sin conexión al servidor', false);
+                });
+        }
+
+        // Auto-retry cada 30 segundos
+        setInterval(() => {
+            if (navigator.onLine) {
+                fetch('/favicon.ico', { method: 'HEAD', cache: 'no-cache' })
+                    .then(() => {
+                        showStatus('¡Conexión restaurada! Recargando...', true);
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    })
+                    .catch(() => {
+                        // Conexión reportada como online pero sin acceso real
+                    });
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

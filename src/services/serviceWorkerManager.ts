@@ -1,0 +1,287 @@
+/**
+ * Gestor del Service Worker para funcionalidad offline y sincronización
+ */
+
+export interface ServiceWorkerMessage {
+  type: string;
+  data?: any;
+}
+
+export interface SyncStatus {
+  isRegistered: boolean;
+  isSupported: boolean;
+  lastSync?: Date;
+  pendingCount?: number;
+}
+
+class ServiceWorkerManager {
+  private registration: ServiceWorkerRegistration | null = null;
+  private isRegistered = false;
+  private messageHandlers = new Map<string, (data: any) => void>();
+
+  /**
+   * Inicializa el Service Worker
+   */
+  async initialize(): Promise<boolean> {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      console.warn('⚠️ [SWManager] Service Workers no soportados');
+      return false;
+    }
+
+    try {
+      console.log('🔧 [SWManager] Registrando Service Worker...');
+      
+      // Registrar el Service Worker personalizado para sincronización
+      this.registration = await navigator.serviceWorker.register('/sw-sync.js', {
+        scope: '/'
+      });
+
+      console.log('✅ [SWManager] Service Worker registrado exitosamente');
+
+      // Configurar listeners de mensajes
+      this.setupMessageListeners();
+
+      // Verificar estado del Service Worker
+      await this.checkServiceWorkerState();
+
+      this.isRegistered = true;
+      return true;
+
+    } catch (error) {
+      console.error('❌ [SWManager] Error registrando Service Worker:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Configura los listeners de mensajes del Service Worker
+   */
+  private setupMessageListeners(): void {
+    if (!navigator.serviceWorker) return;
+
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const { type, data } = event.data;
+      console.log(`📨 [SWManager] Mensaje recibido del SW: ${type}`, data);
+
+      const handler = this.messageHandlers.get(type);
+      if (handler) {
+        handler(data);
+      }
+    });
+  }
+
+  /**
+   * Verifica el estado del Service Worker
+   */
+  private async checkServiceWorkerState(): Promise<void> {
+    if (!this.registration) return;
+
+    const sw = this.registration.active || this.registration.waiting || this.registration.installing;
+    
+    if (sw) {
+      console.log(`🔍 [SWManager] Service Worker estado: ${sw.state}`);
+      
+      if (sw.state === 'activated') {
+        console.log('✅ [SWManager] Service Worker activo y listo');
+      }
+    }
+  }
+
+  /**
+   * Registra un handler para mensajes del Service Worker
+   */
+  onMessage(type: string, handler: (data: any) => void): void {
+    this.messageHandlers.set(type, handler);
+  }
+
+  /**
+   * Envía un mensaje al Service Worker
+   */
+  async sendMessage(type: string, data?: any): Promise<any> {
+    if (!this.registration?.active) {
+      throw new Error('Service Worker no está activo');
+    }
+
+    return new Promise((resolve, reject) => {
+      const messageChannel = new MessageChannel();
+      
+      messageChannel.port1.onmessage = (event) => {
+        if (event.data.success) {
+          resolve(event.data);
+        } else {
+          reject(new Error(event.data.error || 'Error en Service Worker'));
+        }
+      };
+
+      this.registration!.active!.postMessage(
+        { type, data },
+        [messageChannel.port2]
+      );
+    });
+  }
+
+  /**
+   * Registra background sync para sincronización automática
+   */
+  async registerBackgroundSync(): Promise<boolean> {
+    if (!this.isRegistered) {
+      console.warn('⚠️ [SWManager] Service Worker no registrado');
+      return false;
+    }
+
+    try {
+      await this.sendMessage('REGISTER_SYNC');
+      console.log('✅ [SWManager] Background sync registrado');
+      return true;
+    } catch (error) {
+      console.error('❌ [SWManager] Error registrando background sync:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Fuerza una sincronización inmediata
+   */
+  async forceSync(): Promise<boolean> {
+    if (!this.isRegistered) {
+      console.warn('⚠️ [SWManager] Service Worker no registrado');
+      return false;
+    }
+
+    try {
+      await this.sendMessage('FORCE_SYNC');
+      console.log('✅ [SWManager] Sincronización forzada completada');
+      return true;
+    } catch (error) {
+      console.error('❌ [SWManager] Error en sincronización forzada:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Precarga rutas principales (app shell)
+   */
+  async precacheAppShell(): Promise<boolean> {
+    if (!this.isRegistered) return false;
+    try {
+      await this.sendMessage('PRECACHE_APP_SHELL');
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Precarga una lista de URLs específicas
+   */
+  async precacheUrls(urls: string[]): Promise<boolean> {
+    if (!this.isRegistered) return false;
+    try {
+      await this.sendMessage('PRECACHE_URLS', { urls });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Precarga una sola URL (permite mostrar progreso granular en UI)
+   */
+  async precacheUrl(url: string): Promise<boolean> {
+    if (!this.isRegistered) return false;
+    try {
+      await this.sendMessage('PRECACHE_URL', { url });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Verifica si el Service Worker está funcionando
+   */
+  async ping(): Promise<boolean> {
+    if (!this.isRegistered) {
+      return false;
+    }
+
+    try {
+      await this.sendMessage('PING');
+      return true;
+    } catch (error) {
+      console.error('❌ [SWManager] Service Worker no responde:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Obtiene el estado de sincronización
+   */
+  getSyncStatus(): SyncStatus {
+    const isSupported = typeof window !== 'undefined' && 
+                       'serviceWorker' in navigator && 
+                       'sync' in window.ServiceWorkerRegistration.prototype;
+
+    return {
+      isRegistered: this.isRegistered,
+      isSupported,
+      lastSync: undefined, // Se puede implementar más tarde
+      pendingCount: undefined // Se puede implementar más tarde
+    };
+  }
+
+  /**
+   * Desregistra el Service Worker
+   */
+  async unregister(): Promise<boolean> {
+    if (!this.registration) {
+      return true;
+    }
+
+    try {
+      const success = await this.registration.unregister();
+      console.log('🗑️ [SWManager] Service Worker desregistrado:', success);
+      this.registration = null;
+      this.isRegistered = false;
+      return success;
+    } catch (error) {
+      console.error('❌ [SWManager] Error desregistrando Service Worker:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Actualiza el Service Worker si hay una nueva versión
+   */
+  async update(): Promise<boolean> {
+    if (!this.registration) {
+      return false;
+    }
+
+    try {
+      await this.registration.update();
+      console.log('🔄 [SWManager] Service Worker actualizado');
+      return true;
+    } catch (error) {
+      console.error('❌ [SWManager] Error actualizando Service Worker:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Verifica si hay actualizaciones del Service Worker
+   */
+  async checkForUpdates(): Promise<boolean> {
+    if (!this.registration) {
+      return false;
+    }
+
+    const initialSW = this.registration.active;
+    await this.registration.update();
+    
+    return this.registration.active !== initialSW;
+  }
+}
+
+// Exportar instancia singleton
+export const serviceWorkerManager = new ServiceWorkerManager();
