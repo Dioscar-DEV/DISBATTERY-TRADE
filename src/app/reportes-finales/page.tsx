@@ -11,6 +11,7 @@ import { crearVisita, setN8NWebhookURL } from '@/services/visitas';
 import { RespuestasTrade } from '@/types/visitas';
 import { getCurrentUser, getUserFromStorage } from '@/services/auth';
 import { uploadMultipleImages } from '@/services/images';
+import { SyncService } from '@/services/sync'; // Importar nuestro SyncService
 
 // 🗜️ FUNCIÓN PARA COMPRIMIR IMÁGENES BASE64
 const comprimirImagenBase64 = (base64String: string, calidad: number = 0.6): Promise<string> => {
@@ -59,6 +60,64 @@ export default function ReportesFinalesPage() {
   }, []);
 
   const handleGuardarYContinuar = async () => {
+    //
+    // =================================================================
+    // INICIO DE LA MODIFICACIÓN PARA FUNCIONALIDAD OFFLINE
+    // =================================================================
+    //
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      try {
+        setIsSyncing(true);
+        console.log('🔄 Modo Offline: Guardando reporte localmente...');
+        
+        const datosAcumulados = JSON.parse(localStorage.getItem('datosFormularioCompleto') || '{}');
+        if (!datosAcumulados.clienteData) {
+          toast({
+            variant: 'destructive',
+            title: 'Error de Datos',
+            description: 'No se encontraron datos del cliente. Reinicie el proceso.',
+          });
+          return;
+        }
+
+        // Agregar los reportes finales a los datos acumulados
+        datosAcumulados.reporteShellFaltante = reporteShellFaltante;
+        datosAcumulados.reporteQualidFaltante = reporteQualidFaltante;
+        datosAcumulados.reporteComentariosAdicionales = reporteComentariosAdicionales;
+        
+        // Llamar a nuestro SyncService para guardar en IndexedDB
+        await SyncService.saveVisitaOffline(datosAcumulados);
+
+        // Limpiar localStorage
+        localStorage.removeItem('clienteData');
+        localStorage.removeItem('datosFormularioCompleto');
+
+        toast({
+          title: '✅ Reporte Guardado Offline',
+          description: 'Los datos se han guardado en su dispositivo y se enviarán automáticamente cuando recupere la conexión.',
+        });
+
+        // Navegar a la página de éxito
+        router.push('/registro-exitoso');
+
+      } catch (error) {
+        console.error('Error guardando el reporte offline:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error al Guardar Offline',
+          description: 'Hubo un problema al guardar los datos en el dispositivo. Por favor, intente de nuevo.',
+        });
+      } finally {
+        setIsSyncing(false);
+      }
+      return; // Detener la ejecución si estamos offline
+    }
+    //
+    // =================================================================
+    // FIN DE LA MODIFICACIÓN PARA FUNCIONALIDAD OFFLINE
+    // =================================================================
+    //
+
     try {
       setIsSyncing(true);
       
