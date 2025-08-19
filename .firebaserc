@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "disbattery-trade"
+  },
   "targets": {
     "disbattery-trade": {
       "storage": {

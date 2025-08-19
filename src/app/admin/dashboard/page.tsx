@@ -133,8 +133,8 @@ export default function AdminDashboardPage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top Bar */}
-      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0">
-        <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center py-3 px-6 sm:px-8">
+      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
+        <div style={{ backgroundColor: '#b61717' }} className="w-full sm:w-1/3 flex items-center py-3 px-6 sm:px-8">
           <div className="flex items-center gap-4">
             <Button
               onClick={() => router.back()}
@@ -169,7 +169,7 @@ export default function AdminDashboardPage() {
       </header>
 
       {/* Main Content - Scrollable */}
-      <main style={{ backgroundColor: '#a51717' }} className="flex-grow overflow-y-auto">
+      <main style={{ backgroundColor: '#a51717' }} className="flex-grow pt-16">
         <div className="max-w-6xl mx-auto p-4">
           <Card className="bg-stone-50 shadow-xl">
             <CardHeader className="border-b border-gray-200">

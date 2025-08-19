@@ -1693,7 +1693,7 @@ export default function GestionClientesPage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top Bar */}
-      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0">
+      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
         <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center py-3 px-6 sm:px-8">
           <div className="flex items-center gap-4">
             <Button
@@ -1728,7 +1728,7 @@ export default function GestionClientesPage() {
       </header>
 
       {/* Main Content - Scrollable */}
-      <main style={{ backgroundColor: '#a51717' }} className="flex-grow overflow-y-auto">
+      <main style={{ backgroundColor: '#a51717' }} className="flex-grow pt-16">
         <div className="max-w-7xl mx-auto p-4">
           <Card className="bg-stone-50 shadow-xl">
             <CardHeader className="border-b border-gray-200">
@@ -1879,8 +1879,8 @@ export default function GestionClientesPage() {
                     </div>
                   </div>
 
-                  {/* Tabla - Contenedor con scroll más grande */}
-                  <div className="border rounded-lg max-h-[600px] overflow-y-auto">
+                  {/* Tabla - Contenedeor con scroll más grande */}
+                  <div className="border rounded-lg max-h-[600px] overflow-y-auto overflow-x-auto">
                     <Table>
                       <TableHeader className="sticky top-0 bg-white z-10">
                         <TableRow>
@@ -2527,7 +2527,7 @@ export default function GestionClientesPage() {
 
                 {bulkUpload.previewData.length > 0 ? (
                   <>
-                    <div className="max-h-96 overflow-y-auto border rounded-lg">
+                    <div className="max-h-96 overflow-y-auto border rounded-lg overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>

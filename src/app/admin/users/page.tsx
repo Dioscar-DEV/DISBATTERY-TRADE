@@ -718,7 +718,7 @@ function UserManagementPageContent() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top Bar */}
-      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0">
+      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
         <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center py-3 px-6 sm:px-8">
           <div className="flex items-center gap-4">
             <Button
@@ -753,11 +753,11 @@ function UserManagementPageContent() {
       </header>
 
       {/* Main Content */}
-      <main style={{ backgroundColor: '#a51717' }} className="flex-grow overflow-y-auto">
-        <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
+      <main style={{ backgroundColor: '#a51717' }} className="flex-grow pt-16">
+        <div className="container mx-auto py-8 px-2 sm:px-4 md:px-6 lg:px-8">
           <Card className="shadow-xl bg-white/90 backdrop-blur-sm">
             <CardHeader className="border-b pb-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                   <CardTitle className="text-2xl font-bold flex items-center">
                     <Users className="mr-3 h-7 w-7" />
@@ -769,7 +769,7 @@ function UserManagementPageContent() {
                 </div>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="flex items-center gap-2" disabled={!userPermissions?.canManageUsers}>
+                    <Button className="flex items-center gap-2 w-full md:w-auto" disabled={!userPermissions?.canManageUsers}>
                       <PlusCircle className="h-5 w-5" />
                       Crear Nuevo Usuario
                     </Button>
@@ -1026,7 +1026,7 @@ function UserManagementPageContent() {
                   <span className="ml-2">Cargando usuarios...</span>
                 </div>
               ) : (
-                <div className="border rounded-lg max-h-96 overflow-y-auto">
+                <div className="border rounded-lg overflow-x-auto">
                   <Table>
                     <TableHeader className="sticky top-0 bg-white z-10">
                       <TableRow>
@@ -1038,7 +1038,7 @@ function UserManagementPageContent() {
                         <TableHead>Región</TableHead>
                         <TableHead>Ciudad</TableHead>
                         <TableHead>Última Visita</TableHead>
-                        <TableHead>Acciones</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1051,28 +1051,28 @@ function UserManagementPageContent() {
                       ) : (
                         filteredUsers.map((user) => (
                           <TableRow key={user.id}>
-                            <TableCell className="font-medium">{user.fullName}</TableCell>
-                            <TableCell>{user.email}</TableCell>
-                            <TableCell>{user.phone || 'N/A'}</TableCell>
+                            <TableCell className="font-medium whitespace-nowrap">{user.fullName}</TableCell>
+                            <TableCell className="whitespace-nowrap">{user.email}</TableCell>
+                            <TableCell className="whitespace-nowrap">{user.phone || 'N/A'}</TableCell>
                             <TableCell>
                               <Badge className={getRoleColor(user.role)}>
                                 {user.role}
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <Badge className={getStatusColor(user.status)}>
-                                {getStatusText(user.status)}
+                              <Badge className={getStatusColor((user as any).status)}>
+                                {getStatusText((user as any).status)}
                               </Badge>
                             </TableCell>
-                            <TableCell>{user.region || 'N/A'}</TableCell>
-                            <TableCell>{user.city || 'N/A'}</TableCell>
-                            <TableCell>
+                            <TableCell className="whitespace-nowrap">{user.region || 'N/A'}</TableCell>
+                            <TableCell className="whitespace-nowrap">{user.city || 'N/A'}</TableCell>
+                            <TableCell className="whitespace-nowrap">
                               <span className="text-sm text-gray-600">
                                 {formatLastVisit(ultimasVisitas[user.email]?.marcaTemporal)}
                               </span>
                             </TableCell>
                             <TableCell>
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 justify-end">
                                 <Button
                                   variant="outline"
                                   size="sm"
