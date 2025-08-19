@@ -103,7 +103,7 @@ export default function RutasPage() {
     duracionDias: 1,
     direccion: '',
     descripcion: '',
-    marcaTrabajada: '' as 'Shell' | 'Qualid' | ''
+    marcasTrabajadas: [] as ('Shell' | 'Qualid')[]
   });
 
   // Estados para usuario actual y permisos
@@ -711,6 +711,15 @@ export default function RutasPage() {
   };
 
   const editEvento = (evento: EventoIndependiente) => {
+    // Migración: si existe marcaTrabajada (singular), convertir a marcasTrabajadas (plural)
+    let marcasTrabajadas: ('Shell' | 'Qualid')[] = [];
+    if (evento.marcasTrabajadas) {
+      marcasTrabajadas = evento.marcasTrabajadas;
+    } else if ((evento as any).marcaTrabajada) {
+      // Migrar datos antiguos
+      marcasTrabajadas = [(evento as any).marcaTrabajada];
+    }
+    
     setNewEvent({
       nombreEvento: evento.nombreEvento,
       mercaderistas: evento.mercaderistas,
@@ -720,7 +729,7 @@ export default function RutasPage() {
       duracionDias: evento.duracionDias,
       direccion: evento.direccion || '',
       descripcion: evento.descripcion || '',
-      marcaTrabajada: evento.marcaTrabajada || ''
+      marcasTrabajadas: marcasTrabajadas
     });
     setIsEditingEvent(true);
     setIsEventDialogOpen(true);
@@ -1161,7 +1170,7 @@ export default function RutasPage() {
       duracionDias: 1,
       direccion: '',
       descripcion: '',
-      marcaTrabajada: ''
+      marcasTrabajadas: []
     });
   };
 
@@ -1173,11 +1182,11 @@ export default function RutasPage() {
   };
 
   const createOrUpdateEvent = async () => {
-    if (!newEvent.nombreEvento || newEvent.mercaderistas.length === 0) {
+    if (!newEvent.nombreEvento || newEvent.mercaderistas.length === 0 || newEvent.marcasTrabajadas.length === 0) {
       toast({
         variant: 'destructive',
         title: 'Datos Incompletos',
-        description: 'Completa el nombre del evento y selecciona al menos un mercaderista.',
+        description: 'Completa el nombre del evento, selecciona al menos un mercaderista y al menos una marca.',
       });
       return;
     }
@@ -1200,7 +1209,7 @@ export default function RutasPage() {
         duracionDias: duracionDias,
         direccion: newEvent.direccion || '',
         descripcion: newEvent.descripcion || '',
-        marcaTrabajada: newEvent.marcaTrabajada,
+        marcasTrabajadas: newEvent.marcasTrabajadas,
         tipoEvento: 'Trade (Eventos)' as const,
         status: isEditingEvent ? selectedEvento?.status || 'planificado' : 'planificado' as const,
         ...(isEditingEvent ? {} : { createdAt: Timestamp.now() }),
@@ -1630,19 +1639,45 @@ export default function RutasPage() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <Label htmlFor="marcaTrabajada">Marca a Trabajar *</Label>
-                    <Select
-                      value={newEvent.marcaTrabajada}
-                      onValueChange={(value) => setNewEvent({ ...newEvent, marcaTrabajada: value as 'Shell' | 'Qualid' })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar marca a trabajar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Shell">Shell</SelectItem>
-                        <SelectItem value="Qualid">Qualid</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label className="font-medium">Marcas a Trabajar *</Label>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Seleccione las marcas que se trabajarán en este evento. Puede seleccionar ambas.
+                    </p>
+                    <div className="space-y-3">
+                      {['Shell', 'Qualid'].map(marca => (
+                        <label key={marca} className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            checked={newEvent.marcasTrabajadas.includes(marca as 'Shell' | 'Qualid')}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNewEvent({
+                                  ...newEvent,
+                                  marcasTrabajadas: [...newEvent.marcasTrabajadas, marca as 'Shell' | 'Qualid']
+                                });
+                              } else {
+                                setNewEvent({
+                                  ...newEvent,
+                                  marcasTrabajadas: newEvent.marcasTrabajadas.filter(m => m !== marca)
+                                });
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-sm font-medium">{marca}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {newEvent.marcasTrabajadas.length === 0 && (
+                      <p className="text-sm text-red-600 mt-2">
+                        ⚠️ Seleccione al menos una marca.
+                      </p>
+                    )}
+                    {newEvent.marcasTrabajadas.length > 0 && (
+                      <p className="text-sm text-green-600 mt-2">
+                        ✓ Marcas seleccionadas: {newEvent.marcasTrabajadas.join(', ')}
+                      </p>
+                    )}
                   </div>
 
                   <div className="md:col-span-2">
@@ -1665,9 +1700,9 @@ export default function RutasPage() {
                   <Button variant="outline" onClick={() => setIsEventDialogOpen(false)}>
                     Cancelar
                   </Button>
-                                                                           <Button 
+                  <Button 
                      onClick={createOrUpdateEvent}
-                     disabled={!newEvent.nombreEvento || newEvent.mercaderistas.length === 0}
+                     disabled={!newEvent.nombreEvento || newEvent.mercaderistas.length === 0 || newEvent.marcasTrabajadas.length === 0}
                    >
                      {isEditingEvent ? 'Actualizar Evento' : 'Crear Evento'}
                    </Button>

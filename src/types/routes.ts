@@ -42,7 +42,7 @@ export interface EventoIndependiente {
   descripcion?: string;
   tipoEvento: 'Trade (Eventos)';
   status: 'planificado' | 'en_progreso' | 'completado';
-      marcaTrabajada?: 'Shell' | 'Qualid'; // Marca trabajada
+  marcasTrabajadas?: ('Shell' | 'Qualid')[]; // Marcas trabajadas (múltiples)
   createdAt?: Date;
   createdBy?: string;
 }
