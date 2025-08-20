@@ -612,7 +612,7 @@ export default function ReportesFinalesPage() {
         'Dirección de correo electrónico': correoMercaderista,
         'Rif del cliente:': cliente.rif,
         'Nombre del establecimiento:': cliente.nombre,
-        'Desde que sucursal se realiza el registro': cliente.sede || 'No especificada'
+        'Desde que sucursal se realiza el registro': cliente.sede || currentUser?.sede || 'No especificada'
       };
 
       // 🗂️ ESTRUCTURA ORGANIZADA CON PREGUNTAS Y RESPUESTAS
@@ -623,7 +623,7 @@ export default function ReportesFinalesPage() {
       observacionesOrganizadas.push(`MARCA SELECCIONADA: ${datosAcumulados.marca || 'No especificada'}`);
       observacionesOrganizadas.push(`MERCADERISTA: ${mercaderista}`);
       observacionesOrganizadas.push(`ESTABLECIMIENTO: ${cliente.nombre} (${cliente.rif})`);
-      observacionesOrganizadas.push(`SUCURSAL: ${cliente.sede || 'No especificada'}`);
+      observacionesOrganizadas.push(`SUCURSAL: ${cliente.sede || currentUser?.sede || 'No especificada'}`);
 
       // 🆕 AÑADIR DATO DE SEÑALIZACIÓN
       if (datosAcumulados.hasSignage) {
@@ -1279,7 +1279,7 @@ export default function ReportesFinalesPage() {
         mercaderista: mercaderista,
         correoMercaderista: correoMercaderista,
         ubicacion: finalPosition,
-        sucursal: cliente.sede,
+        sucursal: cliente.sede || currentUser?.sede || 'GRUPO DISBATTERY',
         respuestas: respuestasCompletas,
         observacionesAdicionales: `Formulario ${datosAcumulados.tipoVisita} completado con ${fotosUrls.length} imágenes`,
         datosN8N: {
@@ -1290,7 +1290,7 @@ export default function ReportesFinalesPage() {
           clienteInfo: {
             rif: cliente.rif,
             nombre: cliente.nombre,
-            sucursal: cliente.sede
+            sucursal: cliente.sede || currentUser?.sede || 'GRUPO DISBATTERY'
           }
         }
       });
