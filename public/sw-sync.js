@@ -207,6 +207,32 @@ self.addEventListener('sync', event => {
   }
 });
 
+// Este archivo ya puede contener otra lógica de sincronización.
+// Añadiremos nuestro listener al final.
+
+self.addEventListener('sync', event => {
+  if (event.tag === 'sync-pending-visitas') {
+    console.log('🔄 Evento de Background Sync recibido: sync-pending-visitas');
+    event.waitUntil(
+      fetch('/api/sync', {
+        method: 'POST',
+      }).then(response => {
+        if (!response.ok) {
+          console.error('❌ Falló la llamada a /api/sync desde el Service Worker');
+          // Si falla, el navegador reintentará la sincronización más tarde.
+          return response.text().then(text => { throw new Error(text) });
+        }
+        console.log('✅ Llamada a /api/sync desde el Service Worker exitosa.');
+        return response.json();
+      }).catch(err => {
+        console.error('Error en la sincronización desde el SW:', err);
+        // Lanzar el error para que el navegador sepa que debe reintentar.
+        throw err;
+      })
+    );
+  }
+});
+
 // Sincronizar visitas pendientes
 async function syncPendingVisitas() {
   try {

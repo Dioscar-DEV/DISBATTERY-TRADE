@@ -28,6 +28,7 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 import { offlineService } from '@/services/offlineService';
 import { dualRouteLoader } from '@/services/dualRouteLoader';
 import { offlineDataManager } from '@/services/offlineDataManager';
+import { getGPSLocation } from '@/services/gpsService';
 
 // Components
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,10 @@ import {
   DialogHeader, 
   DialogTitle 
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LogoutButton } from '@/components/LogoutButton';
 
 // Icons
@@ -65,7 +70,10 @@ import {
   TrendingUp,
   AlertTriangle,
   Navigation,
-  MapIcon
+  MapIcon,
+  Camera,
+  DoorClosed,
+  UserPlus
 } from 'lucide-react';
 
 // Types
@@ -155,6 +163,22 @@ export default function MyRoutePage() {
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
   const [currentPointForLocation, setCurrentPointForLocation] = useState<RoutePoint | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+
+  // Estados para cliente cerrado
+  const [isClienteSerradoDialogOpen, setIsClienteSerradoDialogOpen] = useState(false);
+  const [currentPointForCerrado, setCurrentPointForCerrado] = useState<RoutePoint | null>(null);
+  const [fotoCerrado, setFotoCerrado] = useState<string | null>(null);
+  const [razonCerrado, setRazonCerrado] = useState('');
+  const [comentariosCerrado, setComentariosCerrado] = useState('');
+
+  // Estados para cliente prospecto
+  const [isClienteProspectoDialogOpen, setIsClienteProspectoDialogOpen] = useState(false);
+  const [nombreProspecto, setNombreProspecto] = useState('');
+  const [direccionProspecto, setDireccionProspecto] = useState('');
+  const [telefonoProspecto, setTelefonoProspecto] = useState('');
+  const [tipoNegocioProspecto, setTipoNegocioProspecto] = useState('');
+  const [fotoProspecto, setFotoProspecto] = useState<string | null>(null);
+  const [comentariosProspecto, setComentariosProspecto] = useState('');
 
   const { toast } = useToast();
   const analytics = useAnalytics();
@@ -559,6 +583,35 @@ export default function MyRoutePage() {
       }
     }
   }, [user, userData]);
+
+  // ✅ LISTENER PARA ACTUALIZACIONES DE EVENTOS EN LOCALSTORAGE
+  useEffect(() => {
+    const handleStorageChange = () => {
+      // Reaccionar a eventos personalizados disparados por marcarPuntoComoCompletado
+      if (userData) {
+        console.log('🔄 [STORAGE EVENT] Eventos actualizados, recargando desde localStorage...');
+        
+        // Cargar eventos desde localStorage directamente
+        const todaysEventsStr = localStorage.getItem('todaysEventsOffline');
+        if (todaysEventsStr) {
+          try {
+            const events = JSON.parse(todaysEventsStr);
+            setTodaysEvents(events);
+            console.log('✅ [STORAGE EVENT] Eventos actualizados en UI');
+          } catch (error) {
+            console.error('❌ Error parseando eventos de localStorage:', error);
+          }
+        }
+      }
+    };
+
+    // Escuchar eventos personalizados de storage
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [userData]);
 
   // Cargar métricas y datos históricos cuando userData esté disponible
   useEffect(() => {
@@ -1146,6 +1199,7 @@ export default function MyRoutePage() {
 
     const clienteData = {
       pointId: finalPointId, // ✅ USAR ID FINAL (original o generado)
+      id: finalPointId, // ✅ AÑADIR ID PARA CONSISTENCIA
       rif: point.rif || '',
       nombre: point.nombreCliente || point.name,
       direccion: point.address,
@@ -1329,6 +1383,354 @@ export default function MyRoutePage() {
     }
   };
 
+  // Función para manejar cliente cerrado
+  const handleClienteCerrado = (point: RoutePoint) => {
+    setCurrentPointForCerrado(point);
+    setIsClienteSerradoDialogOpen(true);
+    setFotoCerrado(null);
+    setRazonCerrado('');
+    setComentariosCerrado('');
+  };
+
+  // Función para tomar foto del cliente cerrado
+  const tomarFotoCerrado = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "environment" } 
+      });
+      
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      await video.play();
+
+      // Crear canvas para capturar la foto
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const photoURL = canvas.toDataURL('image/jpeg', 0.8);
+        setFotoCerrado(photoURL);
+        
+        toast({
+          title: '📸 Foto Capturada',
+          description: 'Foto del cliente cerrado guardada correctamente.',
+        });
+      }
+
+      // Detener el stream
+      stream.getTracks().forEach(track => track.stop());
+      
+    } catch (error) {
+      console.error('Error tomando foto:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error de Cámara',
+        description: 'No se pudo acceder a la cámara. Verifique los permisos.',
+      });
+    }
+  };
+
+  // Función para guardar cliente cerrado
+  const guardarClienteCerrado = async () => {
+    if (!currentPointForCerrado || !fotoCerrado || !razonCerrado.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Datos Incompletos',
+        description: 'Debe capturar una foto y especificar la razón del cierre.',
+      });
+      return;
+    }
+
+    try {
+      console.log('🚪 INICIANDO PROCESO DE CLIENTE CERRADO:', {
+        punto: currentPointForCerrado.name,
+        razon: razonCerrado,
+        comentarios: comentariosCerrado,
+        foto: fotoCerrado ? 'Capturada' : 'No capturada'
+      });
+
+      // 1. Subir la foto a Firebase Storage
+      const { uploadImageToStorage } = await import('@/services/images');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `cliente-cerrado-${currentPointForCerrado.name.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}.jpg`;
+      
+      console.log('📸 Subiendo foto de cliente cerrado...');
+      const fotoUrl = await uploadImageToStorage(fotoCerrado, 'clientes-cerrados', fileName);
+      console.log('✅ Foto subida exitosamente:', fotoUrl);
+
+      // 2. Preparar datos para n8n
+      const datosSheet = {
+        'Tipo de Registro:': 'Cliente Cerrado',
+        'Nombre del Cliente:': currentPointForCerrado.name,
+        'RIF del Cliente:': currentPointForCerrado.rif || 'N/A',
+        'Dirección:': currentPointForCerrado.address || 'N/A',
+        'Tipo de Visita:': currentPointForCerrado.tipoVisita || 'N/A',
+        'Marca Trabajada:': currentPointForCerrado.marcaTrabajada || 'N/A',
+        'Razón del Cierre:': razonCerrado,
+        'Comentarios Adicionales:': comentariosCerrado || 'Sin comentarios',
+        'Foto del Cliente Cerrado:': fotoUrl,
+        'Fecha y Hora:': new Date().toLocaleString('es-VE'),
+        'Mercaderista:': userData?.displayName || 'N/A',
+        'Correo Mercaderista:': userData?.email || 'N/A'
+      };
+
+      // 3. Crear visita especial para cliente cerrado
+      const { crearVisita } = await import('@/services/visitas');
+      
+      const visitaId = await crearVisita({
+        rifCliente: currentPointForCerrado.rif || '',
+        nombreEstablecimiento: currentPointForCerrado.name,
+        tipoVisita: 'Cliente Cerrado',
+        mercaderista: userData?.displayName || 'N/A',
+        correoMercaderista: userData?.email || 'N/A',
+        ubicacion: currentPointForCerrado.position || { lat: 0, lng: 0 },
+        sucursal: userData?.sede || 'GRUPO DISBATTERY',
+        respuestas: {
+          razonCierre: razonCerrado,
+          comentarios: comentariosCerrado,
+          fotoUrl: fotoUrl
+        },
+        observacionesAdicionales: `Cliente cerrado: ${razonCerrado}`,
+        datosN8N: {
+          datosSheet: datosSheet,
+          tipoVisita: 'Cliente Cerrado'
+        }
+      });
+
+      console.log('✅ Visita de cliente cerrado creada:', visitaId);
+
+      // 4. Actualizar status en Firestore
+      const { updateRoutePointStatus } = await import('@/services/routes');
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      if (userData?.uid && currentPointForCerrado.id) {
+        console.log('🔄 Actualizando status del punto en Firestore...');
+        const result = await updateRoutePointStatus(
+          userData.uid,
+          today,
+          currentPointForCerrado.id,
+          'cerrado' as any, // Añadimos 'cerrado' como nuevo status
+          currentPointForCerrado.rif
+        );
+        
+        if (result.updated) {
+          console.log('✅ Status actualizado en Firestore:', result.reason);
+        } else {
+          console.warn('⚠️ No se pudo actualizar status en Firestore:', result.reason);
+        }
+      }
+
+      // 5. Actualizar localStorage para reflejar el cambio inmediatamente
+      const todaysRoutesStr = localStorage.getItem('todaysRoutesOffline');
+      if (todaysRoutesStr) {
+        try {
+          const routes = JSON.parse(todaysRoutesStr);
+          const updatedRoutes = routes.map((route: any) => ({
+            ...route,
+            points: route.points?.map((point: any) => 
+              point.id === currentPointForCerrado.id 
+                ? { ...point, status: 'cerrado' }
+                : point
+            ) || []
+          }));
+          localStorage.setItem('todaysRoutesOffline', JSON.stringify(updatedRoutes));
+          console.log('✅ LocalStorage actualizado con status cerrado');
+          
+          // Disparar evento para actualizar la UI
+          window.dispatchEvent(new Event('storage'));
+        } catch (error) {
+          console.error('❌ Error actualizando localStorage:', error);
+        }
+      }
+
+      toast({
+        title: '✅ Cliente Cerrado Registrado',
+        description: `${currentPointForCerrado.name} marcado como cerrado y enviado a n8n.`,
+      });
+
+      // Cerrar el diálogo
+      setIsClienteSerradoDialogOpen(false);
+      setCurrentPointForCerrado(null);
+      setFotoCerrado(null);
+      setRazonCerrado('');
+      setComentariosCerrado('');
+
+    } catch (error) {
+      console.error('❌ Error guardando cliente cerrado:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo registrar el cliente cerrado. Intente nuevamente.',
+      });
+    }
+  };
+
+  // Función para manejar cliente prospecto
+  const handleClienteProspecto = () => {
+    setIsClienteProspectoDialogOpen(true);
+    setNombreProspecto('');
+    setDireccionProspecto('');
+    setTelefonoProspecto('');
+    setTipoNegocioProspecto('');
+    setFotoProspecto(null);
+    setComentariosProspecto('');
+  };
+
+  // Función para tomar foto del cliente prospecto
+  const tomarFotoProspecto = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "environment" } 
+      });
+      
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      await video.play();
+
+      // Crear canvas para capturar la foto
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const photoURL = canvas.toDataURL('image/jpeg', 0.8);
+        setFotoProspecto(photoURL);
+        
+        toast({
+          title: '📸 Foto Capturada',
+          description: 'Foto del cliente prospecto guardada correctamente.',
+        });
+      }
+
+      // Detener el stream
+      stream.getTracks().forEach(track => track.stop());
+      
+    } catch (error) {
+      console.error('Error tomando foto:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error de Cámara',
+        description: 'No se pudo acceder a la cámara. Verifique los permisos.',
+      });
+    }
+  };
+
+  // Función para guardar cliente prospecto
+  const guardarClienteProspecto = async () => {
+    if (!nombreProspecto.trim() || !direccionProspecto.trim() || !tipoNegocioProspecto) {
+      toast({
+        variant: 'destructive',
+        title: 'Datos Incompletos',
+        description: 'Debe completar nombre, dirección y tipo de negocio.',
+      });
+      return;
+    }
+
+    try {
+      console.log('👤 INICIANDO PROCESO DE CLIENTE PROSPECTO:', {
+        nombre: nombreProspecto,
+        direccion: direccionProspecto,
+        telefono: telefonoProspecto,
+        tipoNegocio: tipoNegocioProspecto,
+        comentarios: comentariosProspecto,
+        foto: fotoProspecto ? 'Capturada' : 'No capturada'
+      });
+
+      // 1. Capturar ubicación GPS actual
+      console.log('📍 Capturando ubicación GPS del prospecto...');
+      const gpsLocation = await getGPSLocation();
+      console.log('✅ Ubicación GPS capturada:', gpsLocation);
+
+      // 2. Subir la foto a Firebase Storage (si existe)
+      let fotoUrl = '';
+      if (fotoProspecto) {
+        const { uploadImageToStorage } = await import('@/services/images');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileName = `cliente-prospecto-${nombreProspecto.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}.jpg`;
+        
+        console.log('📸 Subiendo foto de cliente prospecto...');
+        fotoUrl = await uploadImageToStorage(fotoProspecto, 'clientes-prospectos', fileName);
+        console.log('✅ Foto subida exitosamente:', fotoUrl);
+      } else {
+        console.log('📸 No se proporcionó foto para el prospecto');
+      }
+
+      // 3. Preparar datos para n8n
+      const datosSheet = {
+        'Tipo de Registro:': 'Cliente Prospecto',
+        'Nombre del Negocio:': nombreProspecto,
+        'Dirección:': direccionProspecto,
+        'Teléfono:': telefonoProspecto || 'No proporcionado',
+        'Tipo de Negocio:': tipoNegocioProspecto,
+        'Comentarios:': comentariosProspecto || 'Sin comentarios',
+        'Foto del Negocio:': fotoUrl || 'No proporcionada',
+        'Latitud:': gpsLocation.latitude,
+        'Longitud:': gpsLocation.longitude,
+        'Dirección GPS:': `${gpsLocation.latitude}, ${gpsLocation.longitude}`,
+        'Fecha y Hora:': new Date().toLocaleString('es-VE'),
+        'Mercaderista:': userData?.displayName || 'N/A',
+        'Correo Mercaderista:': userData?.email || 'N/A',
+        'Sede:': userData?.sede || 'GRUPO DISBATTERY'
+      };
+
+      // 4. Crear visita especial para cliente prospecto
+      const { crearVisita } = await import('@/services/visitas');
+      
+      const visitaId = await crearVisita({
+        rifCliente: '', // Los prospectos no tienen RIF aún
+        nombreEstablecimiento: nombreProspecto,
+        tipoVisita: 'Cliente Prospecto',
+        mercaderista: userData?.displayName || 'N/A',
+        correoMercaderista: userData?.email || 'N/A',
+        ubicacion: { lat: gpsLocation.latitude, lng: gpsLocation.longitude },
+        sucursal: userData?.sede || 'GRUPO DISBATTERY',
+        respuestas: {
+          nombreNegocio: nombreProspecto,
+          direccion: direccionProspecto,
+          telefono: telefonoProspecto,
+          tipoNegocio: tipoNegocioProspecto,
+          comentarios: comentariosProspecto,
+          fotoUrl: fotoUrl,
+          gpsCoordinates: gpsLocation
+        },
+        observacionesAdicionales: `Cliente prospecto: ${tipoNegocioProspecto} - ${nombreProspecto}`,
+        datosN8N: {
+          datosSheet: datosSheet,
+          tipoVisita: 'Cliente Prospecto'
+        }
+      });
+
+      console.log('✅ Visita de cliente prospecto creada:', visitaId);
+
+      toast({
+        title: '✅ Cliente Prospecto Registrado',
+        description: `${nombreProspecto} registrado exitosamente como prospecto.`,
+      });
+
+      // Cerrar el diálogo
+      setIsClienteProspectoDialogOpen(false);
+      setNombreProspecto('');
+      setDireccionProspecto('');
+      setTelefonoProspecto('');
+      setTipoNegocioProspecto('');
+      setFotoProspecto(null);
+      setComentariosProspecto('');
+
+    } catch (error) {
+      console.error('❌ Error guardando cliente prospecto:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo registrar el cliente prospecto. Intente nuevamente.',
+      });
+    }
+  };
+
   const handleSelectClient = (point: RoutePoint) => {
     setSelectedClient(point);
   };
@@ -1502,6 +1904,13 @@ export default function MyRoutePage() {
                         <span className="sm:hidden">Historial</span>
                       </div>
                     </TabsTrigger>
+                    <TabsTrigger value="prospecto" className="text-xs sm:text-sm px-2 py-2 min-h-[2.5rem] flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <UserPlus className="w-4 h-4" />
+                        <span className="hidden sm:inline">Nuevo Prospecto</span>
+                        <span className="sm:hidden">Prospecto</span>
+                      </div>
+                    </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="ruta" className="space-y-4 mt-6">
@@ -1643,10 +2052,11 @@ export default function MyRoutePage() {
                             const isPendiente = point.status === 'pendiente';
                             const isVisitado = point.status === 'visitado';
                             const isOmitido = point.status === 'omitido';
+                            const isCerrado = point.status === 'cerrado';
                             const isRouteCompleted = todaysRoutes[0]?.status === 'completada';
                             
-                            // ✅ CORRECCIÓN: Solo permitir clicks si está pendiente AND la ruta no está completada
-                            const isClickable = isPendiente && !isRouteCompleted;
+                            // ✅ CORRECCIÓN: Solo permitir clicks si está pendiente AND la ruta no está completada AND no está cerrado
+                            const isClickable = isPendiente && !isRouteCompleted && !isCerrado;
                             
                             return (
                               <li key={point.id}>
@@ -1681,6 +2091,7 @@ export default function MyRoutePage() {
                                               )}
                                               {isVisitado && <span className="text-green-600 text-base">✓</span>}
                                               {isOmitido && <span className="text-amber-600 text-base">⨉</span>}
+                                              {isCerrado && <span className="text-red-600 text-base">🚪</span>}
                                               {isRouteCompleted && <span className="text-gray-500 text-sm ml-2 font-medium">🔒</span>}
                                             </p>
                                             <div className={`flex items-center text-xs sm:text-sm mt-1 ${
@@ -1719,7 +2130,9 @@ export default function MyRoutePage() {
                                                 ? 'text-blue-600' 
                                                 : isVisitado 
                                                   ? 'text-green-600' 
-                                                  : 'text-amber-600'
+                                                  : isCerrado
+                                                    ? 'text-red-600'
+                                                    : 'text-amber-600'
                                           }`}>
                                             {isRouteCompleted 
                                               ? 'No Disponible' 
@@ -1727,12 +2140,15 @@ export default function MyRoutePage() {
                                                 ? 'Pendiente' 
                                                 : isVisitado 
                                                   ? 'Visitado' 
-                                                  : 'Omitido'
+                                                  : isCerrado
+                                                    ? 'Cerrado'
+                                                    : 'Omitido'
                                             }
                                           </span>
                                           <div className="flex items-center gap-1">
                                             {isClickable && <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />}
                                             {(isRouteCompleted || isVisitado) && <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />}
+                                            {isCerrado && <DoorClosed className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />}
                                           </div>
                                         </div>
                                       </CardContent>
@@ -1748,6 +2164,21 @@ export default function MyRoutePage() {
                                   >
                                     <UserCheck className="w-3 h-3 sm:w-4 sm:h-4" />
                                   </Button>
+
+                                  {/* Botón Cliente Cerrado - solo para Merchandising y Trade (Impulso) */}
+                                  {!point._isEvent && 
+                                   (point.tipoVisita?.includes('Merchandising') || point.tipoVisita?.includes('Trade (Impulso)')) && 
+                                   isPendiente && !isRouteCompleted && !isCerrado && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleClienteCerrado(point)}
+                                      className="px-2 sm:px-3 h-8 sm:h-9 border-red-200 text-red-600 hover:bg-red-50"
+                                      title="Marcar cliente como cerrado"
+                                    >
+                                      <DoorClosed className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    </Button>
+                                  )}
                                 </div>
                               </li>
                             );
@@ -1996,6 +2427,56 @@ export default function MyRoutePage() {
                       )}
                     </div>
                   </TabsContent>
+
+                  <TabsContent value="prospecto" className="space-y-4 mt-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 mb-4">
+                        <UserPlus className="w-6 h-6 text-green-600" />
+                        <h2 className="text-2xl font-bold text-gray-800">Registrar Cliente Prospecto</h2>
+                      </div>
+                      
+                      <Card>
+                        <CardContent className="p-4 sm:p-6">
+                          <div className="text-center space-y-3 sm:space-y-4">
+                            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                              <UserPlus className="w-8 h-8 text-green-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">
+                                ¿Encontraste un nuevo punto de venta?
+                              </h3>
+                              <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 px-2">
+                                Registra clientes potenciales que encuentres durante tu ruta para futuras visitas
+                              </p>
+                            </div>
+                            <Button 
+                              onClick={handleClienteProspecto}
+                              className="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base w-full max-w-xs mx-auto"
+                              size="sm"
+                            >
+                              <UserPlus className="w-4 h-4 mr-1 sm:mr-2" />
+                              <span className="hidden sm:inline">Registrar Nuevo Prospecto</span>
+                              <span className="sm:hidden">Nuevo Prospecto</span>
+                            </Button>
+                          </div>
+                          
+                          <div className="mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg">
+                            <h4 className="font-semibold text-blue-800 mb-2 text-sm sm:text-base">¿Qué información necesitas capturar?</h4>
+                            <ul className="text-xs sm:text-sm text-blue-700 space-y-1">
+                              <li>• 🏪 Nombre del negocio *</li>
+                              <li>• 📍 Dirección exacta *</li>
+                              <li>• 🏷️ Tipo de negocio *</li>
+                              <li>• 📞 Teléfono (opcional)</li>
+                              <li>• 📸 Foto del establecimiento (opcional)</li>
+                              <li>• 📝 Comentarios adicionales (opcional)</li>
+                              <li>• 🗺️ Ubicación GPS automática</li>
+                            </ul>
+                            <p className="text-xs text-blue-600 mt-2 font-medium">* Campos obligatorios</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </TabsContent>
                 </Tabs>
               </CardContent>
             </Card>
@@ -2009,6 +2490,242 @@ export default function MyRoutePage() {
           </CardFooter>
         </Card>
       </div>
+
+      {/* Diálogo para Cliente Cerrado */}
+      <Dialog open={isClienteSerradoDialogOpen} onOpenChange={setIsClienteSerradoDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DoorClosed className="w-5 h-5 text-red-500" />
+              Cliente Cerrado
+            </DialogTitle>
+            <DialogDescription>
+              Registra que el cliente {currentPointForCerrado?.name} está cerrado
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Foto del cliente cerrado */}
+            <div className="space-y-2">
+              <Label>Foto del Cliente Cerrado *</Label>
+              {fotoCerrado ? (
+                <div className="space-y-2">
+                  <img 
+                    src={fotoCerrado} 
+                    alt="Cliente cerrado" 
+                    className="w-full h-48 object-cover rounded-md border"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFotoCerrado(null)}
+                    className="w-full"
+                  >
+                    Tomar Nueva Foto
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={tomarFotoCerrado}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Tomar Foto
+                </Button>
+              )}
+            </div>
+
+            {/* Razón del cierre */}
+            <div className="space-y-2">
+              <Label htmlFor="razon-cerrado">Razón del Cierre *</Label>
+              <Select value={razonCerrado} onValueChange={setRazonCerrado}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una razón" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cerrado-horario">Cerrado por horario</SelectItem>
+                  <SelectItem value="cerrado-vacaciones">Cerrado por vacaciones</SelectItem>
+                  <SelectItem value="cerrado-inventario">Cerrado por inventario</SelectItem>
+                  <SelectItem value="cerrado-mantenimiento">Cerrado por mantenimiento</SelectItem>
+                  <SelectItem value="no-atiende">No atiende/No responde</SelectItem>
+                  <SelectItem value="otro">Otro motivo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Comentarios adicionales */}
+            <div className="space-y-2">
+              <Label htmlFor="comentarios-cerrado">Comentarios Adicionales</Label>
+              <Textarea
+                id="comentarios-cerrado"
+                placeholder="Detalles adicionales sobre el cierre..."
+                value={comentariosCerrado}
+                onChange={(e) => setComentariosCerrado(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            {/* Botones */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsClienteSerradoDialogOpen(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={guardarClienteCerrado}
+                className="flex-1 bg-red-600 hover:bg-red-700"
+                disabled={!fotoCerrado || !razonCerrado}
+              >
+                Registrar Cierre
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo para Cliente Prospecto */}
+      <Dialog open={isClienteProspectoDialogOpen} onOpenChange={setIsClienteProspectoDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto mx-2">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
+              Registrar Cliente Prospecto
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              Captura información de un nuevo punto de venta potencial
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3 sm:space-y-4">
+            {/* Foto del prospecto */}
+            <div className="space-y-2">
+              <Label className="text-sm">Foto del Establecimiento (Opcional)</Label>
+              {fotoProspecto ? (
+                <div className="space-y-2">
+                  <img 
+                    src={fotoProspecto} 
+                    alt="Cliente prospecto" 
+                    className="w-full h-48 object-cover rounded-md border"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFotoProspecto(null)}
+                    className="w-full"
+                  >
+                    Tomar Nueva Foto
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={tomarFotoProspecto}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Tomar Foto
+                </Button>
+              )}
+            </div>
+
+            {/* Nombre del negocio */}
+            <div className="space-y-2">
+              <Label htmlFor="nombre-prospecto" className="text-sm font-medium">Nombre del Negocio *</Label>
+              <Input
+                id="nombre-prospecto"
+                placeholder="Ej: Farmacia San José"
+                value={nombreProspecto}
+                onChange={(e) => setNombreProspecto(e.target.value)}
+                className="text-sm"
+              />
+            </div>
+
+            {/* Dirección */}
+            <div className="space-y-2">
+              <Label htmlFor="direccion-prospecto" className="text-sm font-medium">Dirección *</Label>
+              <Textarea
+                id="direccion-prospecto"
+                placeholder="Dirección completa del establecimiento"
+                value={direccionProspecto}
+                onChange={(e) => setDireccionProspecto(e.target.value)}
+                rows={2}
+                className="text-sm resize-none"
+              />
+            </div>
+
+            {/* Teléfono */}
+            <div className="space-y-2">
+              <Label htmlFor="telefono-prospecto" className="text-sm font-medium">Teléfono (Opcional)</Label>
+              <Input
+                id="telefono-prospecto"
+                placeholder="Ej: 0414-1234567"
+                value={telefonoProspecto}
+                onChange={(e) => setTelefonoProspecto(e.target.value)}
+                className="text-sm"
+                type="tel"
+              />
+            </div>
+
+            {/* Tipo de negocio */}
+            <div className="space-y-2">
+              <Label htmlFor="tipo-negocio" className="text-sm font-medium">Tipo de Negocio *</Label>
+              <Select value={tipoNegocioProspecto} onValueChange={setTipoNegocioProspecto}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Selecciona el tipo de negocio" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="farmacia">Farmacia</SelectItem>
+                  <SelectItem value="supermercado">Supermercado</SelectItem>
+                  <SelectItem value="abastos">Abastos</SelectItem>
+                  <SelectItem value="licoreria">Licorería</SelectItem>
+                  <SelectItem value="ferreteria">Ferretería</SelectItem>
+                  <SelectItem value="autorepuestos">Autorepuestos</SelectItem>
+                  <SelectItem value="taller">Taller Mecánico</SelectItem>
+                  <SelectItem value="estacion-servicio">Estación de Servicio</SelectItem>
+                  <SelectItem value="minimarket">Minimarket</SelectItem>
+                  <SelectItem value="bodega">Bodega</SelectItem>
+                  <SelectItem value="otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Comentarios adicionales */}
+            <div className="space-y-2">
+              <Label htmlFor="comentarios-prospecto" className="text-sm font-medium">Comentarios Adicionales</Label>
+              <Textarea
+                id="comentarios-prospecto"
+                placeholder="Observaciones, horarios, contactos, etc..."
+                value={comentariosProspecto}
+                onChange={(e) => setComentariosProspecto(e.target.value)}
+                rows={2}
+                className="text-sm resize-none"
+              />
+            </div>
+
+            {/* Botones */}
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsClienteProspectoDialogOpen(false)}
+                className="flex-1 text-sm h-9"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={guardarClienteProspecto}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-sm h-9"
+                disabled={!nombreProspecto.trim() || !direccionProspecto.trim() || !tipoNegocioProspecto}
+              >
+                Registrar Prospecto
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo para seleccionar ubicación GPS */}
       <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>

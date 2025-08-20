@@ -22,6 +22,8 @@ export interface VisitaBase {
   updatedAt: Date;
   sincronizadoN8N: boolean;
   errorSync?: string;
+  checkIn写真URL?: string;
+  checkInContexto?: string;
 }
 
 // Respuestas específicas para Merchandising

@@ -21,6 +21,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { crearVisita, setN8NWebhookURL } from '@/services/visitas';
 import { RespuestasTrade } from '@/types/visitas';
 import { getCurrentUser, getUserFromStorage } from '@/services/auth';
+import { getGPSLocation, GPSCoordinates } from '@/services/gpsService';
+
 
 interface RecursoUsado {
   tipo: string;
@@ -73,32 +75,26 @@ const ENTREGABLES_IMPULSO_QUALID_TYPES: string[] = [
   'Vasos Qualid',
 ];
 
+const FOTO_LABELS = ['Stand', 'Promotoras', 'Ambiente'];
+
 
 export default function TradeEventosPage() {
   const router = useRouter();
   const { toast } = useToast();
-  
-  // Estados para las marcas (asignadas por admin, no editables)
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [recursosAgregados, setRecursosAgregados] = useState<RecursoUsado[]>([]);
-  const [currentTipoRecurso, setCurrentTipoRecurso] = useState<string>('');
-  const [currentCantidadRecurso, setCurrentCantidadRecurso] = useState<string>('');
-  
-  const [entregablesShellAgregados, setEntregablesShellAgregados] = useState<EntregableUsado[]>([]);
-  const [currentTipoEntregableShell, setCurrentTipoEntregableShell] = useState<string>('');
-  const [currentCantidadEntregableShell, setCurrentCantidadEntregableShell] = useState<string>('');
 
-  const [entregablesQualidAgregados, setEntregablesQualidAgregados] = useState<EntregableUsado[]>([]);
-  const [currentTipoEntregableQualid, setCurrentTipoEntregableQualid] = useState<string>('');
-  const [currentCantidadEntregableQualid, setCurrentCantidadEntregableQualid] = useState<string>('');
+  // Configurar URL del webhook N8N al inicializar
+  useEffect(() => {
+    setN8NWebhookURL('https://n8n.con-visas.com/webhook/Disbattery-Trade-app');
+  }, []);
 
-  // Estados para las 6 fotos del evento
-  const [fotosEvento, setFotosEvento] = useState<(string | null)[]>(Array(6).fill(null));
-  
-  // Estados para videos del evento
-  const [videosEvento, setVideosEvento] = useState<string[]>([]);
-  
-  const [isSyncing, setIsSyncing] = useState(false);
+  // Establecer marcas automáticamente desde la ruta
+  useEffect(() => {
+    const marcasFromRoute = getMarcasFromRoute();
+    if (marcasFromRoute && marcasFromRoute.length > 0) {
+      setSelectedBrands(marcasFromRoute);
+      console.log('🎯 Marcas establecidas automáticamente desde ruta:', marcasFromRoute);
+    }
+  }, []);
 
   // Función para obtener las marcas desde la ruta
   const getMarcasFromRoute = () => {
@@ -227,20 +223,31 @@ export default function TradeEventosPage() {
     }
   };
 
-  // Configurar URL del webhook N8N al inicializar
-  useEffect(() => {
-    setN8NWebhookURL('https://n8n.con-visas.com/webhook/Disbattery-Trade-app');
-  }, []);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [recursosAgregados, setRecursosAgregados] = useState<RecursoUsado[]>([]);
+  const [currentTipoRecurso, setCurrentTipoRecurso] = useState<string>('');
+  const [currentCantidadRecurso, setCurrentCantidadRecurso] = useState<string>('');
+  
+  const [entregablesShellAgregados, setEntregablesShellAgregados] = useState<EntregableUsado[]>([]);
+  const [currentTipoEntregableShell, setCurrentTipoEntregableShell] = useState<string>('');
+  const [currentCantidadEntregableShell, setCurrentCantidadEntregableShell] = useState<string>('');
 
-  // Establecer marcas automáticamente desde la ruta
-  useEffect(() => {
-    const marcasFromRoute = getMarcasFromRoute();
-    if (marcasFromRoute && marcasFromRoute.length > 0) {
-      setSelectedBrands(marcasFromRoute);
-      console.log('🎯 Marcas establecidas automáticamente desde ruta:', marcasFromRoute);
-    }
-  }, []);
+  const [entregablesQualidAgregados, setEntregablesQualidAgregados] = useState<EntregableUsado[]>([]);
+  const [currentTipoEntregableQualid, setCurrentTipoEntregableQualid] = useState<string>('');
+  const [currentCantidadEntregableQualid, setCurrentCantidadEntregableQualid] = useState<string>('');
 
+  // Estados para las 6 fotos del evento
+  const [fotosEvento, setFotosEvento] = useState<(string | null)[]>(Array(6).fill(null));
+  
+  // ✅ NUEVO: Estados de fotos separados por marca
+  const [fotosShell, setFotosShell] = useState<(string | null)[]>(Array(3).fill(null));
+  const [fotosQualid, setFotosQualid] = useState<(string | null)[]>(Array(3).fill(null));
+
+  // Estados para videos del evento
+  const [videosEvento, setVideosEvento] = useState<string[]>([]);
+  
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [gpsCoordinates, setGpsCoordinates] = useState<GPSCoordinates | null>(null);
 
   const uploadImage = async (setter: React.Dispatch<React.SetStateAction<string | null>>, photoType: string) => {
     try {
@@ -310,6 +317,64 @@ export default function TradeEventosPage() {
     }
   };
 
+  // ✅ NUEVAS FUNCIONES PARA CARGAR FOTOS POR MARCA
+  const uploadBrandPhoto = async (brand: 'Shell' | 'Qualid', index: number) => {
+    try {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      
+      input.onchange = (event) => {
+        const file = (event.target as HTMLInputElement).files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const result = e.target?.result as string;
+            if (brand === 'Shell') {
+              const newFotos = [...fotosShell];
+              newFotos[index] = result;
+              setFotosShell(newFotos);
+            } else {
+              const newFotos = [...fotosQualid];
+              newFotos[index] = result;
+              setFotosQualid(newFotos);
+            }
+            toast({
+              title: `✅ Foto ${index + 1} (${brand}) subida`,
+              description: 'La imagen del evento se ha cargado correctamente.',
+            });
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      
+      input.click();
+    } catch (error) {
+      console.error(`Error uploading ${brand} photo:`, error);
+      toast({
+        variant: 'destructive',
+        title: `Error al subir foto de ${brand}`,
+        description: 'Asegúrese de que el archivo sea una imagen válida.',
+      });
+    }
+  };
+
+  const removeBrandPhoto = (brand: 'Shell' | 'Qualid', index: number) => {
+    if (brand === 'Shell') {
+      const newFotos = [...fotosShell];
+      newFotos[index] = null;
+      setFotosShell(newFotos);
+    } else {
+      const newFotos = [...fotosQualid];
+      newFotos[index] = null;
+      setFotosQualid(newFotos);
+    }
+    toast({
+      title: 'Foto eliminada',
+      description: `La foto ${index + 1} de ${brand} ha sido eliminada.`,
+    });
+  };
+
   const uploadVideo = async () => {
     try {
       const input = document.createElement('input');
@@ -341,16 +406,6 @@ export default function TradeEventosPage() {
         description: 'Asegúrese de que el archivo sea un video válido.',
       });
     }
-  };
-
-  const removeEventPhoto = (index: number) => {
-    const newFotos = [...fotosEvento];
-    newFotos[index] = null;
-    setFotosEvento(newFotos);
-    toast({
-      title: 'Foto eliminada',
-      description: `La foto ${index + 1} ha sido eliminada.`,
-    });
   };
 
   const removeVideo = (index: number) => {
@@ -487,7 +542,6 @@ export default function TradeEventosPage() {
     console.log('🔍 selectedBrands:', selectedBrands);
     console.log('🔍 Fotos del evento:', fotosEvento.filter(f => f).length);
     console.log('🔍 Videos del evento:', videosEvento.length);
-    console.log('🔍 Marcas asignadas:', selectedBrands.join(', '));
     console.log('🔍 ====== FIN DEBUG ======');
     
     if (selectedBrands.length === 0) {
@@ -500,7 +554,7 @@ export default function TradeEventosPage() {
     }
 
     // Verificar que al menos 3 fotos hayan sido subidas
-    const fotosSubidas = fotosEvento.filter(foto => foto !== null && foto !== '').length;
+    const fotosSubidas = fotosShell.filter(f => f).length + fotosQualid.filter(f => f).length;
     if (fotosSubidas < 3) {
       toast({
         variant: 'destructive',
@@ -510,27 +564,26 @@ export default function TradeEventosPage() {
       return;
     }
 
-    // Los eventos Trade no requieren estas validaciones
-
     try {
       setIsSyncing(true);
 
-      // Obtener datos del cliente desde localStorage
-      const clienteData = localStorage.getItem('clienteData');
-      console.log('clienteData raw:', clienteData);
-      
-      if (!clienteData) {
-        console.log('Error: No hay clienteData en localStorage');
+      // OBTENER DATOS DEL CLIENTE Y UBICACIÓN (YA CAPTURADA) DESDE LOCALSTORAGE
+      const clienteDataString = localStorage.getItem('clienteData');
+      if (!clienteDataString) {
         toast({
           variant: 'destructive',
           title: 'Error de Cliente',
           description: 'No se encontraron datos del cliente. Vuelva al inicio.',
         });
+        setIsSyncing(false);
         return;
       }
+      
+      const cliente = JSON.parse(clienteDataString);
+      const location = cliente.gpsCoordinates; // Usar la ubicación ya guardada
 
-      const cliente = JSON.parse(clienteData);
       console.log('cliente parsed:', cliente);
+      console.log('🛰️ Ubicación recuperada de localStorage:', location);
 
       // Obtener datos del usuario logueado
       let currentUser = await getCurrentUser();
@@ -545,7 +598,6 @@ export default function TradeEventosPage() {
       console.log('🔍 VERIFICACIÓN DE FOTOS DEL EVENTO:');
       console.log('🔍 Fotos subidas:', fotosEvento.filter(f => f).length);
       console.log('🔍 Videos subidos:', videosEvento.length);
-      console.log('🔍 Marcas asignadas:', selectedBrands.join(', '));
 
       // Preparar datos para guardar localmente (sin enviar aún)
       const tradeEventoData = {
@@ -554,8 +606,11 @@ export default function TradeEventosPage() {
         recursosUsados: recursosAgregados,
         entregablesShell: entregablesShellAgregados,
         entregablesQualid: entregablesQualidAgregados,
-        fotosEvento: fotosEvento.filter(foto => foto !== null),
+        fotosEvento: fotosEvento.filter(foto => foto !== null), // MANTENER PARA COMPATIBILIDAD
+        fotosShell: fotosShell.filter(f => f !== null), // NUEVO
+        fotosQualid: fotosQualid.filter(f => f !== null), // NUEVO
         videosEvento: videosEvento,
+        gpsCoordinates: location,
         clienteData: cliente,
         mercaderista: mercaderista,
         correoMercaderista: correoMercaderista,
@@ -566,7 +621,7 @@ export default function TradeEventosPage() {
       console.log('🔍 VERIFICACIÓN FINAL DE DATOS:');
       console.log('🔍 tradeEventoData.fotosEvento:', tradeEventoData.fotosEvento.length, 'fotos');
       console.log('🔍 tradeEventoData.videosEvento:', tradeEventoData.videosEvento.length, 'videos');
-      console.log('🔍 tradeEventoData.marcas:', tradeEventoData.marcas.join(', '));
+      console.log('🛰️ tradeEventoData.gpsCoordinates:', tradeEventoData.gpsCoordinates);
 
       // Guardar en localStorage para usar después
       localStorage.setItem('datosFormularioCompleto', JSON.stringify(tradeEventoData));
@@ -671,13 +726,38 @@ export default function TradeEventosPage() {
     tipo => !entregablesQualidAgregados.find(e => e.tipo === tipo)
   );
   
+  const fotosSubidas = fotosShell.filter(f => f).length + fotosQualid.filter(f => f).length;
+
   // Función para determinar si se puede continuar
   const canProceed = () => {
-    const fotosSubidas = fotosEvento.filter(foto => foto !== null).length;
+    const fotosSubidas = fotosShell.filter(f => f).length + fotosQualid.filter(f => f).length;
+    
     return selectedBrands.length > 0 && fotosSubidas >= 3;
   };
 
-  // Las marcas son asignadas por el admin, no editables por el mercaderista
+  const handleBrandChange = (brand: string, checked: boolean) => {
+    if (checked) {
+      setSelectedBrands(prev => [...prev, brand]);
+    } else {
+      setSelectedBrands(prev => prev.filter(b => b !== brand));
+      // Si se desmarca Shell, limpiar sus entregables
+      if (brand === 'Shell') {
+        setEntregablesShellAgregados([]);
+        setCurrentTipoEntregableShell('');
+        setCurrentCantidadEntregableShell('');
+      }
+      // Si se desmarca Qualid, limpiar sus entregables
+      if (brand === 'Qualid') {
+        setEntregablesQualidAgregados([]);
+        setCurrentTipoEntregableQualid('');
+        setCurrentCantidadEntregableQualid('');
+      }
+    }
+    // Limpiar recursos cuando cambie la selección
+    setRecursosAgregados([]);
+    setCurrentTipoRecurso('');
+    setCurrentCantidadRecurso('');
+  };
 
 
   return (
@@ -710,29 +790,36 @@ export default function TradeEventosPage() {
           
 
           <div>
-            <Label className="font-medium">Marcas Asignadas al Evento</Label>
+            <Label className="font-medium">Marcas Trabajadas</Label>
             <p className="text-sm text-muted-foreground mb-3">
-              Las siguientes marcas fueron asignadas a este evento por el administrador.
+              Seleccione las marcas que trabajará en este evento. Puede seleccionar ambas.
             </p>
-            {selectedBrands.length > 0 ? (
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <span className="text-lg">🏷️</span>
-                  <span className="font-medium text-blue-800">
-                    Trabajando con: {selectedBrands.join(' y ')}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-orange-50 p-3 rounded-lg">
-                <p className="text-sm text-orange-600">
-                  ⚠️ No hay marcas asignadas a este evento. Contacte al administrador.
-                </p>
-              </div>
+            <div className="space-y-3">
+              {MARCAS_TRADE.map(marca => (
+                <label key={marca} className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedBrands.includes(marca)}
+                    onChange={(e) => handleBrandChange(marca, e.target.checked)}
+                    disabled={isSyncing}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium">{marca}</span>
+                </label>
+              ))}
+            </div>
+            {selectedBrands.length === 0 && (
+              <p className="text-sm text-orange-600 mt-2">
+                ⚠️ Seleccione al menos una marca para continuar.
+              </p>
+            )}
+            {selectedBrands.length > 0 && (
+              <p className="text-sm text-green-600 mt-2">
+                ✓ Marcas seleccionadas: {selectedBrands.join(', ')}
+              </p>
             )}
           </div>
 
-          {/* Sección de Recursos - Combinados para todas las marcas */}
           {selectedBrands.length > 0 && (
             <div className="space-y-4 border-t pt-4">
               <Label className="font-medium">Recursos Utilizados ({selectedBrands.join(' y ')})</Label>
@@ -797,22 +884,11 @@ export default function TradeEventosPage() {
             </div>
           )}
 
-          {/* ===== SECCIÓN SHELL ===== */}
           {selectedBrands.includes('Shell') && (
-            <div className="space-y-6 border-t-4 border-yellow-500 pt-6 mt-6">
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <h3 className="text-lg font-bold text-yellow-800 flex items-center">
-                  🐚 SHELL - Preguntas y Recursos
-                </h3>
-                <p className="text-sm text-yellow-700 mt-1">
-                  Complete esta sección para la marca Shell
-                </p>
-              </div>
-              
-              <div className="space-y-4">
-                <Label className="font-medium">Entregables Shell</Label>
-                <div className="flex items-end space-x-2">
-                  <div className="flex-grow space-y-1">
+            <div className="space-y-4 border-t pt-4">
+              <Label className="font-medium">Entregables Shell</Label>
+              <div className="flex items-end space-x-2">
+                <div className="flex-grow space-y-1">
                     <Label htmlFor="tipo-entregable-shell-select">Tipo de Entregable</Label>
                     <Select
                       value={currentTipoEntregableShell}
@@ -870,25 +946,13 @@ export default function TradeEventosPage() {
                     <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de entregables Shell disponibles han sido agregados.</p>
                 )}
               </div>
-              </div>
           )}
 
-          {/* ===== SECCIÓN QUALID ===== */}
           {selectedBrands.includes('Qualid') && (
-            <div className="space-y-6 border-t-4 border-blue-500 pt-6 mt-6">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h3 className="text-lg font-bold text-blue-800 flex items-center">
-                  🔷 QUALID - Preguntas y Recursos  
-                </h3>
-                <p className="text-sm text-blue-700 mt-1">
-                  Complete esta sección para la marca Qualid
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <Label className="font-medium">Entregables Qualid</Label>
-                <div className="flex items-end space-x-2">
-                  <div className="flex-grow space-y-1">
+            <div className="space-y-4 border-t pt-4">
+              <Label className="font-medium">Entregables Qualid</Label>
+              <div className="flex items-end space-x-2">
+                <div className="flex-grow space-y-1">
                     <Label htmlFor="tipo-entregable-qualid-select">Tipo de Entregable</Label>
                     <Select
                       value={currentTipoEntregableQualid}
@@ -946,43 +1010,41 @@ export default function TradeEventosPage() {
                     <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de entregables Qualid disponibles han sido agregados.</p>
                 )}
               </div>
+          )}
+
+          {/* Sección de Fotos del Evento */}
+          {selectedBrands.length > 0 && (
+            <div className="space-y-4 border-t pt-4">
+              <Label className="font-medium">Fotos del Evento (Mínimo 3 en total)</Label>
+              <p className="text-sm text-muted-foreground">
+                Sube fotos del evento, incluyendo la instalación, promotoras y ambiente general.
+              </p>
+              <p className="text-sm text-muted-foreground font-semibold">
+                Fotos subidas: {fotosShell.filter(f => f).length + fotosQualid.filter(f => f).length}/6
+              </p>
             </div>
           )}
 
-          {/* ===== SECCIÓN GENERAL DEL EVENTO ===== */}
-          {selectedBrands.length > 0 && (
-            <div className="space-y-6 border-t-4 border-green-500 pt-6 mt-6">
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="text-lg font-bold text-green-800 flex items-center">
-                  📸 DOCUMENTACIÓN DEL EVENTO
-                </h3>
-                <p className="text-sm text-green-700 mt-1">
-                  Fotos y videos generales del evento para todas las marcas trabajadas
-                </p>
-              </div>
-
-          {/* Sección de Fotos del Evento */}
-              <div className="space-y-4 border-t pt-4">
-              <Label className="font-medium">Fotos del Evento (Mínimo 3, Máximo 6)</Label>
-                <p className="text-sm text-muted-foreground">
-                Sube fotos del evento, incluyendo la instalación del material, vista del stand, promotoras, interacción con clientes y ambiente general del evento.
-              </p>
+          {/* SECCIÓN DE FOTOS SHELL */}
+          {selectedBrands.includes('Shell') && (
+            <div className="space-y-4 border-t pt-4">
+              <Label className="font-medium text-lg">📷 Fotos del Evento Shell</Label>
               <div className="grid grid-cols-2 gap-4">
-                {fotosEvento.map((foto, index) => (
-                  <div key={index} className="space-y-2">
-                    <Label className="text-sm">Foto {index + 1}</Label>
+                {fotosShell.map((foto, index) => (
+                  <div key={`shell-${index}`} className="space-y-2">
+                    <Label className="text-sm">Foto {FOTO_LABELS[index]} (Shell)</Label>
                     {foto ? (
                       <div className="relative">
                         <img
                           src={foto}
-                          alt={`Foto del evento ${index + 1}`}
+                          alt={`Foto de Shell ${index + 1}`}
                           className="w-full h-32 object-cover rounded-md border"
                         />
-                <Button
+                        <Button
                           variant="destructive"
                           size="sm"
                           className="absolute top-2 right-2"
-                          onClick={() => removeEventPhoto(index)}
+                          onClick={() => removeBrandPhoto('Shell', index)}
                           disabled={isSyncing}
                         >
                           <X className="h-4 w-4" />
@@ -990,38 +1052,76 @@ export default function TradeEventosPage() {
                       </div>
                     ) : (
                       <Button
-                  variant="outline"
+                        variant="outline"
                         className="w-full h-32 border-2 border-dashed"
-                        onClick={() => uploadEventPhoto(index)}
-                  disabled={isSyncing}
-                >
-                        <Camera className="mr-2 h-4 w-4" /> Subir Foto {index + 1}
-                </Button>
-                )}
-              </div>
+                        onClick={() => uploadBrandPhoto('Shell', index)}
+                        disabled={isSyncing}
+                      >
+                        <Camera className="mr-2 h-4 w-4" /> Subir Foto
+                      </Button>
+                    )}
+                  </div>
                 ))}
               </div>
-              <p className="text-sm text-muted-foreground">
-                Fotos subidas: {fotosEvento.filter(foto => foto !== null).length}/6
-              </p>
+            </div>
+          )}
+
+          {/* SECCIÓN DE FOTOS QUALID */}
+          {selectedBrands.includes('Qualid') && (
+            <div className="space-y-4 border-t pt-4">
+              <Label className="font-medium text-lg">📷 Fotos del Evento Qualid</Label>
+              <div className="grid grid-cols-2 gap-4">
+                {fotosQualid.map((foto, index) => (
+                  <div key={`qualid-${index}`} className="space-y-2">
+                    <Label className="text-sm">Foto {FOTO_LABELS[index]} (Qualid)</Label>
+                    {foto ? (
+                      <div className="relative">
+                        <img
+                          src={foto}
+                          alt={`Foto de Qualid ${index + 1}`}
+                          className="w-full h-32 object-cover rounded-md border"
+                        />
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => removeBrandPhoto('Qualid', index)}
+                          disabled={isSyncing}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        className="w-full h-32 border-2 border-dashed"
+                        onClick={() => uploadBrandPhoto('Qualid', index)}
+                        disabled={isSyncing}
+                      >
+                        <Camera className="mr-2 h-4 w-4" /> Subir Foto
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {/* Sección de Videos del Evento */}
           {selectedBrands.length > 0 && (
-              <div className="space-y-4 border-t pt-4">
+            <div className="space-y-4 border-t pt-4">
               <Label className="font-medium">Videos del Evento (Opcional)</Label>
-                <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Sube videos cortos que capturen la dinámica del evento, interacción con clientes o momentos destacados.
-                </p>
-                <Button
-                  variant="outline"
+              </p>
+              <Button
+                variant="outline"
                 onClick={uploadVideo}
-                  disabled={isSyncing}
+                disabled={isSyncing}
                 className="w-full"
-                >
+              >
                 <Video className="mr-2 h-4 w-4" /> Subir Video
-                </Button>
+              </Button>
               {videosEvento.length > 0 && (
                 <div className="space-y-2">
                   <Label className="text-sm text-muted-foreground">Videos subidos:</Label>
@@ -1035,12 +1135,10 @@ export default function TradeEventosPage() {
                       </li>
                     ))}
                   </ul>
-              </div>
+                </div>
               )}
-                  </div>
+            </div>
           )}
-
-          {/* Las secciones de cliente cerrado/fuera de ruta no aplican para eventos Trade */}
 
 
         </CardContent>
@@ -1056,25 +1154,25 @@ export default function TradeEventosPage() {
           
           {/* Indicador de progreso */}
           {selectedBrands.length > 0 && (
-            <div className="mt-4 p-3 bg-gray-50 rounded-md">
-              <Label className="text-sm font-medium">Progreso del formulario:</Label>
-              <div className="mt-2 space-y-1 text-sm">
+            <div className="ml-4 mt-0 p-3 bg-gray-50 rounded-md">
+              <p className="text-sm font-medium mb-2">Progreso del formulario:</p>
+              <div className="space-y-1 text-sm">
                 <div className="flex items-center space-x-2">
-                  {selectedBrands.length > 0 ? <CheckCircle className="h-4 w-4 text-green-600" /> : <div className="h-4 w-4 rounded-full border-2 border-gray-300" />}
-                  <span className={selectedBrands.length > 0 ? 'text-green-600' : 'text-gray-500'}>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className={'text-green-600'}>
                     Marcas seleccionadas ({selectedBrands.join(', ')})
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  {fotosEvento.filter(f => f).length >= 3 ? <CheckCircle className="h-4 w-4 text-green-600" /> : <div className="h-4 w-4 rounded-full border-2 border-gray-300" />}
-                  <span className={fotosEvento.filter(f => f).length >= 3 ? 'text-green-600' : 'text-gray-500'}>
-                    Fotos del evento ({fotosEvento.filter(f => f).length}/6 - mínimo 3)
+                  {fotosSubidas >= 3 ? <CheckCircle className="h-4 w-4 text-green-600" /> : <div className="h-4 w-4 rounded-full border-2 border-gray-300" />}
+                  <span className={fotosSubidas >= 3 ? 'text-green-600' : 'text-gray-500'}>
+                    Fotos del evento ({fotosSubidas}/6 - mínimo 3)
                   </span>
                 </div>
                 {videosEvento.length > 0 && (
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="h-4 w-4 text-blue-600" />
-                    <span className="text-blue-600">Videos subidos ({videosEvento.length})</span>
+                    <span className="text-sm text-blue-600">Video(s) añadido(s)</span>
                   </div>
                 )}
               </div>

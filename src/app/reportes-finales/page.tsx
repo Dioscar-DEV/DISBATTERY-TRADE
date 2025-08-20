@@ -10,7 +10,10 @@ import { useToast } from '@/hooks/use-toast';
 import { crearVisita, setN8NWebhookURL } from '@/services/visitas';
 import { RespuestasTrade } from '@/types/visitas';
 import { getCurrentUser, getUserFromStorage } from '@/services/auth';
-import { uploadMultipleImages } from '@/services/images';
+import { uploadMultipleImages, uploadOrganizedImages } from '@/services/images';
+import { SyncService } from '@/services/sync'; // Importar nuestro SyncService
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/firebase/clientApp';
 
 // 🗜️ FUNCIÓN PARA COMPRIMIR IMÁGENES BASE64
 const comprimirImagenBase64 = (base64String: string, calidad: number = 0.6): Promise<string> => {
@@ -42,6 +45,105 @@ const comprimirImagenBase64 = (base64String: string, calidad: number = 0.6): Pro
   });
 };
 
+// ✅ FUNCIÓN PARA ACTUALIZAR EL STATUS DEL EVENTO EN FIRESTORE
+const actualizarStatusEventoEnFirestore = async (eventId: string) => {
+  try {
+    console.log(`🔥 Actualizando status del evento ${eventId} en Firestore...`);
+    
+    const eventoRef = doc(db, 'eventos', eventId);
+    await updateDoc(eventoRef, {
+      status: 'completado'
+    });
+    
+    console.log(`✅ Status del evento ${eventId} actualizado a 'completado' en Firestore`);
+  } catch (error) {
+    console.error('❌ Error actualizando status del evento en Firestore:', error);
+    // No lanzar error para no interrumpir el flujo principal
+  }
+};
+
+// ✅ FUNCIÓN PARA MARCAR UN PUNTO DE RUTA O EVENTO COMO COMPLETADO
+const marcarPuntoComoCompletado = (puntoId: string) => {
+  try {
+    console.log(`🔄 Marcando punto ${puntoId} como completado...`);
+
+    // 1. ACTUALIZAR EN RUTAS REGULARES
+    const todaysRoutesStr = localStorage.getItem('todaysRoutesOffline');
+    if (todaysRoutesStr) {
+      console.log('📋 Verificando rutas regulares...');
+      const todaysRoutes = JSON.parse(todaysRoutesStr);
+      let puntoActualizado = false;
+      
+      const updatedRoutes = todaysRoutes.map((route: any) => {
+        if (route.points) {
+          route.points = route.points.map((point: any) => {
+            if (point.id === puntoId) {
+              console.log(`✅ Punto encontrado en ruta regular: ${point.nombre}. Cambiando estado.`);
+              point.estado = 'visitado';
+              puntoActualizado = true;
+            }
+            return point;
+          });
+        }
+        return route;
+      });
+
+      if (puntoActualizado) {
+        localStorage.setItem('todaysRoutesOffline', JSON.stringify(updatedRoutes));
+        console.log('✅ Rutas regulares actualizadas en localStorage.');
+      } else {
+        console.log('⚠️ No se encontró el punto en rutas regulares');
+      }
+    } else {
+      console.log('⚠️ No hay rutas regulares en localStorage');
+    }
+
+    // 2. ACTUALIZAR EN EVENTOS INDEPENDIENTES
+    const todaysEventsStr = localStorage.getItem('todaysEventsOffline');
+    if (todaysEventsStr) {
+      console.log('🎪 Verificando eventos independientes...');
+      const todaysEvents = JSON.parse(todaysEventsStr);
+      console.log(`🔍 Eventos disponibles: ${todaysEvents.length}`);
+      
+      // Debug: Mostrar todos los IDs de eventos disponibles
+      todaysEvents.forEach((evento: any, index: number) => {
+        console.log(`🎯 Evento ${index}: ID="${evento.id}", Nombre="${evento.nombreEvento}"`);
+      });
+      
+      let eventoActualizado = false;
+      
+      const updatedEvents = todaysEvents.map((evento: any) => {
+        // ✅ BÚSQUEDA ROBUSTA: Comprobar el ID principal del evento y el ID de punto (evento-{id})
+        console.log(`🔍 Comparando: evento.id="${evento.id}" vs puntoId="${puntoId}"`);
+        
+        if (evento.id === puntoId || `evento-${evento.id}` === puntoId) {
+          console.log(`✅ EVENTO ENCONTRADO: ${evento.nombreEvento}. Cambiando estado de "${evento.estado || 'undefined'}" a "visitado".`);
+          evento.estado = 'visitado';
+          eventoActualizado = true;
+        }
+        return evento;
+      });
+
+      if (eventoActualizado) {
+        localStorage.setItem('todaysEventsOffline', JSON.stringify(updatedEvents));
+        console.log('✅ Eventos independientes actualizados en localStorage.');
+        
+        // Disparar evento para actualizar la UI
+        window.dispatchEvent(new Event('storage'));
+        console.log('📡 Evento storage disparado para actualizar UI');
+      } else {
+        console.warn(`⚠️ NO SE ENCONTRÓ EL EVENTO con ID: ${puntoId}`);
+        console.warn('🔍 IDs disponibles:', todaysEvents.map((e: any) => e.id));
+      }
+    } else {
+      console.log('⚠️ No hay eventos independientes en localStorage');
+    }
+
+  } catch (error) {
+    console.error('❌ Error al marcar el punto como completado en localStorage:', error);
+  }
+};
+
 export default function ReportesFinalesPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -59,6 +161,91 @@ export default function ReportesFinalesPage() {
   }, []);
 
   const handleGuardarYContinuar = async () => {
+    //
+    // =================================================================
+    // INICIO DE LA MODIFICACIÓN PARA FUNCIONALIDAD OFFLINE
+    // =================================================================
+    //
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      try {
+        setIsSyncing(true);
+        console.log('🔄 Modo Offline: Guardando reporte localmente...');
+        
+        const datosAcumulados = JSON.parse(localStorage.getItem('datosFormularioCompleto') || '{}');
+        if (!datosAcumulados.clienteData) {
+          toast({
+            variant: 'destructive',
+            title: 'Error de Datos',
+            description: 'No se encontraron datos del cliente. Reinicie el proceso.',
+          });
+          return;
+        }
+
+        // Agregar los reportes finales a los datos acumulados
+        datosAcumulados.reporteShellFaltante = reporteShellFaltante;
+        datosAcumulados.reporteQualidFaltante = reporteQualidFaltante;
+        datosAcumulados.reporteComentariosAdicionales = reporteComentariosAdicionales;
+        
+        // Llamar a nuestro SyncService para guardar en IndexedDB
+        await SyncService.saveVisitaOffline(datosAcumulados);
+
+        // ✅ MARCAR EL PUNTO COMO COMPLETADO EN LOCALSTORAGE (MODO OFFLINE)
+        let puntoIdOffline = null;
+        
+        // Para eventos, usar eventId si existe
+        if (datosAcumulados.clienteData?.isEvent && datosAcumulados.clienteData?.eventId) {
+          puntoIdOffline = datosAcumulados.clienteData.eventId;
+          console.log(`🎯 [OFFLINE] Evento detectado - usando eventId: ${puntoIdOffline}`);
+          
+          // ✅ ACTUALIZAR STATUS EN FIRESTORE PARA EVENTOS (si hay conexión)
+          if (navigator.onLine) {
+            actualizarStatusEventoEnFirestore(puntoIdOffline);
+          } else {
+            console.log('📱 [OFFLINE] Status del evento se actualizará cuando haya conexión');
+          }
+        } 
+        // Para clientes regulares, usar id o pointId
+        else if (datosAcumulados.clienteData?.id) {
+          puntoIdOffline = datosAcumulados.clienteData.id;
+          console.log(`👤 [OFFLINE] Cliente regular detectado - usando ID: ${puntoIdOffline}`);
+        }
+        
+        if (puntoIdOffline) {
+          marcarPuntoComoCompletado(puntoIdOffline);
+        } else {
+          console.warn('⚠️ [OFFLINE] No se encontró un ID válido para marcar el punto como completado.');
+        }
+
+        // Limpiar localStorage
+        localStorage.removeItem('clienteData');
+        localStorage.removeItem('datosFormularioCompleto');
+
+        toast({
+          title: '✅ Reporte Guardado Offline',
+          description: 'Los datos se han guardado en su dispositivo y se enviarán automáticamente cuando recupere la conexión.',
+        });
+
+        // Navegar a la página de éxito
+        router.push('/registro-exitoso');
+
+      } catch (error) {
+        console.error('Error guardando el reporte offline:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error al Guardar Offline',
+          description: 'Hubo un problema al guardar los datos en el dispositivo. Por favor, intente de nuevo.',
+        });
+      } finally {
+        setIsSyncing(false);
+      }
+      return; // Detener la ejecución si estamos offline
+    }
+    //
+    // =================================================================
+    // FIN DE LA MODIFICACIÓN PARA FUNCIONALIDAD OFFLINE
+    // =================================================================
+    //
+
     try {
       setIsSyncing(true);
       
@@ -153,6 +340,50 @@ export default function ReportesFinalesPage() {
       
       // 🗜️ COMPRIMIR TODAS LAS FOTOS DISPONIBLES EN PARALELO
       const compresiones: Promise<void>[] = [];
+      
+      // ✅ NUEVO: Compresión de fotos de evento por marca
+      if (datosAcumulados.fotosShell && Array.isArray(datosAcumulados.fotosShell)) {
+        console.log(`📸 Comprimiendo ${datosAcumulados.fotosShell.length} fotos de Shell...`);
+        datosAcumulados.fotosShell.forEach((fotoBase64: string, index: number) => {
+          if (fotoBase64 && fotoBase64.startsWith('data:image/')) {
+            compresiones.push(
+              comprimirImagenBase64(fotoBase64).then(comprimida => {
+                fotosComprimidas[`foto_shell_${index}`] = comprimida; // foto_shell_0, foto_shell_1, etc.
+              })
+            );
+          }
+        });
+      }
+
+      if (datosAcumulados.fotosQualid && Array.isArray(datosAcumulados.fotosQualid)) {
+        console.log(`📸 Comprimiendo ${datosAcumulados.fotosQualid.length} fotos de Qualid...`);
+        datosAcumulados.fotosQualid.forEach((fotoBase64: string, index: number) => {
+          if (fotoBase64 && fotoBase64.startsWith('data:image/')) {
+            compresiones.push(
+              comprimirImagenBase64(fotoBase64).then(comprimida => {
+                fotosComprimidas[`foto_qualid_${index}`] = comprimida; // foto_qualid_0, foto_qualid_1, etc.
+              })
+            );
+          }
+        });
+      }
+      
+      // FOTOS DE TRADE (EVENTOS) - hasta 6 fotos
+      if (datosAcumulados.fotosEvento && Array.isArray(datosAcumulados.fotosEvento)) {
+        console.log(`📸 Comprimiendo ${datosAcumulados.fotosEvento.length} fotos de evento...`);
+        datosAcumulados.fotosEvento.forEach((fotoBase64: string, index: number) => {
+          if (fotoBase64 && fotoBase64.startsWith('data:image/')) {
+            compresiones.push(
+              comprimirImagenBase64(fotoBase64).then(comprimida => {
+                fotosComprimidas[`foto_evento_${index + 1}`] = comprimida;
+                console.log(`✅ COMPRIMIDA FOTO DE EVENTO ${index + 1}`);
+              }).catch(error => {
+                console.log(`❌ ERROR comprimiendo foto de evento ${index + 1}:`, error);
+              })
+            );
+          }
+        });
+      }
       
       // 🆕 FOTO DE SEÑALIZACIÓN (VISIT-CAPTURE)
       console.log('🚩🚩🚩 === DEBUGGING FOTO SEÑALIZACIÓN EN REPORTES-FINALES ===');
@@ -352,6 +583,10 @@ export default function ReportesFinalesPage() {
       // 🧹 CLONAR Y LIMPIAR DATOS PARA FIREBASE (ELIMINAR IMÁGENES BASE64 GRANDES)
       const datosLimpiosParaFirebase = JSON.parse(JSON.stringify(datosAcumulados));
       if (datosLimpiosParaFirebase.signagePhoto) delete datosLimpiosParaFirebase.signagePhoto;
+      if (datosLimpiosParaFirebase.fotosEvento) delete datosLimpiosParaFirebase.fotosEvento; // Limpiar array antiguo
+      if (datosLimpiosParaFirebase.fotosShell) delete datosLimpiosParaFirebase.fotosShell;
+      if (datosLimpiosParaFirebase.fotosQualid) delete datosLimpiosParaFirebase.fotosQualid;
+
       if (datosLimpiosParaFirebase.shellMerchandising) {
         delete datosLimpiosParaFirebase.shellMerchandising.fotoAntesShell;
         delete datosLimpiosParaFirebase.shellMerchandising.fotoDespuesShell;
@@ -497,7 +732,7 @@ export default function ReportesFinalesPage() {
         datosSheet["Registro de material para Impulso o Evento:"] = tipoVisita.includes('Impulso') ? 'Impulso' : 'Evento';
         datosSheet["Indica el nombre del evento:"] = datosAcumulados.nombreEvento || cliente.nombre || 'No especificado';
         datosSheet["Indica la ciudad en la que se realizó el evento:"] = cliente.ciudad || 'No especificada';
-        datosSheet["¿Qué marca fue promocionada en el impulso o evento?"] = datosAcumulados.marca || 'No especificada';
+        datosSheet["¿Qué marca fue promocionada en el impulso o evento?"] = (datosAcumulados.marcas && datosAcumulados.marcas.length > 0) ? datosAcumulados.marcas.join(', ') : 'No especificada';
 
         // ✅ MATERIAL DE APOYO SHELL
         const recursosShell = (datosAcumulados.recursosUsados || []).filter((r: any) => r.tipo?.toLowerCase().includes('shell'));
@@ -574,6 +809,21 @@ export default function ReportesFinalesPage() {
         datosSheet["Añade aquí todos los detalles de producto faltante por familia de productos SHELL "] = reporteShellFaltante || 'No reportado';
         datosSheet["Añade aquí todos los detalles de producto faltante por familia de productos QUALID "] = reporteQualidFaltante || 'No reportado';
         datosSheet["Añade aquí todos tus comentarios y observaciones adicionales "] = reporteComentariosAdicionales || 'No reportado';
+
+        // ✅ CAPTURA DE UBICACIÓN GPS
+        if (datosAcumulados.gpsCoordinates) {
+          const coords = datosAcumulados.gpsCoordinates;
+          datosSheet["Latitud:"] = coords.latitude;
+          datosSheet["Longitud:"] = coords.longitude;
+          datosSheet["Coordenadas completas:"] = JSON.stringify({ lat: coords.latitude, lng: coords.longitude });
+          datosSheet["Estado de coordenadas:"] = "Capturadas correctamente";
+        } else {
+          datosSheet["Latitud:"] = "No capturada";
+          datosSheet["Longitud:"] = "No capturada";
+          datosSheet["Dirección GPS:"] = "No disponible";
+          datosSheet["Coordenadas completas:"] = JSON.stringify({ lat: 0, lng: 0 });
+          datosSheet["Estado de coordenadas:"] = "No capturadas";
+        }
 
       } else {
         // 🔄 FORMATO ORIGINAL PARA MERCHANDISING
@@ -863,16 +1113,16 @@ export default function ReportesFinalesPage() {
         console.log('📤 Subiendo imágenes a Firebase Storage...');
         
         try {
-          // Preparar imágenes para subir
-          const imagesToUpload = Object.entries(fotosComprimidas).map(([key, base64], index) => ({
-            base64: base64,
-            path: `visitas/${cliente.rif}/${Date.now()}`,
-            prefix: `${key}_${index}`
-          }));
+          // ✅ USAR NUEVA FUNCIÓN ORGANIZADA
+          const clienteInfo = {
+            rif: cliente.rif,
+            nombre: cliente.nombre,
+            nombreEvento: datosAcumulados.nombreEvento
+          };
           
-          // Subir todas las imágenes y obtener URLs
-          fotosUrls = await uploadMultipleImages(imagesToUpload);
-          console.log(`✅ ${fotosUrls.length} imágenes subidas a Firebase Storage`);
+          // Subir todas las imágenes con estructura organizada
+          fotosUrls = await uploadOrganizedImages(fotosComprimidas, datosAcumulados.tipoVisita, clienteInfo);
+          console.log(`✅ ${fotosUrls.length} imágenes organizadas subidas a Firebase Storage`);
           
           // ✅ AHORA MAPEAR FOTOS A datosSheet DIRECTAMENTE (después de que fotosUrls esté lleno)
           console.log('🎯 Mapeando URLs de Firebase Storage a campos específicos...');
@@ -906,39 +1156,20 @@ export default function ReportesFinalesPage() {
           if (esTradeImpulsoOEventos) {
             // 🎯 MAPEO ESPECÍFICO PARA TRADE IMPULSO/EVENTOS
             console.log('🎯 MAPEANDO FOTOS PARA TRADE IMPULSO/EVENTOS');
-            console.log('🚀 CÓDIGO ACTUALIZADO - VERSIÓN CORREGIDA EJECUTÁNDOSE');
             
-            // 🔧 CORRECCIÓN: Mapear fotos según la marca seleccionada
-            const marcaSeleccionada = datosAcumulados.marca;
-            console.log('🔧 Marca seleccionada para mapeo:', marcaSeleccionada);
-            console.log('🔧 Claves disponibles en fotosComprimidas:', Object.keys(fotosComprimidas));
+            // Mapear fotos de Shell si existen
+            datosSheet["Fotos del impulso o evento SHELL:"] = mapearFoto('foto_shell_0', 'Stand Shell');
+            datosSheet["Fotos de las promotoras con los clientes en el impulso o evento SHELL:"] = mapearFoto('foto_shell_1', 'Promotoras Shell');
             
-            if (marcaSeleccionada === 'Shell') {
-              console.log('✅ EJECUTANDO MAPEO PARA SHELL');
-              // Para Shell, usar las fotos generales en los campos de Shell
-              datosSheet["Fotos del impulso o evento SHELL:"] = mapearFoto('foto_impulso', 'Impulso Shell');
-              datosSheet["Fotos de las promotoras con los clientes en el impulso o evento SHELL:"] = mapearFoto('foto_promotoras', 'Promotoras Shell');
-              datosSheet["Fotos del impulso o evento QUALID:"] = 'No capturada';
-              datosSheet["Fotos de las promotoras con los clientes en el impulso o evento QUALID:"] = 'No capturada';
-            } else if (marcaSeleccionada === 'Qualid') {
-              console.log('✅ EJECUTANDO MAPEO PARA QUALID');
-              // Para Qualid, usar las fotos generales en los campos de Qualid
-              datosSheet["Fotos del impulso o evento SHELL:"] = 'No capturada';
-              datosSheet["Fotos de las promotoras con los clientes en el impulso o evento SHELL:"] = 'No capturada';
-              datosSheet["Fotos del impulso o evento QUALID:"] = mapearFoto('foto_impulso', 'Impulso Qualid');
-              datosSheet["Fotos de las promotoras con los clientes en el impulso o evento QUALID:"] = mapearFoto('foto_promotoras', 'Promotoras Qualid');
-            } else {
-              // Fallback: intentar mapear todas las posibilidades
-              console.log('⚠️ Marca no reconocida, usando fallback');
-              datosSheet["Fotos del impulso o evento SHELL:"] = mapearFoto('foto_impulso_shell', 'Impulso Shell') || mapearFoto('foto_impulso', 'Impulso General');
-              datosSheet["Fotos de las promotoras con los clientes en el impulso o evento SHELL:"] = mapearFoto('foto_promotoras_shell', 'Promotoras Shell') || mapearFoto('foto_promotoras', 'Promotoras General');
-              datosSheet["Fotos del impulso o evento QUALID:"] = mapearFoto('foto_impulso_qualid', 'Impulso Qualid');
-              datosSheet["Fotos de las promotoras con los clientes en el impulso o evento QUALID:"] = mapearFoto('foto_promotoras_qualid', 'Promotoras Qualid');
-            }
-            
+            // Mapear fotos de Qualid si existen
+            datosSheet["Fotos del impulso o evento QUALID:"] = mapearFoto('foto_qualid_0', 'Stand Qualid');
+            datosSheet["Fotos de las promotoras con los clientes en el impulso o evento QUALID:"] = mapearFoto('foto_qualid_1', 'Promotoras Qualid');
+
             console.log('🎯 MAPEO COMPLETADO - VERIFICANDO RESULTADOS:');
             console.log('  - Fotos Shell:', datosSheet["Fotos del impulso o evento SHELL:"]);
             console.log('  - Promotoras Shell:', datosSheet["Fotos de las promotoras con los clientes en el impulso o evento SHELL:"]);
+            console.log('  - Fotos Qualid:', datosSheet["Fotos del impulso o evento QUALID:"]);
+            console.log('  - Promotoras Qualid:', datosSheet["Fotos de las promotoras con los clientes en el impulso o evento QUALID:"]);
           } else {
             // 🔄 MAPEO ORIGINAL PARA MERCHANDISING (incluye señalización)
             console.log('🔄 MAPEANDO FOTOS PARA MERCHANDISING');
@@ -1024,15 +1255,22 @@ export default function ReportesFinalesPage() {
       // 🚀 ENVIAR UN SOLO REGISTRO COMPLETO
       // ✅ UBICACIÓN: usar cliente.position válido, si no, clienteData.position
       console.log('🗺️ DEBUGGING GPS EN REPORTES-FINALES:');
-      console.log('🗺️ cliente.position:', cliente.position);
-      console.log('🗺️ datosAcumulados.clienteData?.position:', datosAcumulados.clienteData?.position);
-      console.log('🗺️ cliente.position es válido?:', cliente.position && !(cliente.position.lat === 0 && cliente.position.lng === 0));
       
-      const posPreferida = (cliente.position && !(cliente.position.lat === 0 && cliente.position.lng === 0))
-        ? cliente.position
-        : (datosAcumulados.clienteData?.position || cliente.position || { lat: 0, lng: 0 });
+      let finalPosition = { lat: 0, lng: 0 };
+      if (datosAcumulados.gpsCoordinates) {
+        // Prioridad 1: Usar las coordenadas GPS capturadas en el momento
+        finalPosition = {
+          lat: datosAcumulados.gpsCoordinates.latitude,
+          lng: datosAcumulados.gpsCoordinates.longitude
+        };
+        console.log('🗺️ Usando GPS capturado en la visita:', finalPosition);
+      } else if (cliente.position && !(cliente.position.lat === 0 && cliente.position.lng === 0)) {
+        // Prioridad 2: Usar la posición registrada del cliente
+        finalPosition = cliente.position;
+        console.log('🗺️ Usando GPS registrado del cliente:', finalPosition);
+      }
       
-      console.log('🗺️ POSICIÓN PREFERIDA FINAL:', posPreferida);
+      console.log('🗺️ POSICIÓN FINAL PARA GUARDAR:', finalPosition);
 
       const visitaId = await crearVisita({
         rifCliente: cliente.rif,
@@ -1040,7 +1278,7 @@ export default function ReportesFinalesPage() {
         tipoVisita: datosAcumulados.tipoVisita,
         mercaderista: mercaderista,
         correoMercaderista: correoMercaderista,
-        ubicacion: posPreferida,
+        ubicacion: finalPosition,
         sucursal: cliente.sede,
         respuestas: respuestasCompletas,
         observacionesAdicionales: `Formulario ${datosAcumulados.tipoVisita} completado con ${fotosUrls.length} imágenes`,
@@ -1060,6 +1298,38 @@ export default function ReportesFinalesPage() {
       console.log('✅ ENVÍO ÚNICO COMPLETADO - Visita guardada correctamente');
       console.log('🆔 ID de visita única:', visitaId);
       console.log('📊 Registro completo con datos + URLs de imágenes');
+
+      // ✅ CORRECCIÓN FINAL: MARCAR EL PUNTO COMO COMPLETADO EN LOCALSTORAGE
+      // PRIORIDAD: eventId para eventos, luego id/pointId para clientes regulares
+      let puntoIdParaMarcar = null;
+      
+      // Para eventos, usar eventId si existe
+      if (datosAcumulados.clienteData?.isEvent && datosAcumulados.clienteData?.eventId) {
+        puntoIdParaMarcar = datosAcumulados.clienteData.eventId;
+        console.log(`🎯 Evento detectado - usando eventId: ${puntoIdParaMarcar}`);
+        
+        // ✅ ACTUALIZAR STATUS EN FIRESTORE PARA EVENTOS
+        await actualizarStatusEventoEnFirestore(puntoIdParaMarcar);
+      } 
+      // Para clientes regulares, usar id o pointId
+      else {
+        puntoIdParaMarcar = cliente?.id || cliente?.pointId || datosAcumulados.clienteData?.id;
+        console.log(`👤 Cliente regular detectado - usando ID: ${puntoIdParaMarcar}`);
+      }
+      
+      if (puntoIdParaMarcar) {
+        console.log(`✅ ID final para marcar como completado: ${puntoIdParaMarcar}`);
+        marcarPuntoComoCompletado(puntoIdParaMarcar);
+      } else {
+        console.warn('⚠️ No se encontró un ID válido para marcar el punto como completado.');
+        console.warn('🔍 Datos disponibles:', {
+          'cliente.id': cliente?.id,
+          'cliente.pointId': cliente?.pointId,
+          'clienteData.id': datosAcumulados.clienteData?.id,
+          'clienteData.eventId': datosAcumulados.clienteData?.eventId,
+          'clienteData.isEvent': datosAcumulados.clienteData?.isEvent
+        });
+      }
 
       // Limpiar localStorage
       localStorage.removeItem('clienteData');

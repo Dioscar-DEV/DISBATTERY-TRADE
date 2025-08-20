@@ -63,7 +63,84 @@ export function generateFileName(prefix: string, extension: string = 'jpg'): str
 }
 
 /**
- * Sube múltiples imágenes a Firebase Storage
+ * Genera una ruta organizada para Firebase Storage
+ */
+export function generateOrganizedPath(
+  tipoVisita: string,
+  clienteInfo: { rif?: string; nombre?: string; nombreEvento?: string },
+  tipoFoto: string
+): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  
+  // Limpiar nombres para usar en rutas (sin caracteres especiales)
+  const cleanString = (str: string) => 
+    str.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-').toLowerCase();
+  
+  let basePath = `visitas/${year}/${month}/${day}`;
+  
+  if (tipoVisita.includes('Merchandising')) {
+    const clienteId = clienteInfo.rif || cleanString(clienteInfo.nombre || 'cliente');
+    basePath += `/merchandising/${clienteId}`;
+    
+    // Subcarpetas por tipo de foto
+    if (tipoFoto.includes('planograma')) {
+      basePath += '/planograma';
+    } else if (tipoFoto.includes('sticker')) {
+      basePath += '/stickers';
+    } else if (tipoFoto.includes('afiche')) {
+      basePath += '/afiches';
+    } else if (tipoFoto.includes('banderin')) {
+      basePath += '/banderines';
+    } else if (tipoFoto.includes('exhibidor')) {
+      basePath += '/exhibidores';
+    } else if (tipoFoto.includes('senalizacion')) {
+      basePath = `visitas/${year}/${month}/${day}/senalizacion/${clienteId}`;
+    } else {
+      basePath += '/otros';
+    }
+    
+  } else if (tipoVisita.includes('Trade (Eventos)')) {
+    const eventoId = cleanString(clienteInfo.nombreEvento || 'evento');
+    basePath += `/trade-eventos/${eventoId}`;
+    
+    // Subcarpetas por marca
+    if (tipoFoto.includes('shell')) {
+      basePath += '/shell';
+    } else if (tipoFoto.includes('qualid')) {
+      basePath += '/qualid';
+    } else if (tipoFoto.includes('video')) {
+      basePath += '/videos';
+    } else {
+      basePath += '/general';
+    }
+    
+  } else if (tipoVisita.includes('Trade (Impulso)')) {
+    const clienteId = clienteInfo.rif || cleanString(clienteInfo.nombre || 'cliente');
+    basePath += `/trade-impulso/${clienteId}`;
+    
+    // Subcarpetas por marca
+    if (tipoFoto.includes('shell')) {
+      basePath += '/shell';
+    } else if (tipoFoto.includes('qualid')) {
+      basePath += '/qualid';
+    } else {
+      basePath += '/general';
+    }
+    
+  } else {
+    // Fallback para otros tipos de visita
+    const clienteId = clienteInfo.rif || cleanString(clienteInfo.nombre || 'cliente');
+    basePath += `/otros/${clienteId}`;
+  }
+  
+  return basePath;
+}
+
+/**
+ * Sube múltiples imágenes a Firebase Storage (versión legacy)
  */
 export async function uploadMultipleImages(
   images: { base64: string; path: string; prefix: string }[]
@@ -81,6 +158,43 @@ export async function uploadMultipleImages(
     
   } catch (error) {
     console.error('❌ Error subiendo múltiples imágenes:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sube múltiples imágenes con estructura organizada
+ */
+export async function uploadOrganizedImages(
+  images: Record<string, string>, // { 'foto_shell_0': 'data:image/...', ... }
+  tipoVisita: string,
+  clienteInfo: { rif?: string; nombre?: string; nombreEvento?: string }
+): Promise<string[]> {
+  try {
+    console.log(`📁 Organizando ${Object.keys(images).length} imágenes para ${tipoVisita}`);
+    
+    const uploadPromises = Object.entries(images).map(async ([key, base64]) => {
+      if (!base64 || !base64.startsWith('data:image/')) return null;
+      
+      // Generar ruta organizada basada en el tipo de foto
+      const organizedPath = generateOrganizedPath(tipoVisita, clienteInfo, key);
+      
+      // Generar nombre de archivo descriptivo
+      const fileName = generateFileName(key);
+      
+      console.log(`📸 Subiendo ${key} a: ${organizedPath}/${fileName}`);
+      
+      return await uploadImageToStorage(base64, organizedPath, fileName);
+    });
+    
+    const results = await Promise.all(uploadPromises);
+    const urls = results.filter(Boolean) as string[];
+    
+    console.log(`✅ ${urls.length} imágenes organizadas subidas exitosamente`);
+    return urls;
+    
+  } catch (error) {
+    console.error('❌ Error subiendo imágenes organizadas:', error);
     throw error;
   }
 } 

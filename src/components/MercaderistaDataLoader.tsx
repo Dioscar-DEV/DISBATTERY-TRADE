@@ -180,6 +180,9 @@ export default function MercaderistaDataLoader() {
   if (!user || user.role !== 'Mercaderista' || downloadStatus === 'completed') {
     return null;
   }
+  
+  // ✅ SOLUCIÓN DIRECTA: Desactivar el diálogo visualmente para siempre.
+  return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

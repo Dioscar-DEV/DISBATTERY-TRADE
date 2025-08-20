@@ -12,7 +12,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { UserCircle, ArrowLeft, TrendingUp, MapPinned, Activity } from 'lucide-react';
+import { UserCircle, ArrowLeft, TrendingUp, MapPinned, Activity, Menu } from 'lucide-react';
 import { collection, onSnapshot, orderBy, limit, query, Timestamp, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/clientApp';
 import { getCurrentUserWithPermissions, UserData, UserPermissions, canAccessSede } from '@/services/auth';
@@ -44,6 +44,7 @@ export default function DatosVisitasPage() {
   const [routes, setRoutes] = useState<RouteDoc[]>([]);
   const [days, setDays] = useState(30);
   const [search, setSearch] = useState('');
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Cargar usuario y permisos
   useEffect(() => {
@@ -203,9 +204,9 @@ export default function DatosVisitasPage() {
     const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
     
     return (
-      <div className="bg-white p-4 rounded-lg border">
+      <div className="bg-white p-4 rounded-lg border overflow-x-auto">
         <h3 className="text-lg font-semibold mb-4 text-gray-900">{title}</h3>
-        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} style={{ minWidth: '500px' }}>
           {/* Grid lines */}
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -268,9 +269,9 @@ export default function DatosVisitasPage() {
     const barSpacing = chartW / data.length;
     
     return (
-      <div className="bg-white p-4 rounded-lg border">
+      <div className="bg-white p-4 rounded-lg border overflow-x-auto">
         <h3 className="text-lg font-semibold mb-4 text-gray-900">{title}</h3>
-        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} style={{ minWidth: '350px' }}>
           {/* Y-axis labels */}
           {[0, Math.floor(maxY * 0.5), maxY].map((val, i) => (
             <g key={i}>
@@ -423,13 +424,14 @@ export default function DatosVisitasPage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top Bar */}
-      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0">
-        <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center py-3 px-6 sm:px-8">
+      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
+        <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center justify-between sm:justify-start py-3 px-6 sm:px-8">
           <div className="flex items-center gap-4">
             <Button onClick={() => router.back()} variant="ghost" size="sm" className="text-white hover:bg-red-700/50 p-2 rounded-md">
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div className="flex items-center text-white p-2 rounded-md">
+            {/* Desktop User Info */}
+            <div className="hidden sm:flex items-center text-white p-2 rounded-md">
               <UserCircle className="w-10 h-10 mr-3" />
               <div className="text-left flex-1">
                 <div className="text-xl font-semibold">{currentUser.fullName}</div>
@@ -438,28 +440,60 @@ export default function DatosVisitasPage() {
                 </div>
               </div>
             </div>
+             {/* Mobile Title */}
+             <h1 className="sm:hidden text-xl font-semibold text-white">Datos de Visitas</h1>
+          </div>
+          {/* Mobile Hamburger Button */}
+          <div className="sm:hidden">
+            <Button 
+              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} 
+              variant="ghost" 
+              size="sm" 
+              className="text-white hover:bg-red-700/50 p-2 rounded-md"
+            >
+              <Menu className="w-6 h-6" />
+            </Button>
           </div>
         </div>
         <div style={{ backgroundColor: '#ffee26' }} className="w-full sm:w-2/3 flex items-center justify-center sm:justify-end py-3 px-6 sm:px-8">
           <img src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png" alt="Disbattery Lubricantes Logo" className="max-h-8" />
         </div>
       </header>
+      
+      {/* Collapsible Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div 
+          className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div className="flex items-center p-2 rounded-md mb-4">
+            <UserCircle className="w-10 h-10 mr-3 flex-shrink-0" />
+            <div className="text-left flex-1 overflow-hidden">
+              <div className="text-xl font-semibold truncate">{currentUser.fullName}</div>
+              <div className="text-sm opacity-75 truncate">
+                {userPermissions.isAdminMaster ? 'Admin Master' : `${currentUser.role} - ${currentUser.sede}`}
+              </div>
+            </div>
+          </div>
+          {/* Podrías añadir un LogoutButton aquí si lo tienes como componente */}
+        </div>
+      )}
 
       {/* Main */}
-      <main style={{ backgroundColor: '#a51717' }} className="flex-grow overflow-y-auto">
-        <div className="max-w-7xl mx-auto p-4">
+      <main style={{ backgroundColor: '#a51717' }} className="flex-grow pt-24">
+        <div className="max-w-7xl mx-auto p-2 sm:p-4">
           <Card className="bg-stone-50 shadow-xl">
             <CardHeader className="border-b border-gray-200">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                   <CardTitle className="text-2xl font-bold text-gray-900">Datos de Visitas</CardTitle>
-                  <CardDescription className="text-gray-600">
+                  <CardDescription className="text-gray-600 mt-1">
                     {userPermissions.isAdminMaster ? 'Todas las sedes' : `Sede: ${currentUser.sede}`} — Últimos {days} días
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por RIF o nombre" className="w-56" />
-                  <select className="border rounded px-2 py-2 text-sm" value={days} onChange={(e) => setDays(parseInt(e.target.value))}>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                  <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por RIF o nombre" className="w-full sm:w-56" />
+                  <select className="border rounded px-2 py-2 text-sm w-full sm:w-auto" value={days} onChange={(e) => setDays(parseInt(e.target.value))}>
                     <option value={7}>7 días</option>
                     <option value={14}>14 días</option>
                     <option value={30}>30 días</option>
@@ -530,27 +564,29 @@ export default function DatosVisitasPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="max-h-72 overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Mercaderista</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {rutasFinalizadas.length === 0 ? (
-                            <TableRow><TableCell colSpan={2} className="text-gray-500">Sin rutas finalizadas</TableCell></TableRow>
-                          ) : rutasFinalizadas.slice(0, 10).map((r) => {
-                            const d = normalizeDate(r.date);
-                            return (
-                              <TableRow key={r.id}>
-                                <TableCell>{d ? d.toLocaleDateString() : '—'}</TableCell>
-                                <TableCell className="font-mono text-sm">{r.mercaderistoId || '—'}</TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Fecha</TableHead>
+                              <TableHead>Mercaderista</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {rutasFinalizadas.length === 0 ? (
+                              <TableRow><TableCell colSpan={2} className="text-gray-500">Sin rutas finalizadas</TableCell></TableRow>
+                            ) : rutasFinalizadas.slice(0, 10).map((r) => {
+                              const d = normalizeDate(r.date);
+                              return (
+                                <TableRow key={r.id}>
+                                  <TableCell>{d ? d.toLocaleDateString() : '—'}</TableCell>
+                                  <TableCell className="font-mono text-sm whitespace-nowrap">{r.mercaderistoId || '—'}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
                       {rutasFinalizadas.length > 10 && (
                         <div className="text-xs text-gray-500 mt-2 text-center">
                           Y {rutasFinalizadas.length - 10} más...
@@ -567,27 +603,29 @@ export default function DatosVisitasPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="max-h-72 overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Mercaderista</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {rutasEnProgreso.length === 0 ? (
-                            <TableRow><TableCell colSpan={2} className="text-gray-500">Sin rutas en progreso</TableCell></TableRow>
-                          ) : rutasEnProgreso.map((r) => {
-                            const d = normalizeDate(r.date);
-                            return (
-                              <TableRow key={r.id}>
-                                <TableCell>{d ? d.toLocaleDateString() : '—'}</TableCell>
-                                <TableCell className="font-mono text-sm">{r.mercaderistoId || '—'}</TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Fecha</TableHead>
+                              <TableHead>Mercaderista</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {rutasEnProgreso.length === 0 ? (
+                              <TableRow><TableCell colSpan={2} className="text-gray-500">Sin rutas en progreso</TableCell></TableRow>
+                            ) : rutasEnProgreso.map((r) => {
+                              const d = normalizeDate(r.date);
+                              return (
+                                <TableRow key={r.id}>
+                                  <TableCell>{d ? d.toLocaleDateString() : '—'}</TableCell>
+                                  <TableCell className="font-mono text-sm whitespace-nowrap">{r.mercaderistoId || '—'}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -599,27 +637,29 @@ export default function DatosVisitasPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="max-h-72 overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Mercaderista</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {rutasNoFinalizadas.length === 0 ? (
-                            <TableRow><TableCell colSpan={2} className="text-gray-500">No hay rutas pendientes</TableCell></TableRow>
-                          ) : rutasNoFinalizadas.map((r) => {
-                            const d = normalizeDate(r.date);
-                            return (
-                              <TableRow key={r.id}>
-                                <TableCell>{d ? d.toLocaleDateString() : '—'}</TableCell>
-                                <TableCell className="font-mono text-sm">{r.mercaderistoId || '—'}</TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Fecha</TableHead>
+                              <TableHead>Mercaderista</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {rutasNoFinalizadas.length === 0 ? (
+                              <TableRow><TableCell colSpan={2} className="text-gray-500">No hay rutas pendientes</TableCell></TableRow>
+                            ) : rutasNoFinalizadas.map((r) => {
+                              const d = normalizeDate(r.date);
+                              return (
+                                <TableRow key={r.id}>
+                                  <TableCell>{d ? d.toLocaleDateString() : '—'}</TableCell>
+                                  <TableCell className="font-mono text-sm whitespace-nowrap">{r.mercaderistoId || '—'}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -633,7 +673,7 @@ export default function DatosVisitasPage() {
                     <CardDescription>Por número de visitas - Últimos {days} días</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="max-h-80 overflow-y-auto">
+                    <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -646,9 +686,9 @@ export default function DatosVisitasPage() {
                             <TableRow><TableCell colSpan={2} className="text-gray-500">Sin datos</TableCell></TableRow>
                           ) : topMercaderistas.map((m, i) => (
                             <TableRow key={m.email}>
-                              <TableCell>
+                              <TableCell className="whitespace-nowrap">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 bg-red-100 text-red-800 rounded-full flex items-center justify-center text-xs font-bold">
+                                  <div className="w-6 h-6 bg-red-100 text-red-800 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
                                     {i + 1}
                                   </div>
                                   <span className="font-mono text-sm">{m.email}</span>
@@ -669,7 +709,7 @@ export default function DatosVisitasPage() {
                     <CardDescription>Más visitados - Últimos {days} días</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="max-h-80 overflow-y-auto">
+                    <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -683,9 +723,9 @@ export default function DatosVisitasPage() {
                             <TableRow><TableCell colSpan={3} className="text-gray-500">Sin datos</TableCell></TableRow>
                           ) : topClientes.map((c, i) => (
                             <TableRow key={c.rif}>
-                              <TableCell>
+                              <TableCell className="whitespace-nowrap">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-5 h-5 bg-yellow-100 text-yellow-800 rounded-full flex items-center justify-center text-xs font-bold">
+                                  <div className="w-5 h-5 bg-yellow-100 text-yellow-800 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
                                     {i + 1}
                                   </div>
                                   <span className="font-mono text-sm">{c.rif}</span>

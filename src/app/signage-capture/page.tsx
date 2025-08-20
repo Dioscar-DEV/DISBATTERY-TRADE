@@ -42,17 +42,41 @@ function SignageCaptureContent() {
   const [showPermissionsDialog, setShowPermissionsDialog] = useState(false);
 
   useEffect(() => {
-    setClientRif(searchParams.get('clientRif') || '');
-    setClientName(searchParams.get('clientName') || null);
-    setAddress(searchParams.get('address') || '');
-    setTimestamp(searchParams.get('timestamp') || new Date().toLocaleString());
-    setVisitType(searchParams.get('visitType') || '');
-    setTradeSubType(searchParams.get('tradeSubType') || '');
-  }, [searchParams]);
+    // 🔴 ERROR CORREGIDO: No leer de searchParams, sino de localStorage.
+    const clienteDataString = localStorage.getItem('clienteData');
+    if (clienteDataString) {
+      const clienteData = JSON.parse(clienteDataString);
+      setClientRif(clienteData.rif || '');
+      setClientName(clienteData.nombre || null);
+      setAddress(clienteData.direccion || '');
+      setTimestamp(clienteData.timestamp || new Date().toLocaleString());
+      setVisitType(clienteData.tipoVisita || ''); // ✅ LECTURA CORRECTA
+
+      if (!clienteData.tipoVisita) {
+        console.error("CRITICAL ERROR: tipoVisita no encontrado en localStorage. Redirigiendo.");
+        toast({
+          variant: 'destructive',
+          title: 'Error Crítico de Flujo',
+          description: 'No se encontró el tipo de visita. Por favor, inicie de nuevo.',
+        });
+        router.push('/mi-ruta');
+      }
+
+    } else {
+        console.error("CRITICAL ERROR: clienteData no encontrado en localStorage. Redirigiendo.");
+        toast({
+          variant: 'destructive',
+          title: 'Error Crítico de Datos',
+          description: 'No se encontraron datos del cliente. Por favor, inicie de nuevo.',
+        });
+        router.push('/mi-ruta');
+    }
+
+  }, [router, toast]);
 
   // ✅ Mostrar mensaje de bienvenida offline
   useEffect(() => {
-    if (!navigator.onLine) {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
       toast({
         title: '🔄 Modo Offline Activado',
         description: 'Los formularios funcionan sin internet. Las fotos se guardarán localmente.',

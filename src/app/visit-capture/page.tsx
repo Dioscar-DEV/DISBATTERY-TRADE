@@ -1,9 +1,9 @@
 'use client';
 
-import {useRouter} from 'next/navigation';
-import {useEffect, useState, useRef} from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
 
-import {Button} from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -12,165 +12,83 @@ import {
   CardTitle,
   CardFooter,
 } from '@/components/ui/card';
-import {Input}from '@/components/ui/input';
-import {Label}from '@/components/ui/label';
-import {cn}from '@/lib/utils';
-// import {getAddressForCoordinate}from '@/services/geography'; // Not used in current logic
-import {useToast}from '@/hooks/use-toast';
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue}from '@/components/ui/select';
-import { UserCircle, MapPin } from 'lucide-react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/firebase/clientApp';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { UserCircle, MapPin, Loader2 } from 'lucide-react';
+import { getGPSLocation, GPSCoordinates } from '@/services/gpsService';
 
-// Function to fetch client data from Firestore by RIF
-const fetchClientData = async (rif: string) => {
-  try {
-    const clientesRef = collection(db, 'clientes');
-    const q = query(clientesRef, where('rif', '==', rif));
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
-      const clientDoc = querySnapshot.docs[0];
-      const clientData = clientDoc.data();
-      return {
-        id: clientDoc.id,
-        name: clientData.nombre,
-        rif: clientData.rif,
-        direccion: clientData.direccion,
-        telefono: clientData.telefono,
-        email: clientData.email
-      };
-    } else {
-      return null;
-    }
-  } catch (error) {
-    console.error('Error fetching client data:', error);
-    return null;
-  }
-};
+const VISIT_TYPES = [
+  'Trade (Eventos)',
+  'Trade (Impulso)',
+  'Merchandising (Material Interno)',
+  'Merchandising (Externo)',
+];
 
-export default function VisitCapture() {
-  const [location, setLocation] = useState<GeolocationCoordinates | null>(null);
+// Componente interno que usa useSearchParams
+function VisitCaptureContent() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const searchParams = useSearchParams();
+
+  // Estados unificados para el componente
+  const [pointId, setPointId] = useState<string | null>(null);
+  const [pointName, setPointName] = useState<string | null>(null);
+  const [pointType, setPointType] = useState<string | null>(null);
+  
+  const [selectedVisitType, setSelectedVisitType] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
-  const [timestamp, setTimestamp] = useState<string>(new Date().toLocaleString());
-  const {toast} = useToast();
-  const [visitType, setVisitType] = useState<string>('');
+  const [gpsCoordinates, setGpsCoordinates] = useState<GPSCoordinates | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [isCheckingClientVisitType, setIsCheckingClientVisitType] = useState(true);
   const [showVisitTypeSelector, setShowVisitTypeSelector] = useState(false);
-  const router = useRouter();
 
-  // ✅ Mostrar mensaje de bienvenida offline
+  // Efecto para obtener los datos del punto desde la URL
   useEffect(() => {
-    if (!navigator.onLine) {
-      toast({
-        title: '🔄 Modo Offline Activado',
-        description: 'Los formularios funcionan sin internet. Los datos se guardarán localmente.',
-      });
+    if (searchParams) {
+      const pId = searchParams.get('pointId');
+      const pName = searchParams.get('pointName');
+      const pType = searchParams.get('pointType');
+      if (pId) setPointId(pId);
+      if (pName) setPointName(pName);
+      if (pType) setPointType(pType);
     }
-  }, [toast]);
-
-  useEffect(() => {
-    const getLocation = () => {
-      // ✅ MEJORA OFFLINE: Solo intentar ubicación si hay internet
-      if (!navigator.onLine) {
-        console.log('🔄 Modo offline: saltando obtención de ubicación GPS');
-        return;
-      }
-
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          position => {
-            setLocation(position.coords);
-            console.log('Latitude:', position.coords.latitude);
-            console.log('Longitude:', position.coords.longitude);
-          },
-          error => {
-            console.error('Error getting location:', error);
-            // ✅ MEJORA: Mensaje menos alarmante si no hay internet
-            if (!navigator.onLine) {
-              console.log('📍 Ubicación no disponible en modo offline');
-              return;
-            }
-            toast({
-              variant: 'destructive',
-              title: 'Acceso a la Ubicación Denegado',
-              description: 'Por favor, active los permisos de ubicación en la configuración de su navegador para usar esta aplicación.',
-            });
-          }
-        );
-      } else {
-        console.error('La geolocalización no es soportada por este navegador.');
-      }
-    };
-
-    getLocation();
-  }, [toast]);
-
-  // Verificar si el cliente tiene un tipo de visita predeterminado
+    setIsLoading(false);
+  }, [searchParams]);
+  
+  // Efecto para verificar si la visita tiene un tipo predefinido
   useEffect(() => {
     const checkClientVisitType = async () => {
       try {
         setIsCheckingClientVisitType(true);
-        
-        // Obtener datos del cliente desde localStorage
         const clienteDataString = localStorage.getItem('clienteData');
+
         if (!clienteDataString) {
-          console.log('No hay datos del cliente en localStorage');
           setShowVisitTypeSelector(true);
-          setIsCheckingClientVisitType(false);
           return;
         }
 
         const clienteData = JSON.parse(clienteDataString);
-        console.log('🔍 Datos del cliente desde localStorage:', clienteData);
         
-        // ✅ CORREGIDO: Usar directamente el tipoVisita de la ruta
         if (clienteData.tipoVisita) {
-          console.log('✅ Tipo de visita ya definido en la ruta:', clienteData.tipoVisita);
-          
           toast({
-            title: '✅ Tipo de visita definido',
+            title: 'Tipo de visita definido',
             description: `Procesando visita: ${clienteData.tipoVisita}`,
           });
-
-          // Redirigir automáticamente con el tipo de visita de la ruta
-          const queryParams = new URLSearchParams({
-            visitType: clienteData.tipoVisita,
-          });
-
-          router.push(`/signage-capture?${queryParams.toString()}`);
-          return;
-        }
-        
-        // ✅ FALLBACK: Solo si no hay tipoVisita definido, verificar si es evento
-        if (clienteData.isEvent === true) {
-          console.log('🎪 Es un evento sin tipoVisita - usando Trade (Eventos)');
           
-          toast({
-            title: '🎪 Evento detectado',
-            description: `Procesando evento: ${clienteData.nombre}`,
-          });
-
-          const queryParams = new URLSearchParams({
-            visitType: 'Trade (Eventos)',
-          });
-
-          router.push(`/signage-capture?${queryParams.toString()}`);
-          return;
+          // Capturar GPS y redirigir
+          await handleRedirection(clienteData.tipoVisita);
+        } else {
+          setShowVisitTypeSelector(true);
         }
-        
-        // ✅ ÚLTIMO RECURSO: Solo preguntar si no hay tipoVisita definido
-        console.log('⚠️ No se encontró tipoVisita definido, preguntando al usuario');
-        setShowVisitTypeSelector(true);
-        
       } catch (error) {
-        console.error('❌ Error verificando tipo de visita del cliente:', error);
+        console.error('Error verificando tipo de visita:', error);
         setShowVisitTypeSelector(true);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Hubo un error al verificar la configuración del cliente. Seleccione el tipo de visita manualmente.',
-        });
       } finally {
         setIsCheckingClientVisitType(false);
       }
@@ -179,45 +97,56 @@ export default function VisitCapture() {
     checkClientVisitType();
   }, [router, toast]);
 
-  useEffect(() => {
-    const fetchAddress = async () => {
+  // Función unificada para capturar GPS, guardar datos y redirigir
+  const handleRedirection = async (visitType: string) => {
+    setIsSubmitting(true);
+    try {
+      // Guarda el tipo de visita inmediatamente
+      setSelectedVisitType(visitType);
+
+      // 1. Capturar GPS
+      const location = await getGPSLocation();
       if (location) {
-        try {
-          setAddress(`Lat: ${location.latitude.toFixed(5)}, Lon: ${location.longitude.toFixed(5)}`);
-        } catch (error) {
-          console.error('Error al obtener la dirección:', error);
-          setAddress('No se pudo recuperar la dirección');
-        }
-      }
-    };
-
-    fetchAddress();
-  }, [location]);
-
-  const handleVisitTypeChange = (value: string) => {
-    setVisitType(value);
-  };
-
-  const handleNextPage = () => {
-      if (!visitType) {
+        setGpsCoordinates(location);
         toast({
-            variant: 'destructive',
-            title: 'Tipo de Visita Requerido',
-            description: 'Por favor, seleccione el tipo de visita.',
+          title: 'Ubicación GPS Capturada',
+          description: `Lat: ${location.latitude.toFixed(4)}, Lon: ${location.longitude.toFixed(4)}`,
         });
-        return;
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Advertencia de Ubicación',
+          description: 'No se pudo obtener la ubicación GPS. El reporte se guardará sin esta información.',
+        });
       }
-      
-      const queryParams = new URLSearchParams({
-          visitType,
-      });
 
-      router.push(`/signage-capture?${queryParams.toString()}`);
+      // 2. Guardar datos en localStorage
+      const clienteDataString = localStorage.getItem('clienteData');
+      if (clienteDataString) {
+        const clienteData = JSON.parse(clienteDataString);
+        clienteData.tipoVisita = visitType; // ✅ LÍNEA CRÍTICA RESTAURADA
+        clienteData.gpsCoordinates = location; // Añadir coordenadas GPS a los datos del cliente
+        localStorage.setItem('clienteData', JSON.stringify(clienteData));
+      }
+
+      // 3. Redirigir
+      if (visitType === 'Trade (Eventos)') {
+        router.push('/trade-eventos');
+      } else {
+        router.push('/signage-capture');
+      }
+    } catch (error) {
+      console.error("Error al continuar con la visita:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error Inesperado',
+        description: 'Ocurrió un error al procesar la visita. Intente de nuevo.',
+      });
+      setIsSubmitting(false);
+    }
   };
 
-  const canProceedToClientDetails = !!visitType;
-  const isFormValid = showVisitTypeSelector && visitType;
-
+  const isFormValid = showVisitTypeSelector && selectedVisitType;
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 relative overflow-hidden">
@@ -253,7 +182,7 @@ export default function VisitCapture() {
                 Ejecucion de Visita o Accion
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-gray-700">
-              Favor ingresa los datos del cliente a ejecutar
+              {pointName ? `Cliente: ${pointName}` : 'Favor ingresa los datos del cliente a ejecutar'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 p-6">
@@ -261,59 +190,53 @@ export default function VisitCapture() {
              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
              <Input
                 id="location"
-                value={address || 'Capturando ubicación...'}
+                value={address || (gpsCoordinates ? `Lat: ${gpsCoordinates.latitude.toFixed(4)}...` : 'Capturando ubicación...')}
                 readOnly
                 type="text"
                 className="pl-10 placeholder:italic"
               />
            </div>
           
-          {isCheckingClientVisitType ? (
+          {isCheckingClientVisitType || isLoading ? (
             <div className="text-center py-4">
-              <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+              <Loader2 className="animate-spin h-8 w-8 text-blue-500 mx-auto mb-2" />
               <p className="text-sm text-gray-600">Verificando configuración del cliente...</p>
             </div>
           ) : showVisitTypeSelector ? (
             <div>
               <Label htmlFor="visit-type" className="text-gray-700">Tipo de visita</Label>
-              <Select onValueChange={handleVisitTypeChange} value={visitType}>
+              <Select onValueChange={setSelectedVisitType} value={selectedVisitType || ''}>
                 <SelectTrigger className="w-full mt-1" id="visit-type">
                   <SelectValue placeholder="Seleccionar tipo de visita" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Merchandising">Merchandising</SelectItem>
+                  <SelectItem value="Merchandising (Externo)">Merchandising (Externo)</SelectItem>
+                  <SelectItem value="Merchandising (Material Interno)">Merchandising (Material Interno)</SelectItem>
                   <SelectItem value="Trade (Impulso)">Trade (Impulso)</SelectItem>
+                  {/* Eventos no se selecciona manualmente */}
                 </SelectContent>
               </Select>
             </div>
           ) : (
             <div className="text-center py-4">
-              <div className="animate-spin h-8 w-8 border-4 border-green-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+              <Loader2 className="animate-spin h-8 w-8 text-green-500 mx-auto mb-2" />
               <p className="text-sm text-gray-600">Configurando visita...</p>
             </div>
           )}
-          
-          <Input
-            id="timestamp"
-            value={timestamp}
-            readOnly
-            type="hidden" 
-          />
-
           </CardContent>
           {showVisitTypeSelector && (
             <CardFooter className="px-6 pb-6">
               <Button 
-                onClick={handleNextPage} 
+                onClick={() => selectedVisitType && handleRedirection(selectedVisitType)} 
                 className={cn(
                   "w-full text-white font-semibold py-3 rounded-full",
-                  isFormValid 
+                  isFormValid && !isSubmitting
                     ? "bg-gradient-to-r from-[#007BFF] to-[#0056b3]" 
-                    : "bg-gradient-to-r from-[#A9C9E8] to-[#B0B9D1]"
+                    : "bg-gray-400 cursor-not-allowed"
                 )}
-                disabled={!isFormValid}
+                disabled={!isFormValid || isSubmitting}
               >
-                Siguiente
+                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Siguiente'}
               </Button>
             </CardFooter>
           )}
@@ -329,6 +252,22 @@ export default function VisitCapture() {
         </div>
       </footer>
     </div>
+  );
+}
+
+// Componente principal con Suspense boundary
+export default function VisitCapturePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    }>
+      <VisitCaptureContent />
+    </Suspense>
   );
 }
 

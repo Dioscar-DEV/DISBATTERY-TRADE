@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Users, ListChecks, BarChart3, MapPinned, UserCircle, ArrowLeft } from 'lucide-react';
+import { Users, ListChecks, BarChart3, MapPinned, UserCircle, ArrowLeft, Menu } from 'lucide-react';
 import { getCurrentUserWithPermissions, UserData, UserPermissions, clearUserData } from '@/services/auth';
 import { LogoutButton } from '@/components/LogoutButton';
 
@@ -20,6 +20,7 @@ export default function AdminDashboardPage() {
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermissions | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -133,8 +134,8 @@ export default function AdminDashboardPage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top Bar */}
-      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0">
-        <div style={{ backgroundColor: '#b61817' }} className="w-full sm:w-1/3 flex items-center py-3 px-6 sm:px-8">
+      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
+        <div style={{ backgroundColor: '#b61717' }} className="w-full sm:w-1/3 flex items-center justify-between sm:justify-start py-3 px-6 sm:px-8">
           <div className="flex items-center gap-4">
             <Button
               onClick={() => router.back()}
@@ -144,7 +145,8 @@ export default function AdminDashboardPage() {
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div className="flex items-center text-white p-2 rounded-md">
+            {/* Desktop User Info */}
+            <div className="hidden sm:flex items-center text-white p-2 rounded-md">
               <UserCircle className="w-10 h-10 mr-3" />
               <div className="text-left flex-1">
                 <div className="text-xl font-semibold">{currentUser?.fullName || 'Cargando...'}</div>
@@ -156,6 +158,19 @@ export default function AdminDashboardPage() {
               </div>
               <LogoutButton className="ml-3 bg-red-800 hover:bg-red-900 text-white border-0 px-3 py-1 text-sm" />
             </div>
+             {/* Mobile Title */}
+             <h1 className="sm:hidden text-xl font-semibold text-white">Dashboard</h1>
+          </div>
+           {/* Mobile Hamburger Button */}
+           <div className="sm:hidden">
+            <Button 
+              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} 
+              variant="ghost" 
+              size="sm" 
+              className="text-white hover:bg-red-700/50 p-2 rounded-md"
+            >
+              <Menu className="w-6 h-6" />
+            </Button>
           </div>
         </div>
         <div style={{ backgroundColor: '#ffee26' }} className="w-full sm:w-2/3 flex items-center justify-center sm:justify-end py-3 px-6 sm:px-8">
@@ -168,8 +183,29 @@ export default function AdminDashboardPage() {
         </div>
       </header>
 
+      {/* Collapsible Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div 
+          className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div className="flex items-center p-2 rounded-md mb-4">
+            <UserCircle className="w-10 h-10 mr-3 flex-shrink-0" />
+            <div className="text-left flex-1 overflow-hidden">
+              <div className="text-xl font-semibold truncate">{currentUser?.fullName || 'Cargando...'}</div>
+              <div className="text-sm opacity-75 truncate">
+                {loading ? 'Cargando...' :
+                 userPermissions?.isAdminMaster ? 'Admin Master' : 
+                 `${currentUser?.role || 'N/A'} - ${currentUser?.sede || 'N/A'}`}
+              </div>
+            </div>
+          </div>
+          <LogoutButton className="w-full bg-red-700 hover:bg-red-800 text-white" />
+        </div>
+      )}
+
       {/* Main Content - Scrollable */}
-      <main style={{ backgroundColor: '#a51717' }} className="flex-grow overflow-y-auto">
+      <main style={{ backgroundColor: '#a51717' }} className="flex-grow pt-24">
         <div className="max-w-6xl mx-auto p-4">
           <Card className="bg-stone-50 shadow-xl">
             <CardHeader className="border-b border-gray-200">
