@@ -22,7 +22,7 @@ import type { Visita } from '@/types/visitas';
 import { getCurrentUserWithPermissions, UserData, UserPermissions, canAccessSede } from '@/services/auth';
 import { sendNotificationToUsers } from '@/services/notifications';
 import { sendNuevaRutaEmail } from '@/services/emailNotifications';
-import { PlusCircle, Loader2, Filter, UserCircle, Search, MapPin, Trash2, Edit3, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react';
+import { PlusCircle, Loader2, Filter, UserCircle, Search, MapPin, Trash2, Edit3, AlertCircle, ChevronUp, ChevronDown, ArrowLeft } from 'lucide-react';
 
 // Coordenadas por sede para centrar el mapa
 const SEDE_COORDINATES: Record<string, { lat: number; lng: number; zoom: number }> = {
@@ -1258,7 +1258,18 @@ export default function RutasPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Gestión de Rutas y Eventos</h1>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.location.href = '/admin/dashboard'}
+            className="flex items-center gap-2 hover:bg-gray-50"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver al Dashboard
+          </Button>
+          <h1 className="text-3xl font-bold">Gestión de Rutas y Eventos</h1>
+        </div>
         
         <div className="flex gap-2">
           <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>

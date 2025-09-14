@@ -5,8 +5,13 @@ import { db } from '@/firebase/clientApp';
 // Tipos de roles expandidos
 export type UserRole = 'Mercaderista' | 'Administrador' | 'Supervisor' | 'AdminMaster';
 
-// Email del admin master que tiene acceso completo
-export const ADMIN_MASTER_EMAIL = 'dsalcedo@smartautomatai.com';
+// Emails de los admin master que tienen acceso completo
+export const ADMIN_MASTER_EMAILS = [
+  'dsalcedo@smartautomatai.com',
+  'karen.gomez@disbatterylubricantes.com',
+  'genesis.alvarado@disbatterylubricantes.com',
+  'dioscar05@gmail.com'
+];
 
 // Interface para datos de usuario completos
 export interface UserData {
@@ -34,7 +39,8 @@ export interface UserPermissions {
 
 // Función para determinar si un usuario es admin master
 export const isAdminMaster = (email: string): boolean => {
-  return email?.toLowerCase() === ADMIN_MASTER_EMAIL.toLowerCase();
+  if (!email) return false;
+  return ADMIN_MASTER_EMAILS.map(e => e.toLowerCase()).includes(email.toLowerCase());
 };
 
 // Función para calcular permisos basados en el rol y sede

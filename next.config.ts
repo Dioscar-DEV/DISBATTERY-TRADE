@@ -124,4 +124,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+// Se deshabilita PWA para evitar problemas de caché
+// export default withPWA(nextConfig);
+export default nextConfig;

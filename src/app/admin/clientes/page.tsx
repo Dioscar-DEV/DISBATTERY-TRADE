@@ -604,9 +604,14 @@ export default function GestionClientesPage() {
       const clientesConSeñalizacion: Cliente[] = await Promise.all(
         clientesData.map(async (cliente) => {
           const visitasRef = collection(db, 'visitas');
-          const q = query(visitasRef, where('rifCliente', '==', cliente.rif), orderBy('marcaTemporal', 'desc'));
+          const q = query(visitasRef, where('rifCliente', '==', cliente.rif));
           const visitasSnap = await getDocs(q);
-          const visitas = visitasSnap.docs.map(doc => doc.data() as Visita);
+          const visitas = visitasSnap.docs.map(doc => doc.data() as Visita)
+            .sort((a, b) => {
+              const dateA = normalizeDate(a.marcaTemporal);
+              const dateB = normalizeDate(b.marcaTemporal);
+              return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+            });
 
           const ultimaVisita = visitas[0] || null;
           const ultimasVisitasMerchandising = visitas.filter(v => v.tipoVisita === 'Merchandising');
@@ -1032,9 +1037,9 @@ export default function GestionClientesPage() {
             if (clienteData.sede) {
               const regionPorSede: { [sede: string]: Region } = {
                 'GRUPO DISBATTERY': 'Centro-capital',
-                'DISBATTERY': 'Centro-Los llanos', 
-                'BLITZ 2000': 'Centro-Los llanos',  // CORREGIDO: Blitz es Centro-Los llanos
-                'GRUPO VICTORIA': 'Oriente'
+                'DISBATTERY': 'Oriente',  // ✅ CORREGIDO: DISBATTERY es Oriente
+                'BLITZ 2000': 'Centro-Los llanos',  // ✅ CORRECTO: Blitz es Centro-Los llanos
+                'GRUPO VICTORIA': 'Oriente'  // ✅ CORRECTO: Victoria es Oriente
               };
               clienteData.region = regionPorSede[clienteData.sede] || 'Centro-capital';
               console.log(`🌍 Región asignada por sede "${clienteData.sede}": ${clienteData.region}`);
@@ -1053,9 +1058,8 @@ export default function GestionClientesPage() {
                 'miranda': 'GRUPO DISBATTERY',
                 'vargas': 'GRUPO DISBATTERY',
                 
-                // DISBATTERY - Estados de cobertura central/regional 
+                // DISBATTERY - Estados de cobertura oriental
                 'aragua': 'DISBATTERY',
-                'carabobo': 'DISBATTERY',
                 'anzoategui': 'DISBATTERY',
                 'anzoátegui': 'DISBATTERY',
                 'bolivar': 'DISBATTERY',
@@ -1064,7 +1068,10 @@ export default function GestionClientesPage() {
                 'sucre': 'DISBATTERY',
                 'nueva esparta': 'DISBATTERY',
                 
-                // BLITZ 2000 - Estados centro-occidentales (incluyendo Lara)
+                // BLITZ 2000 - Estados centro-occidentales Y CENTRO-SUR (CORREGIDO)
+                'carabobo': 'BLITZ 2000',  // ✅ CORREGIDO: Carabobo es BLITZ 2000
+                'guarico': 'BLITZ 2000',   // ✅ CORREGIDO: Guárico es BLITZ 2000
+                'guárico': 'BLITZ 2000',   // ✅ CORREGIDO: Guárico con tilde
                 'lara': 'BLITZ 2000',
                 'yaracuy': 'BLITZ 2000',
                 'falcon': 'BLITZ 2000',
@@ -1076,8 +1083,7 @@ export default function GestionClientesPage() {
                 'mérida': 'BLITZ 2000',
                 'trujillo': 'BLITZ 2000',
                 
-                // GRUPO VICTORIA - Estados llaneros/orientales
-                'guárico': 'GRUPO VICTORIA',
+                // GRUPO VICTORIA - Estados llaneros restantes
                 'cojedes': 'GRUPO VICTORIA',
                 'portuguesa': 'GRUPO VICTORIA',
                 'barinas': 'GRUPO VICTORIA',
@@ -1192,9 +1198,9 @@ export default function GestionClientesPage() {
         if (!region) {
           const regionPorSede: { [sede: string]: Region } = {
             'GRUPO DISBATTERY': 'Centro-capital',
-            'DISBATTERY': 'Centro-Los llanos', 
-            'BLITZ 2000': 'Centro-Los llanos',  // BLITZ 2000 = Centro-Los llanos
-            'GRUPO VICTORIA': 'Oriente'
+            'DISBATTERY': 'Oriente',  // ✅ CORREGIDO: DISBATTERY es Oriente
+            'BLITZ 2000': 'Centro-Los llanos',  // ✅ CORRECTO: BLITZ 2000 es Centro-Los llanos
+            'GRUPO VICTORIA': 'Oriente'  // ✅ CORRECTO: GRUPO VICTORIA es Oriente
           };
           region = regionPorSede[sede] || 'Centro-capital';
           console.log(`🎯 Región final asignada automáticamente por sede "${sede}": ${region}`);
@@ -2442,11 +2448,11 @@ export default function GestionClientesPage() {
                     <br />
                     • <strong>GRUPO DISBATTERY</strong> (Centro-capital): Distrito Capital, Miranda, Vargas
                     <br />
-                    • <strong>DISBATTERY</strong> (Centro-Los llanos): Aragua, Carabobo, Anzoátegui, Bolívar, Monagas, Sucre, Nueva Esparta
+                    • <strong>DISBATTERY</strong> (Oriente): Aragua, Anzoátegui, Bolívar, Monagas, Sucre, Nueva Esparta
                     <br />
-                    • <strong>BLITZ 2000</strong> (Centro-Los llanos): Lara, Yaracuy, Falcón, Zulia, Táchira, Mérida, Trujillo
+                    • <strong>BLITZ 2000</strong> (Centro-Los llanos): Carabobo, Guárico, Lara, Yaracuy, Falcón, Zulia, Táchira, Mérida, Trujillo
                     <br />
-                    • <strong>GRUPO VICTORIA</strong> (Oriente): Guárico, Cojedes, Portuguesa, Barinas, Apure, Amazonas, Delta Amacuro
+                    • <strong>GRUPO VICTORIA</strong> (Oriente): Cojedes, Portuguesa, Barinas, Apure, Amazonas, Delta Amacuro
                   </AlertDescription>
                 </Alert>
               </div>

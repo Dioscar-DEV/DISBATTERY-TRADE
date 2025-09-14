@@ -4,14 +4,13 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { auth } from '@/firebase/clientApp';
 import { signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getCurrentUser, saveUserToStorage, ADMIN_MASTER_EMAIL, isAdminMaster } from '@/services/auth';
+import { getCurrentUser, saveUserToStorage, ADMIN_MASTER_EMAILS as ADMIN_EMAILS, isAdminMaster } from '@/services/auth';
 import { postLoginStrategy, PreloadProgress } from '@/services/postLoginStrategy';
 import DataPreloadProgress from '@/components/DataPreloadProgress';
 import { db } from '@/firebase/clientApp';
 import { collection, query, where, getDocs, doc, updateDoc, deleteField } from 'firebase/firestore';
 import './login-original.css';
 
-const ADMIN_EMAILS = [ADMIN_MASTER_EMAIL, 'admin@example.com'];
 
 export default function Home() {
   const router = useRouter();
@@ -611,46 +610,7 @@ export default function Home() {
             console.log('✅ Usuario temporal procesado exitosamente');
             
             const { userCredential, userData } = temporaryUserResult;
-            
-            // Guardar credenciales para uso offline
-            try {
-              const userCredentials = {
-                email: username,
-                username: username,
-                password: password,
-                timestamp: new Date().toISOString()
-              };
-              localStorage.setItem('userCredentials', JSON.stringify(userCredentials));
-            } catch (error) {
-              console.error('Error guardando credenciales offline:', error);
-            }
-            
-            // Proceder como login normal
-            saveUserToStorage(userData);
-            
-            if (userData.role === 'AdminMaster' || userData.role === 'Administrador' || userData.role === 'Supervisor') {
-              showToast('¡Login exitoso! Cuenta activada. Bienvenido administrador.');
-              if (typeof window !== 'undefined') {
-                localStorage.setItem('userLoggedIn', 'true');
-                localStorage.setItem('isAdminLoggedIn', 'true');
-                localStorage.removeItem('merchandiserLoggedIn');
-              }
-              
-              if (userData.role === 'AdminMaster' || userData.role === 'Administrador') {
-                router.push('/admin/dashboard');
-              } else if (userData.role === 'Supervisor') {
-                router.push('/admin/rutas');
-              }
-            } else {
-              showToast('¡Login exitoso! Cuenta activada. Preparando datos offline...');
-              if (typeof window !== 'undefined') {
-                localStorage.setItem('userLoggedIn', 'true');
-                localStorage.setItem('merchandiserLoggedIn', 'true');
-                localStorage.removeItem('isAdminLoggedIn');
-              }
-              
-              await executePostLoginStrategy(userData);
-            }
+
             return;
           }
         } catch (tempUserError) {
@@ -788,6 +748,7 @@ export default function Home() {
           >
             ¿Olvidó su contraseña?
           </a>
+          <p>Version: 1.0.0</p>
         </div>
       </div>
 

@@ -310,32 +310,69 @@ export default function QualidMerchandising() {
     try {
       setIsSyncing(true);
       
-      // Obtener datos acumulados
-      const datosAcumulados = JSON.parse(localStorage.getItem('datosFormularioCompleto') || '{}');
+      console.log('🔄 [QUALID] Iniciando guardado de datos...');
+      console.log('🔄 [QUALID] Datos a guardar:', datosQualid);
+      
+      // ✅ VERIFICAR QUE LOCALSTORAGE ESTÉ DISPONIBLE
+      if (typeof window === 'undefined' || !window.localStorage) {
+        throw new Error('LocalStorage no está disponible');
+      }
+      
+      // ✅ OBTENER DATOS ACUMULADOS CON VALIDACIÓN ROBUSTA
+      let datosAcumulados: any = {};
+      try {
+        const datosExistentes = localStorage.getItem('datosFormularioCompleto');
+        console.log('📦 [QUALID] Datos existentes en localStorage:', datosExistentes ? 'Sí existen' : 'No existen');
+        
+        if (datosExistentes) {
+          datosAcumulados = JSON.parse(datosExistentes);
+          console.log('✅ [QUALID] Datos existentes parseados correctamente');
+        } else {
+          console.log('📝 [QUALID] Creando objeto de datos nuevo');
+        }
+      } catch (parseError) {
+        console.error('❌ [QUALID] Error parseando datos existentes:', parseError);
+        console.log('🔄 [QUALID] Reiniciando con objeto vacío');
+        datosAcumulados = {};
+      }
 
-      // Agregar los nuevos datos de Qualid
+      // ✅ AGREGAR LOS NUEVOS DATOS DE QUALID
       datosAcumulados.qualidMerchandising = datosQualid;
+      console.log('✅ [QUALID] Datos de Qualid agregados al objeto acumulado');
 
-      // Guardar de nuevo en localStorage
-      localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosAcumulados));
+      // ✅ GUARDAR DE NUEVO EN LOCALSTORAGE CON VALIDACIÓN
+      try {
+        const datosSerializados = JSON.stringify(datosAcumulados);
+        localStorage.setItem('datosFormularioCompleto', datosSerializados);
+        console.log('✅ [QUALID] Datos guardados en localStorage exitosamente');
+        console.log('📊 [QUALID] Tamaño de datos guardados:', datosSerializados.length, 'caracteres');
+      } catch (storageError: any) {
+        console.error('❌ [QUALID] Error guardando en localStorage:', storageError);
+        throw new Error(`Error de almacenamiento: ${storageError?.message || 'Error desconocido'}`);
+      }
 
-      console.log('=== DATOS DE QUALID MERCHANDISING GUARDADOS ===');
-      console.log(datosAcumulados);
+      console.log('=== ✅ DATOS DE QUALID MERCHANDISING GUARDADOS EXITOSAMENTE ===');
+      console.log('📋 Datos finales guardados:', datosAcumulados);
 
       toast({
         title: 'Datos de Qualid Guardados',
         description: 'Progreso guardado. Continuando con el formulario...',
       });
       
-      // Flujo simplificado - continuar con ventas productos
+      // ✅ NAVEGACIÓN CON DELAY PARA ASEGURAR QUE EL GUARDADO SE COMPLETE
+      console.log('🔄 [QUALID] Navegando a ventas-productos...');
       router.push('/ventas-productos');
 
-    } catch (error) {
-      console.error('Error guardando datos de Qualid:', error);
+    } catch (error: any) {
+      console.error('❌ [QUALID] ERROR COMPLETO guardando datos:', error);
+      console.error('❌ [QUALID] Stack trace:', error?.stack);
+      console.error('❌ [QUALID] Tipo de error:', error?.name);
+      console.error('❌ [QUALID] Mensaje de error:', error?.message);
+      
       toast({
         variant: 'destructive',
         title: 'Error al Guardar',
-        description: 'Hubo un problema guardando el progreso. Intente nuevamente.',
+        description: `Hubo un problema guardando el progreso: ${error?.message || 'Error desconocido'}. Intente nuevamente.`,
       });
     } finally {
       setIsSyncing(false);

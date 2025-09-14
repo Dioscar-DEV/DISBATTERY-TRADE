@@ -3,14 +3,9 @@ import { Montserrat } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster'; // Added Toaster import
 import { PWAInstallBanner } from '@/components/PWAInstallBanner';
-import { OfflineIndicator } from '@/components/OfflineIndicator';
-import { NotificationInitializer } from '@/components/NotificationInitializer';
 import { AnalyticsInitializer } from '@/components/AnalyticsInitializer';
 import { UserStatusChecker } from '@/components/UserStatusChecker';
-import OfflineConnectivityBanner from '@/components/OfflineConnectivityBanner';
-import OfflineInitializer from '@/components/OfflineInitializer';
-import MercaderistaDataLoader from '@/components/MercaderistaDataLoader';
-import AutoPrecacheOverlay from '@/components/AutoPrecacheOverlay';
+import { PostHogProvider } from './providers';
 
 const montserrat = Montserrat({
   variable: '--font-montserrat',
@@ -116,17 +111,13 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />
       </head>
       <body className={`${montserrat.variable} font-sans antialiased`}>
-        <OfflineInitializer /> {/* Inicializador de servicios offline */}
-        <MercaderistaDataLoader /> {/* Descargador automático de datos para mercaderistas */}
-        <OfflineConnectivityBanner /> {/* Banner de conectividad offline/online */}
+      <PostHogProvider>
         <PWAInstallBanner /> {/* Banner de instalación PWA persistente */}
-        <OfflineIndicator /> {/* Indicador de estado offline */}
-        <AutoPrecacheOverlay /> {/* Precarga automática de secciones con progreso */}
-        <NotificationInitializer /> {/* Inicializador de notificaciones push */}
         <AnalyticsInitializer /> {/* Inicializador de Google Analytics */}
         <UserStatusChecker /> {/* Verificador de status de usuario en tiempo real */}
         {children}
         <Toaster /> {/* Added Toaster component here */}
+        </PostHogProvider>
       </body>
     </html>
   );

@@ -49,7 +49,7 @@ import { getCurrentUser, saveUserToStorage, clearUserData, UserData } from '@/se
 import { LogoutButton } from '@/components/LogoutButton';
 import { obtenerUltimasVisitasUsuarios } from '@/services/visitas';
 import { Visita } from '@/types/visitas';
-import { getCurrentUserWithPermissions, UserPermissions, canAccessSede, ADMIN_MASTER_EMAIL } from '@/services/auth';
+import { getCurrentUserWithPermissions, UserPermissions, canAccessSede, isAdminMaster as isUserAdminMaster, ADMIN_MASTER_EMAILS } from '@/services/auth';
 import { sendNuevoUsuarioAprobacionEmail } from '@/services/emailNotifications';
 
 const newUserSchema = z.object({
@@ -111,10 +111,8 @@ function UserManagementPageContent() {
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermissions | null>(null);
   
-  // ✅ Detectar si el usuario actual es AdminMaster
-  const isCurrentUserAdminMaster = currentUser?.email === 'dsalcedo@smartautomatai.com' || 
-                                   currentUser?.email === 'administraciongeneral@gmail.com' || 
-                                   currentUser?.email === 'anibalconcepcion@gmail.com';
+  // ✅ Usar la función centralizada de auth.ts
+  const isCurrentUserAdminMaster = currentUser ? isUserAdminMaster(currentUser.email) : false;
 
   const {
     register,
@@ -399,11 +397,9 @@ function UserManagementPageContent() {
         throw new Error('No hay usuario logueado');
       }
 
-      // ✅ PRIMERO: Determinar si es AdminMaster
-      const isAdminMasterUser = currentUser.email === 'dsalcedo@smartautomatai.com' || 
-                                currentUser.email === 'administraciongeneral@gmail.com' || 
-                                currentUser.email === 'anibalconcepcion@gmail.com';
-
+      // ✅ Usar la función centralizada de auth.ts
+      const isAdminMasterUser = isUserAdminMaster(currentUser.email);
+      
       // ✅ NUEVA LÓGICA: AdminMaster elige sede, Admin regular hereda
       let sedeHeredada, regionHeredada;
       
@@ -431,7 +427,7 @@ function UserManagementPageContent() {
       console.log('🔍 VERIFICANDO ADMINMASTER:', {
         currentUserEmail: currentUser.email,
         isAdminMasterDetected: isAdminMasterUser,
-        expectedEmails: ['dsalcedo@smartautomatai.com', 'administraciongeneral@gmail.com', 'anibalconcepcion@gmail.com']
+        expectedEmails: ADMIN_MASTER_EMAILS
       });
 
       if (isAdminMasterUser) {
@@ -598,7 +594,7 @@ function UserManagementPageContent() {
       return;
     }
 
-    if (user.email === ADMIN_MASTER_EMAIL) {
+    if (isUserAdminMaster(user.email)) {
       toast({
         title: "Acción no permitida",
         description: "No se puede eliminar al administrador master.",
@@ -1115,7 +1111,7 @@ function UserManagementPageContent() {
                                   onClick={() => handleEditUser(user)}
                                   disabled={
                                     (currentUser && !userPermissions?.isAdminMaster && !canAccessSede(currentUser, user.sede as Sede)) ||
-                                    user.email === ADMIN_MASTER_EMAIL
+                                    isUserAdminMaster(user.email)
                                   }
                                 >
                                   <Edit3 className="w-4 h-4" />
@@ -1127,7 +1123,7 @@ function UserManagementPageContent() {
                                   className="text-red-600 hover:text-red-700"
                                   disabled={
                                     (currentUser && !userPermissions?.isAdminMaster && !canAccessSede(currentUser, user.sede as Sede)) ||
-                                    user.email === ADMIN_MASTER_EMAIL
+                                    isUserAdminMaster(user.email)
                                   }
                                 >
                                   <Trash2 className="w-4 w-4" />
@@ -1207,7 +1203,7 @@ function UserManagementPageContent() {
               <Select 
                 value={editForm.role} 
                 onValueChange={(value: 'Mercaderista' | 'Administrador' | 'Supervisor') => setEditForm({ ...editForm, role: value })}
-                disabled={userToEdit?.email === ADMIN_MASTER_EMAIL}
+                disabled={userToEdit ? isUserAdminMaster(userToEdit.email) : false}
               >
                 <SelectTrigger>
                   <SelectValue />
