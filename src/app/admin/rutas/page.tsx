@@ -2681,14 +2681,18 @@ export default function RutasPage() {
                    </div>
                  )}
 
-                 {selectedEvento.marcaTrabajada && (
-                   <div>
-                     <Label className="text-sm font-medium">Marca a Trabajar</Label>
-                     <Badge className="bg-blue-100 text-blue-800">
-                       {selectedEvento.marcaTrabajada}
-                     </Badge>
-                   </div>
-                 )}
+                {selectedEvento.marcasTrabajadas && selectedEvento.marcasTrabajadas.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-medium">Marcas a Trabajar</Label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {selectedEvento.marcasTrabajadas.map((marca, index) => (
+                        <Badge key={index} className="bg-blue-100 text-blue-800">
+                          {marca === 'Shell' ? '🐚 Shell' : '🔧 Qualid'}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                  {selectedEvento.descripcion && (
                    <div>

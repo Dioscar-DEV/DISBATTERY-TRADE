@@ -18,7 +18,7 @@ body, html {
     font-family: 'Poppins', sans-serif;
     background-color: var(--grey-light);
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
     background-image: url('https://storage.googleapis.com/iandai/imagenes/Disbattery%20trade/Disbattery%20Mercaderista%20movil%20main%20background.png');
     background-repeat: no-repeat;
     background-position: center center;

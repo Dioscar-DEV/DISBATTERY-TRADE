@@ -748,7 +748,7 @@ export default function Home() {
           >
             ¿Olvidó su contraseña?
           </a>
-          <p>Version: 1.0.0</p>
+          <p className="text-sm">Version: 1.0.0</p>
         </div>
       </div>
 

@@ -300,7 +300,19 @@ export const autoUpdateRouteStatus = async (
   action: 'start' | 'complete'
 ): Promise<{ updated: boolean; reason: string; routesFound: number }> => {
   try {
-    console.log(`🔄 [RouteService] Auto-actualizando rutas para ${action} - mercaderista: ${mercaderistoId}, fecha: ${date}`);
+    console.log(`🔄 [RouteService] === INICIANDO AUTO-ACTUALIZACIÓN DE RUTA ===`);
+    console.log(`🔄 [RouteService] Parámetros recibidos:`);
+    console.log(`   👤 MercaderistaId: "${mercaderistoId}"`);
+    console.log(`   📅 Fecha: "${date}"`);
+    console.log(`   🎯 Acción: "${action}"`);
+    console.log(`   🕐 Timestamp: ${new Date().toISOString()}`);
+    
+    // Validar parámetros de entrada
+    if (!mercaderistoId || !date || !action) {
+      const error = `Parámetros inválidos: mercaderistoId="${mercaderistoId}", date="${date}", action="${action}"`;
+      console.error(`❌ [RouteService] ${error}`);
+      return { updated: false, reason: error, routesFound: 0 };
+    }
     
     // Obtener las rutas del mercaderista para hoy
     const routesRef = collection(db, 'routes');
@@ -310,36 +322,59 @@ export const autoUpdateRouteStatus = async (
       where('date', '==', date)
     );
 
+    console.log(`🔍 [RouteService] Ejecutando consulta a Firestore...`);
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
-      console.log('⚠️ [RouteService] No se encontraron rutas para actualizar');
-      return { updated: false, reason: 'No se encontraron rutas', routesFound: 0 };
+      console.log(`⚠️ [RouteService] === NO SE ENCONTRARON RUTAS ===`);
+      console.log(`⚠️ [RouteService] Posibles causas:`);
+      console.log(`   1. MercaderistaId no coincide exactamente`);
+      console.log(`   2. Fecha no coincide exactamente (formato: ${date})`);
+      console.log(`   3. No hay rutas creadas para este mercaderista en esta fecha`);
+      return { updated: false, reason: `No se encontraron rutas para ${mercaderistoId} en fecha ${date}`, routesFound: 0 };
     }
 
-    console.log(`📊 [RouteService] Encontradas ${snapshot.docs.length} rutas para evaluar`);
+    console.log(`📊 [RouteService] ✅ Encontradas ${snapshot.docs.length} rutas para evaluar`);
+    
+    // Mostrar detalles de cada ruta encontrada
+    snapshot.docs.forEach((doc, index) => {
+      const route = doc.data();
+      console.log(`📍 [RouteService] Ruta ${index + 1}:`);
+      console.log(`   🆔 ID: ${doc.id}`);
+      console.log(`   👤 Mercaderista: ${route.mercaderista}`);
+      console.log(`   📅 Fecha: ${route.date}`);
+      console.log(`   📊 Estado actual: "${route.status || 'planificada'}"`);
+      console.log(`   📍 Puntos: ${route.points?.length || 0}`);
+    });
     
     let routesUpdated = 0;
     const updatePromises = snapshot.docs.map(async (doc: any) => {
       const route = doc.data();
       const currentStatus = route.status || 'planificada';
       
-      console.log(`📍 [RouteService] Evaluando ruta ${doc.id}: ${route.mercaderista} - Status actual: ${currentStatus}`);
+      console.log(`📍 [RouteService] === EVALUANDO RUTA ${doc.id} ===`);
+      console.log(`📍 [RouteService] Mercaderista: ${route.mercaderista}`);
+      console.log(`📍 [RouteService] Estado actual: "${currentStatus}"`);
+      console.log(`📍 [RouteService] Acción solicitada: "${action}"`);
       
       let shouldUpdate = false;
-      let newStatus: Route['status'];
+      let newStatus: Route['status'] | undefined = undefined;
+      let updateReason = '';
       
       if (action === 'start' && currentStatus === 'planificada') {
         shouldUpdate = true;
         newStatus = 'en_progreso';
-        console.log(`🚀 [RouteService] Iniciando ruta ${doc.id}: planificada → en_progreso`);
+        updateReason = 'Iniciando ruta: planificada → en_progreso';
+        console.log(`🚀 [RouteService] ✅ ${updateReason}`);
       } else if (action === 'complete') {
+        console.log(`🏁 [RouteService] Procesando completación de ruta...`);
+        console.log(`🏁 [RouteService] Estado actual: "${currentStatus}"`);
+        
         if (currentStatus === 'en_progreso') {
-          // Para completar, verificar si es apropiado
-          // Por ahora, permitir la completación si viene de página de éxito
           shouldUpdate = true;
           newStatus = 'completada';
-          console.log(`🏁 [RouteService] Completando ruta ${doc.id}: en_progreso → completada`);
+          updateReason = 'Completando ruta: en_progreso → completada';
+          console.log(`🏁 [RouteService] ✅ ${updateReason}`);
           
           // 📧 Enviar EMAIL a administradores cuando se completa la ruta
           try {
@@ -429,17 +464,35 @@ export const autoUpdateRouteStatus = async (
             console.log('✅ Ruta marcada como completada exitosamente (sin notificación)');
           }
         } else if (currentStatus === 'completada') {
-          console.log(`✅ [RouteService] Ruta ${doc.id} ya está completada`);
+          updateReason = 'Ruta ya está completada, no se requiere actualización';
+          console.log(`✅ [RouteService] ${updateReason}`);
         } else {
-          console.log(`⏭️ [RouteService] Ruta ${doc.id} en estado ${currentStatus}, no se puede completar`);
+          updateReason = `Ruta en estado "${currentStatus}", no se puede completar directamente`;
+          console.log(`⏭️ [RouteService] ${updateReason}`);
         }
+      } else if (action === 'start' && currentStatus !== 'planificada') {
+        updateReason = `Ruta en estado "${currentStatus}", no se puede iniciar`;
+        console.log(`⏭️ [RouteService] ${updateReason}`);
       } else {
-        console.log(`⏭️ [RouteService] Ruta ${doc.id} ya está en estado ${currentStatus}, no requiere cambio para ${action}`);
+        updateReason = `Ruta ya está en estado "${currentStatus}", no requiere cambio para "${action}"`;
+        console.log(`⏭️ [RouteService] ${updateReason}`);
       }
       
-      if (shouldUpdate) {
-        await updateRouteStatus(doc.id, newStatus!, mercaderistoId);
-        routesUpdated++;
+      console.log(`🔄 [RouteService] Decisión final: shouldUpdate = ${shouldUpdate}`);
+      console.log(`🔄 [RouteService] Razón: ${updateReason}`);
+      
+      if (shouldUpdate && newStatus) {
+        try {
+          console.log(`🔄 [RouteService] Ejecutando actualización: ${doc.id} → ${newStatus}`);
+          await updateRouteStatus(doc.id, newStatus, mercaderistoId);
+          routesUpdated++;
+          console.log(`✅ [RouteService] Ruta ${doc.id} actualizada exitosamente a "${newStatus}"`);
+        } catch (updateError) {
+          console.error(`❌ [RouteService] Error actualizando ruta ${doc.id}:`, updateError);
+          throw updateError; // Re-lanzar el error para que se maneje arriba
+        }
+      } else {
+        console.log(`⏭️ [RouteService] No se actualizará la ruta ${doc.id}: ${updateReason}`);
       }
       
       return shouldUpdate;
@@ -447,13 +500,38 @@ export const autoUpdateRouteStatus = async (
 
     await Promise.all(updatePromises);
     
+    console.log(`🎉 [RouteService] === RESUMEN DE AUTO-ACTUALIZACIÓN ===`);
+    console.log(`📊 Rutas encontradas: ${snapshot.docs.length}`);
+    console.log(`✅ Rutas actualizadas: ${routesUpdated}`);
+    console.log(`📈 Tasa de éxito: ${routesUpdated}/${snapshot.docs.length}`);
+    
     const result = {
       updated: routesUpdated > 0,
-      reason: routesUpdated > 0 ? `${routesUpdated} rutas actualizadas` : 'No se requirieron cambios',
+      reason: routesUpdated > 0 
+        ? `${routesUpdated} de ${snapshot.docs.length} rutas actualizadas exitosamente` 
+        : `No se actualizaron rutas. Se encontraron ${snapshot.docs.length} rutas pero ninguna requirió cambios para la acción "${action}"`,
       routesFound: snapshot.docs.length
     };
     
-    console.log(`🎉 [RouteService] Auto-actualización completada:`, result);
+    console.log(`🎉 [RouteService] Resultado final:`, result);
+    
+    // Si no se actualizó ninguna ruta, mostrar diagnóstico adicional
+    if (routesUpdated === 0 && snapshot.docs.length > 0) {
+      console.log(`🔍 [RouteService] === DIAGNÓSTICO: ¿Por qué no se actualizaron rutas? ===`);
+      snapshot.docs.forEach((doc, index) => {
+        const route = doc.data();
+        const currentStatus = route.status || 'planificada';
+        console.log(`📍 Ruta ${index + 1} (${doc.id}):`);
+        console.log(`   Estado actual: "${currentStatus}"`);
+        console.log(`   Acción solicitada: "${action}"`);
+        if (action === 'complete' && currentStatus !== 'en_progreso') {
+          console.log(`   ❌ No se puede completar porque no está en "en_progreso"`);
+        } else if (action === 'start' && currentStatus !== 'planificada') {
+          console.log(`   ❌ No se puede iniciar porque no está en "planificada"`);
+        }
+      });
+    }
+    
     return result;
     
   } catch (error: any) {

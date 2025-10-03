@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MapPin, Plus, Edit, Trash2, Search, Filter, UserCircle, ArrowLeft, Upload, FileText, AlertCircle, CheckCircle, Menu } from 'lucide-react';
 import { Cliente, CreateClienteData, Region, Sede, SEDES_DATA, getSedesByRegion, getCitiesBySede } from '@/types/routes';
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy, limit, startAfter, DocumentSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase/clientApp';
 import { MapSelector } from '@/components/ui/map-selector';
 import { Combobox, ComboboxOption } from '@/components/ui/combobox';
@@ -87,11 +87,18 @@ const normalizeDate = (v: any): Date | null => {
   return null;
 };
 
+// Constantes para paginación
+const CLIENTS_PER_PAGE = 50;
+const MAX_CLIENTS_LOAD = 200; // Máximo de clientes a cargar inicialmente
+
 export default function GestionClientesPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clientes, setClientes] = useState<ClienteConSeñalizacion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreClients, setHasMoreClients] = useState(true);
+  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentCliente, setCurrentCliente] = useState<Cliente | null>(null);
@@ -109,6 +116,8 @@ export default function GestionClientesPage() {
   const [filterSede, setFilterSede] = useState<Sede | 'all'>('all');
   const [filterSignal, setFilterSignal] = useState<'all' | 'si' | 'no'>('all');
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Estados de usuario y permisos
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
@@ -157,37 +166,71 @@ export default function GestionClientesPage() {
   const [availableCities, setAvailableCities] = useState<string[]>([]);
 
   useEffect(() => {
-    // Verificar autenticación y cargar permisos
-    if (typeof window !== 'undefined') {
-      const isAdmin = localStorage.getItem('isAdminLoggedIn');
-      if (isAdmin !== 'true') {
-        router.push('/');
-        return;
-      }
-    }
-
-    // Cargar datos del usuario y sus permisos
-    const loadUserData = async () => {
+    const initializeAuth = async () => {
       try {
-        const result = await getCurrentUserWithPermissions();
+        setAuthLoading(true);
+        setAuthError(null);
+        
+        // Verificar autenticación local
+        if (typeof window !== 'undefined') {
+          const isAdmin = localStorage.getItem('isAdminLoggedIn');
+          if (isAdmin !== 'true') {
+            console.log('🔒 Usuario no autenticado, redirigiendo...');
+            router.push('/');
+            return;
+          }
+        }
+
+        // Cargar datos del usuario con timeout
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout de autenticación')), 10000);
+        });
+        
+        const authPromise = getCurrentUserWithPermissions();
+        const result = await Promise.race([authPromise, timeoutPromise]) as any;
+        
         if (result) {
           setCurrentUser(result.user);
           setUserPermissions(result.permissions);
           
+          console.log('✅ Usuario autenticado:', result.user?.fullName, 'Permisos:', result.permissions);
+          
           // Si el usuario no puede gestionar clientes, redirigir
           if (!result.permissions.canManageClients) {
+            console.log('⚠️ Sin permisos para gestionar clientes, redirigiendo...');
             router.push('/admin/dashboard');
             return;
           }
+          
+          // Solo cargar clientes si la autenticación es exitosa
+          // loadClientes se llamará después de definirse
+        } else {
+          throw new Error('No se pudo obtener datos del usuario');
         }
-      } catch (error) {
-        console.error('Error cargando datos del usuario:', error);
+      } catch (error: any) {
+        console.error('❌ Error en autenticación:', error);
+        setAuthError(error.message || 'Error de autenticación');
+        
+        // Si hay error de auth, redirigir después de un delay
+        setTimeout(() => {
+          router.push('/');
+        }, 3000);
+      } finally {
+        setAuthLoading(false);
       }
     };
 
-    loadUserData();
-    loadClientes();
-  }, [router]);
+    initializeAuth();
+  }, [router]); // Remover loadClientes de dependencias para evitar referencia circular
+
+  // Efecto separado para cargar clientes después de la autenticación
+  useEffect(() => {
+    if (currentUser && userPermissions && userPermissions.canManageClients && !loading) {
+      console.log('🔄 Cargando clientes después de autenticación exitosa...');
+      loadClientes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, userPermissions]); // loadClientes se define después, evitar referencia circular
 
   useEffect(() => {
     // Inicializar formulario con datos del usuario actual cuando esté disponible
@@ -581,14 +624,56 @@ export default function GestionClientesPage() {
     }
   };
 
-  const loadClientes = useCallback(async () => {
+  const loadClientes = useCallback(async (loadMore = false) => {
     try {
-      setLoading(true);
+      if (loadMore) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        setClientes([]);
+        setLastDoc(null);
+        setHasMoreClients(true);
+      }
+      
+      console.log(`📄 Cargando clientes... ${loadMore ? '(más)' : '(inicial)'} - Límite: ${CLIENTS_PER_PAGE}`);
+      
       const clientesRef = collection(db, 'clientes');
-      const q = query(clientesRef, orderBy('createdAt', 'desc'));
+      let q = query(
+        clientesRef, 
+        orderBy('createdAt', 'desc'),
+        limit(CLIENTS_PER_PAGE)
+      );
+      
+      // Si estamos cargando más, usar el último documento como punto de partida
+      if (loadMore && lastDoc) {
+        q = query(
+          clientesRef,
+          orderBy('createdAt', 'desc'),
+          startAfter(lastDoc),
+          limit(CLIENTS_PER_PAGE)
+        );
+      }
+      
       const querySnapshot = await getDocs(q);
       
-      const clientesData: Cliente[] = [];
+      if (querySnapshot.empty) {
+        console.log('⚠️ No se encontraron más clientes');
+        setHasMoreClients(false);
+        return;
+      }
+      
+      console.log(`✅ Obtenidos ${querySnapshot.docs.length} clientes de Firestore`);
+      
+      // Guardar el último documento para paginación
+      const newLastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
+      setLastDoc(newLastDoc);
+      
+      // Si obtuvimos menos documentos del límite, no hay más
+      if (querySnapshot.docs.length < CLIENTS_PER_PAGE) {
+        setHasMoreClients(false);
+      }
+      
+      const clientesData: ClienteConSeñalizacion[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         clientesData.push({
@@ -597,45 +682,43 @@ export default function GestionClientesPage() {
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
           lastVisitDate: data.lastVisitDate ? (typeof data.lastVisitDate === 'string' ? data.lastVisitDate : data.lastVisitDate.toDate()) : undefined,
-        } as Cliente);
+        } as ClienteConSeñalizacion);
       });
       
-      // Mapeo enriquecido para incluir información de señalización
-      const clientesConSeñalizacion: Cliente[] = await Promise.all(
-        clientesData.map(async (cliente) => {
-          const visitasRef = collection(db, 'visitas');
-          const q = query(visitasRef, where('rifCliente', '==', cliente.rif));
-          const visitasSnap = await getDocs(q);
-          const visitas = visitasSnap.docs.map(doc => doc.data() as Visita)
-            .sort((a, b) => {
-              const dateA = normalizeDate(a.marcaTemporal);
-              const dateB = normalizeDate(b.marcaTemporal);
-              return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
-            });
+      console.log(`🔄 Procesando información básica para ${clientesData.length} clientes (sin señalización por ahora)...`);
+      
+      // OPTIMIZACIÓN CRÍTICA: Cargar clientes SIN información de señalización inicialmente
+      // La señalización se cargará bajo demanda o en background
+      const clientesBasicos = clientesData.map(cliente => ({
+        ...cliente,
+        tieneSeñalizacion: null,
+        signagePhotoUrl: undefined,
+        fechaUltimaVisita: null,
+        ultimaVisitaMerchandising: null,
+        ultimaVisitaTradeImpulso: null,
+        signage: undefined,
+      }));
 
-          const ultimaVisita = visitas[0] || null;
-          const ultimasVisitasMerchandising = visitas.filter(v => v.tipoVisita === 'Merchandising');
-          const ultimasVisitasTradeImpulso = visitas.filter(v => v.tipoVisita === 'Trade (Impulso)');
-
-          return {
-            ...cliente,
-            tieneSeñalizacion: ultimaVisita?.checkIn写真URL ? true : (ultimaVisita ? false : null),
-            signagePhotoUrl: ultimaVisita?.checkIn写真URL || undefined,
-            fechaUltimaVisita: normalizeDate(ultimaVisita?.marcaTemporal),
-            ultimaVisitaMerchandising: normalizeDate(ultimasVisitasMerchandising[0]?.marcaTemporal),
-            ultimaVisitaTradeImpulso: normalizeDate(ultimasVisitasTradeImpulso[0]?.marcaTemporal),
-            signage: ultimaVisita?.checkInContexto,
-          };
-        })
-      );
-
-      setClientes(clientesConSeñalizacion);
-    } catch (error) {
-      console.error('Error cargando clientes:', error);
+      if (loadMore) {
+        setClientes(prev => [...prev, ...clientesBasicos]);
+      } else {
+        setClientes(clientesBasicos);
+      }
+      
+      console.log(`✅ Carga básica completada: ${clientesBasicos.length} clientes listos`);
+      
+    } catch (error: any) {
+      console.error('❌ Error cargando clientes:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error cargando clientes',
+        description: error.message || 'Error desconocido al cargar clientes',
+      });
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, []);
+  }, [lastDoc, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -697,9 +780,9 @@ export default function GestionClientesPage() {
   };
 
   // Función para abrir modal de foto de señalización
-  const handleViewSignagePhoto = (cliente: Cliente) => {
-    if (cliente.signagePhotoUrl && cliente.nombre) {
-      setSelectedPhotoUrl(cliente.signagePhotoUrl);
+  const handleViewSignagePhoto = (cliente: ClienteConSeñalizacion) => {
+    if (cliente.signagePhoto && cliente.nombre) {
+      setSelectedPhotoUrl(cliente.signagePhoto);
       setSelectedClienteName(cliente.nombre);
       setPhotoModalOpen(true);
     }
@@ -1579,12 +1662,120 @@ export default function GestionClientesPage() {
     return tieneSeñalizacion ? 'Con señalización' : 'Sin señalización';
   };
 
-  // Filtrar clientes basado en permisos y filtros actuales (Ciudad y RIF/Nombre)
-  const filteredClientes = clientes.filter(cliente => {
-    // Permisos por sede
-    if (currentUser && !canAccessSede(currentUser, cliente.sede)) {
-      return false;
+  // Función para cargar coordenadas GPS reales (solo cuando se necesite el mapa)
+  const loadClientesWithGPS = useCallback(async () => {
+    console.log('🗺️ Cargando coordenadas GPS para el mapa...');
+    
+    try {
+      const clientesRef = collection(db, 'clientes');
+      let q = query(clientesRef, orderBy('createdAt', 'desc'));
+      
+      // Filtrar por sede si no es AdminMaster
+      if (currentUser && !userPermissions?.isAdminMaster) {
+        console.log(`🔒 Filtrando clientes por sede: ${currentUser.sede}`);
+        // No podemos filtrar por sede en Firestore porque no tenemos índice, 
+        // filtraremos en memoria después
+      }
+      
+      const querySnapshot = await getDocs(q);
+      console.log(`📊 Clientes obtenidos de Firestore: ${querySnapshot.docs.length}`);
+      
+      const clientesConGPS: ClienteConSeñalizacion[] = [];
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        
+        // Filtrar por permisos en memoria
+        if (currentUser && !canAccessSede(currentUser, data.sede)) {
+          return; // Saltar este cliente
+        }
+        
+        // Solo incluir clientes con GPS válido
+        if (data.position?.lat && data.position?.lng && 
+            data.position.lat !== 0 && data.position.lng !== 0) {
+          clientesConGPS.push({
+            id: doc.id,
+            rif: data.rif || '',
+            nombre: data.nombre || '',
+            direccion: data.direccion || '',
+            telefono: data.telefono,
+            email: data.email,
+            contacto: data.contacto,
+            region: data.region || 'Centro-capital',
+            sede: data.sede || 'GRUPO DISBATTERY',
+            estadoGeografico: data.estadoGeografico,
+            ciudad: data.ciudad || '',
+            position: data.position,
+            tipo: data.tipo || 'tienda',
+            estado: data.estado || 'activo',
+            observaciones: data.observaciones,
+            tipoVisitaPredeterminado: data.tipoVisitaPredeterminado,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+            createdBy: data.createdBy || 'admin',
+            lastVisitDate: data.lastVisitDate ? (typeof data.lastVisitDate === 'string' ? data.lastVisitDate : data.lastVisitDate.toDate()) : undefined,
+            // Campos de señalización como null por ahora (solo necesitamos GPS)
+            tieneSeñalizacion: null,
+            signagePhoto: undefined,
+            fechaUltimaVisita: null,
+            ultimaVisitaMerchandising: null,
+            ultimaVisitaTradeImpulso: null,
+            signage: undefined,
+          });
+        }
+      });
+      
+      console.log(`📍 Clientes con GPS válido encontrados: ${clientesConGPS.length}`);
+      console.log(`🏢 Distribución por sede:`, clientesConGPS.reduce((acc, cliente) => {
+        acc[cliente.sede] = (acc[cliente.sede] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>));
+      
+      // Actualizar solo los clientes que ya tenemos, agregando las coordenadas GPS
+      setClientes(prevClientes => {
+        return prevClientes.map(cliente => {
+          const clienteConGPS = clientesConGPS.find(c => c.id === cliente.id);
+          if (clienteConGPS) {
+            return { ...cliente, position: clienteConGPS.position };
+          }
+          return cliente;
+        });
+      });
+      
+      toast({
+        title: 'Coordenadas GPS cargadas',
+        description: `Se cargaron coordenadas para ${clientesConGPS.length} clientes`,
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Error cargando coordenadas GPS:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error cargando GPS',
+        description: 'No se pudieron cargar las coordenadas para el mapa',
+      });
     }
+  }, [currentUser, userPermissions, toast]);
+
+  // Botón para cargar más clientes
+  const handleLoadMore = useCallback(() => {
+    if (!loadingMore && hasMoreClients) {
+      loadClientes(true);
+    }
+  }, [loadClientes, loadingMore, hasMoreClients]);
+  
+  // Filtrar clientes basado en permisos y filtros actuales (Ciudad y RIF/Nombre) - MEMOIZADO
+  const filteredClientes = useMemo(() => {
+    console.log('🔍 Filtrando clientes...');
+    console.log(`📊 Total clientes cargados: ${clientes.length}`);
+    console.log(`👤 Usuario actual: ${currentUser?.fullName} - Sede: ${currentUser?.sede}`);
+    
+    const filtered = clientes.filter(cliente => {
+      // Permisos por sede
+      if (currentUser && !canAccessSede(currentUser, cliente.sede)) {
+        console.log(`🚫 Cliente ${cliente.nombre} EXCLUIDO por permisos - Sede cliente: ${cliente.sede}, Sede usuario: ${currentUser.sede}`);
+        return false;
+      }
 
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch = term === '' ||
@@ -1619,8 +1810,14 @@ export default function GestionClientesPage() {
       }
     }
 
-    return matchesSearch && matchesCity && matchesTipo && matchesSinVisita && matchesSeñalizacion;
-  });
+      return matchesSearch && matchesCity && matchesTipo && matchesSinVisita && matchesSeñalizacion;
+    });
+    
+    console.log(`✅ Clientes después del filtrado: ${filtered.length}`);
+    console.log(`📍 Clientes con GPS válido en filtrados: ${filtered.filter(c => c.position?.lat && c.position?.lng && c.position.lat !== 0 && c.position.lng !== 0).length}`);
+    
+    return filtered;
+  }, [clientes, currentUser, searchTerm, filterCity, filterTipo, filterSinVisita, filterSeñalizacion]);
 
   const getTipoColor = (tipo: string) => {
     switch (tipo) {
@@ -1642,15 +1839,41 @@ export default function GestionClientesPage() {
 
   // Preparar datos para el heatmap
   const prepareHeatmapData = () => {
-    return filteredClientes
-      .filter(cliente => cliente.position?.lat && cliente.position?.lng)
-      .map(cliente => ({
-        position: {
-          lat: cliente.position.lat,
-          lng: cliente.position.lng
-        },
-        weight: 1 // Todos los clientes tienen el mismo peso por ahora
-      }));
+    console.log('🗺️ Preparando datos para heatmap...');
+    console.log(`📊 Total clientes filtrados: ${filteredClientes.length}`);
+    
+    const clientesConGPS = filteredClientes.filter(cliente => {
+      const hasValidGPS = cliente.position?.lat && 
+                         cliente.position?.lng && 
+                         cliente.position.lat !== 0 && 
+                         cliente.position.lng !== 0;
+      
+      if (!hasValidGPS) {
+        console.log(`📍 Cliente sin GPS válido: ${cliente.nombre} - Coordenadas: (${cliente.position?.lat}, ${cliente.position?.lng})`);
+      }
+      
+      return hasValidGPS;
+    });
+    
+    console.log(`📍 Clientes con GPS válido: ${clientesConGPS.length} de ${filteredClientes.length}`);
+    console.log(`🎯 Sede del usuario actual: ${currentUser?.sede}`);
+    
+    if (clientesConGPS.length === 0) {
+      console.log('⚠️ PROBLEMA: No hay clientes con coordenadas GPS válidas para mostrar en el mapa');
+      console.log('💡 POSIBLES CAUSAS:');
+      console.log('   1. Los clientes se cargaron sin coordenadas (optimización)');
+      console.log('   2. Los clientes tienen coordenadas (0,0) por defecto');
+      console.log('   3. Filtros de permisos están excluyendo clientes');
+      console.log('   4. No hay clientes en la sede del usuario');
+    }
+    
+    return clientesConGPS.map(cliente => ({
+      position: {
+        lat: cliente.position.lat,
+        lng: cliente.position.lng
+      },
+      weight: 1 // Todos los clientes tienen el mismo peso por ahora
+    }));
   };
 
   // Calcular centro del mapa basado en los clientes filtrados
@@ -1668,6 +1891,30 @@ export default function GestionClientesPage() {
       lng: sumLng / validClientes.length
     };
   };
+
+  // Mostrar pantalla de carga durante autenticación
+  if (authLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
+        <p className="text-gray-600">Verificando autenticación...</p>
+      </div>
+    );
+  }
+
+  // Mostrar error de autenticación
+  if (authError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-lg">
+          <div className="text-red-600 text-6xl mb-4">⚠️</div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">Error de Autenticación</h1>
+          <p className="text-gray-600 mb-4">{authError}</p>
+          <p className="text-sm text-gray-500">Redirigiendo al login...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -1951,7 +2198,7 @@ export default function GestionClientesPage() {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                {cliente.tieneSeñalizacion && (cliente as any).signagePhoto && (cliente as any).signagePhoto !== 'No capturada' && (cliente as any).signagePhoto.startsWith('http') ? (
+                                {cliente.tieneSeñalizacion && cliente.signagePhoto && cliente.signagePhoto !== 'No capturada' && cliente.signagePhoto.startsWith('http') ? (
                                   <div className="flex items-center gap-2">
                                     <Badge className={getSeñalizacionColor(cliente.tieneSeñalizacion ?? null)}>
                                       {getSeñalizacionText(cliente.tieneSeñalizacion ?? null)}
@@ -2009,12 +2256,53 @@ export default function GestionClientesPage() {
                       </TableBody>
                     </Table>
                   </div>
+                  
+                  {/* Botón para cargar más clientes */}
+                  {hasMoreClients && (
+                    <div className="flex justify-center mt-4">
+                      <Button
+                        onClick={handleLoadMore}
+                        disabled={loadingMore}
+                        variant="outline"
+                        className="w-full max-w-xs"
+                      >
+                        {loadingMore ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                            Cargando más clientes...
+                          </>
+                        ) : (
+                          `Cargar más clientes (${filteredClientes.length} mostrados)`
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Información de paginación */}
+                  <div className="text-center text-sm text-gray-500 mt-2">
+                    {filteredClientes.length > 0 && (
+                      <span>
+                        Mostrando {filteredClientes.length} cliente{filteredClientes.length !== 1 ? 's' : ''}
+                        {!hasMoreClients && ' (todos cargados)'}
+                      </span>
+                    )}
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="mapa" className="space-y-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Vista de Mapa</CardTitle>
+                      <CardTitle className="flex items-center justify-between">
+                        <span>Vista de Mapa</span>
+                        <Button
+                          onClick={loadClientesWithGPS}
+                          variant="outline"
+                          size="sm"
+                          className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                        >
+                          📍 Cargar Coordenadas GPS
+                        </Button>
+                      </CardTitle>
                       <CardDescription>
                         Visualiza la concentración de clientes con un mapa de calor
                       </CardDescription>
