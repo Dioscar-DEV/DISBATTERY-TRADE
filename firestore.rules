@@ -18,7 +18,8 @@ service cloud.firestore {
       allow write, delete: if request.auth != null && (
         request.auth.uid == userId || // El usuario puede escribir sus propios datos
         isAdminMaster() || // AdminMaster puede hacer todo
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor'] // Administradores pueden gestionar usuarios
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).exists() &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor']) // Administradores pueden gestionar usuarios
       );
       allow create: if request.auth != null;
     }
@@ -29,7 +30,8 @@ service cloud.firestore {
         // AdminMaster puede ver todo
         isAdminMaster() ||
         // Administradores y Supervisores pueden ver todas las rutas para gestionarlas
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor'] ||
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).exists() &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor']) ||
         // Mercaderista solo puede ver sus propias rutas - CRÍTICO PARA PRIVACIDAD
         resource.data.mercaderistoId == request.auth.uid
       );
@@ -38,7 +40,8 @@ service cloud.firestore {
         // AdminMaster puede escribir todo
         isAdminMaster() ||
         // Administradores pueden escribir todas las rutas
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Administrador' ||
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).exists() &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Administrador') ||
         // Mercaderista solo puede escribir en sus propias rutas
         resource.data.mercaderistoId == request.auth.uid
       );
@@ -47,7 +50,8 @@ service cloud.firestore {
         // AdminMaster puede crear todo
         isAdminMaster() ||
         // Administradores pueden crear rutas
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor']
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).exists() &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor'])
       );
     }
     
@@ -62,7 +66,8 @@ service cloud.firestore {
         // AdminMaster puede ver todo
         isAdminMaster() ||
         // Administradores y Supervisores pueden ver todas las visitas para gestión
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor'] ||
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).exists() &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor']) ||
         // Mercaderista puede leer sus propias visitas por UID (si existe) o por email
         resource.data.mercaderistoId == request.auth.uid ||
         resource.data.direccionCorreo == request.auth.token.email
@@ -71,7 +76,8 @@ service cloud.firestore {
         // AdminMaster puede escribir todo
         isAdminMaster() ||
         // Administradores y Supervisores pueden gestionar visitas
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor'] ||
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).exists() &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Administrador', 'Supervisor']) ||
         // Permitir al usuario crear/actualizar sus propias visitas
         resource.data.direccionCorreo == request.auth.token.email
       );

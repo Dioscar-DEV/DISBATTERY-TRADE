@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import { getCurrentUser } from '@/services/auth';
-import { 
-  requestNotificationPermission, 
-  saveUserNotificationToken, 
-  setupForegroundMessageListener 
+import {
+  requestNotificationPermission,
+  saveUserNotificationToken,
+  setupForegroundMessageListener
 } from '@/services/notifications';
 
 /**
@@ -19,7 +19,7 @@ export const NotificationInitializer = () => {
 
         // Obtener datos del usuario actual
         const currentUser = await getCurrentUser();
-        
+
         if (!currentUser) {
           console.log('👤 No hay usuario logueado, omitiendo configuración de notificaciones');
           return;
@@ -47,7 +47,7 @@ export const NotificationInitializer = () => {
         // 1. Solicitar permisos de notificación
         console.log('🔐 Solicitando permisos de notificación...');
         const hasPermission = await requestNotificationPermission();
-        
+
         if (!hasPermission) {
           console.log('⚠️ Usuario no concedió permisos de notificación');
           return;
@@ -76,13 +76,14 @@ export const NotificationInitializer = () => {
         console.log('👂 Configurando listener de mensajes en primer plano...');
         setupForegroundMessageListener();
 
-        // 4. Registrar Service Worker si no está registrado
+        // 4. Registrar Service Worker combinado si no está registrado
         if ('serviceWorker' in navigator) {
           try {
-            const registration = await navigator.serviceWorker.register('/sw-notifications.js');
-            console.log('✅ Service Worker de notificaciones registrado:', registration.scope);
+            const registration = await navigator.serviceWorker.register('/sw-combined.js');
+            console.log('✅ Service Worker combinado registrado:', registration.scope);
           } catch (swError) {
-            console.log('⚠️ Service Worker ya está registrado o hay un error menor:', swError.message);
+            const swErrorMsg = swError instanceof Error ? swError.message : String(swError);
+            console.log('⚠️ Service Worker ya está registrado o hay un error menor:', swErrorMsg);
           }
         }
 

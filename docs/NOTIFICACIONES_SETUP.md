@@ -13,15 +13,17 @@ El sistema de notificaciones push ha sido completamente implementado con las sig
 ## 🗂️ Archivos Creados/Modificados
 
 ### Nuevos Archivos
+
 - `src/services/notifications.ts` - Servicio principal de notificaciones
 - `src/hooks/use-notifications.ts` - Hook para gestionar notificaciones
 - `src/components/NotificationInitializer.tsx` - Inicializador automático
 - `src/components/NotificationTester.tsx` - Componente de pruebas
 - `src/app/test-notifications/page.tsx` - Página de pruebas
-- `public/sw-notifications.js` - Service Worker para notificaciones
+- `public/sw-combined.js` - Service Worker combinado para notificaciones y sync
 - `NOTIFICACIONES_SETUP.md` - Este archivo de documentación
 
 ### Archivos Modificados
+
 - `src/app/layout.tsx` - Agregado inicializador de notificaciones
 - `src/app/admin/rutas/page.tsx` - Notificación al crear rutas
 - `src/services/routes.ts` - Notificación al completar rutas
@@ -51,7 +53,7 @@ NEXT_PUBLIC_FIREBASE_VAPID_KEY=TU_VAPID_KEY_AQUI
 En `src/services/notifications.ts`, actualiza la línea 6:
 
 ```typescript
-const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || 'TU_VAPID_KEY_AQUI';
+const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 ```
 
 ### 4. Configurar Firestore Rules
@@ -75,44 +77,44 @@ Para envío real de notificaciones push, puedes usar Firebase Functions:
 
 ```javascript
 // functions/index.js
-const admin = require('firebase-admin');
-const functions = require('firebase-functions');
+const admin = require("firebase-admin");
+const functions = require("firebase-functions");
 
 exports.sendNotifications = functions.firestore
-  .document('notificationQueue/{notificationId}')
+  .document("notificationQueue/{notificationId}")
   .onCreate(async (snap, context) => {
     const notification = snap.data();
-    
-    if (notification.status !== 'pending') return;
-    
+
+    if (notification.status !== "pending") return;
+
     const message = {
       notification: {
         title: notification.title,
         body: notification.body,
-        icon: notification.icon || '/icon-base.svg'
+        icon: notification.icon || "/icon-base.svg",
       },
       data: notification.data || {},
-      tokens: notification.targetTokens
+      tokens: notification.targetTokens,
     };
-    
+
     try {
       const response = await admin.messaging().sendMulticast(message);
-      
+
       // Actualizar estado de la notificación
       await snap.ref.update({
-        status: 'sent',
+        status: "sent",
         sentAt: admin.firestore.FieldValue.serverTimestamp(),
         successCount: response.successCount,
-        failureCount: response.failureCount
+        failureCount: response.failureCount,
       });
-      
-      console.log('Notificación enviada:', response);
+
+      console.log("Notificación enviada:", response);
     } catch (error) {
-      console.error('Error enviando notificación:', error);
+      console.error("Error enviando notificación:", error);
       await snap.ref.update({
-        status: 'failed',
+        status: "failed",
         error: error.message,
-        attempts: notification.attempts + 1
+        attempts: notification.attempts + 1,
       });
     }
   });
@@ -121,29 +123,32 @@ exports.sendNotifications = functions.firestore
 ## 🧪 Cómo Probar el Sistema
 
 ### 1. Página de Pruebas
+
 Visita `/test-notifications` para usar el panel de pruebas integrado.
 
 ### 2. Pruebas Manuales
 
 #### Consola del Navegador:
+
 ```javascript
 // Probar notificación local
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.ready.then(registration => {
-    registration.showNotification('Prueba', {
-      body: 'Esta es una notificación de prueba',
-      icon: '/icon-base.svg'
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.ready.then((registration) => {
+    registration.showNotification("Prueba", {
+      body: "Esta es una notificación de prueba",
+      icon: "/icon-base.svg",
     });
   });
 }
 ```
 
 #### Service Worker:
+
 ```javascript
 // En las herramientas de desarrollador
-self.createTestNotification('nueva-ruta'); // Ruta nueva
-self.createTestNotification('ruta-completada'); // Ruta completada
-self.createTestNotification('test'); // Prueba general
+self.createTestNotification("nueva-ruta"); // Ruta nueva
+self.createTestNotification("ruta-completada"); // Ruta completada
+self.createTestNotification("test"); // Prueba general
 ```
 
 ### 3. Flujo Real de Prueba
@@ -154,12 +159,14 @@ self.createTestNotification('test'); // Prueba general
 ## 📱 Compatibilidad
 
 ### Navegadores Soportados
+
 - ✅ Chrome/Edge (Desktop y Mobile)
 - ✅ Firefox (Desktop y Mobile)
 - ✅ Safari (limitado, solo con PWA instalada)
 - ❌ Safari iOS (sin PWA) - limitaciones del sistema
 
 ### Características
+
 - ✅ Notificaciones en primer plano
 - ✅ Notificaciones en segundo plano
 - ✅ Acciones personalizadas en notificaciones
@@ -169,17 +176,20 @@ self.createTestNotification('test'); // Prueba general
 ## 🔧 Solución de Problemas
 
 ### Notificaciones No Aparecen
+
 1. Verificar permisos del navegador
 2. Comprobar si está en HTTPS o localhost
 3. Revisar consola para errores de VAPID key
 4. Verificar que el Service Worker esté activo
 
 ### Token No Se Guarda
+
 1. Verificar conexión a Firestore
 2. Comprobar reglas de seguridad
 3. Verificar que el usuario esté autenticado
 
 ### Service Worker No Funciona
+
 1. Verificar configuración de Firebase en `sw-notifications.js`
 2. Comprobar que el archivo está en `/public/`
 3. Revisar errores en DevTools → Application → Service Workers
@@ -187,6 +197,7 @@ self.createTestNotification('test'); // Prueba general
 ## 🎯 Funcionalidades Implementadas
 
 ### ✅ Completado
+
 - [x] Solicitud de permisos automática
 - [x] Guardado de tokens en Firestore
 - [x] Notificación: Admin crea ruta → Mercaderista
@@ -199,6 +210,7 @@ self.createTestNotification('test'); // Prueba general
 - [x] Fallback para errores de notificación
 
 ### 🚀 Mejoras Futuras (Opcionales)
+
 - [ ] Envío batch de notificaciones con Firebase Functions
 - [ ] Notificaciones programadas
 - [ ] Configuración de usuario (activar/desactivar tipos)

@@ -2,12 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { auth } from '@/firebase/clientApp';
+import { getAuthClient, getFirestoreClient } from '@/firebase/clientApp';
 import { signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword } from 'firebase/auth';
 import { getCurrentUser, saveUserToStorage, ADMIN_MASTER_EMAILS as ADMIN_EMAILS, isAdminMaster } from '@/services/auth';
 import { postLoginStrategy, PreloadProgress } from '@/services/postLoginStrategy';
 import DataPreloadProgress from '@/components/DataPreloadProgress';
-import { db } from '@/firebase/clientApp';
+// Note: avoid direct import of `db` (SSR unsafe). Use getters where needed.
+// import { db as _db_placeholder } from '@/firebase/clientApp';
 import { collection, query, where, getDocs, doc, updateDoc, deleteField } from 'firebase/firestore';
 import './login-original.css';
 
@@ -19,7 +20,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-  
+
   // Estados para la precarga de datos offline
   const [showPreloadProgress, setShowPreloadProgress] = useState(false);
   const [preloadProgress, setPreloadProgress] = useState<PreloadProgress | null>(null);
@@ -33,33 +34,33 @@ export default function Home() {
     const checkUserSession = async () => {
       try {
         console.log('🔍 Iniciando verificación de sesión...');
-        
+
         // Verificar si hay una sesión activa guardada
         const isLoggedIn = localStorage.getItem('userLoggedIn');
         const storedUser = localStorage.getItem('currentUser');
         const isAdminLoggedIn = localStorage.getItem('isAdminLoggedIn');
         const merchandiserLoggedIn = localStorage.getItem('merchandiserLoggedIn');
-        
+
         console.log('📊 Estado localStorage:', {
           userLoggedIn: isLoggedIn,
           hasStoredUser: !!storedUser,
           isAdminLoggedIn,
           merchandiserLoggedIn
         });
-        
+
         // Verificar si hay alguna sesión activa (cualquier formato)
-        const hasValidSession = isLoggedIn === 'true' || 
-                                isAdminLoggedIn === 'true' || 
-                                merchandiserLoggedIn === 'true';
-        
+        const hasValidSession = isLoggedIn === 'true' ||
+          isAdminLoggedIn === 'true' ||
+          merchandiserLoggedIn === 'true';
+
         if (hasValidSession && storedUser) {
           const userData = JSON.parse(storedUser);
           console.log('🚀 Usuario ya logueado detectado:', userData.email || userData.fullName);
           console.log('🔧 Datos del usuario:', userData);
-          
+
           // Asegurar que userLoggedIn esté marcado como true
           localStorage.setItem('userLoggedIn', 'true');
-          
+
           // Pequeño delay para evitar problemas de redirección
           setTimeout(() => {
             // Redirigir según el rol del usuario
@@ -71,10 +72,10 @@ export default function Home() {
               router.push('/mi-ruta');
             }
           }, 100);
-          
+
           return;
         }
-        
+
         console.log('👤 No hay sesión activa, mostrando login');
       } catch (error) {
         console.error('❌ Error verificando sesión:', error);
@@ -120,12 +121,12 @@ export default function Home() {
   const handlePreloadProgress = (progress: PreloadProgress) => {
     console.log('📊 [LOGIN] Progreso de precarga recibido:', progress);
     setPreloadProgress(progress);
-    
+
     // ✅ Auto-marcar como completado cuando llegue al 100%
     if (progress.step === 'complete' && progress.percentage === 100) {
       console.log('✅ [LOGIN] Progreso completado al 100%, marcando como terminado');
       setPreloadComplete(true);
-      
+
       // ✅ Si hay datos de resultado, actualizarlos
       if (progress.message?.includes('disponibles')) {
         // Es el caso de datos ya existentes
@@ -150,7 +151,7 @@ export default function Home() {
     setPreloadError(null);
     setPreloadComplete(false);
     setPreloadProgress(null);
-    
+
     // Reintentar precarga con el usuario actual
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
@@ -169,7 +170,7 @@ export default function Home() {
   const executePostLoginStrategy = async (userData: any) => {
     try {
       console.log('🚀 Ejecutando estrategia post-login para:', userData.role);
-      
+
       const result = await postLoginStrategy.executePostLogin(
         userData,
         handlePreloadProgress
@@ -181,11 +182,11 @@ export default function Home() {
           console.log('📱 [LOGIN] Mostrando progreso de precarga para mercaderista');
           setShowPreloadProgress(true);
           setPendingRedirect(result.redirect.path);
-          
+
           if (result.preloadResult) {
             console.log('📊 [LOGIN] Resultado de precarga recibido:', result.preloadResult);
             setPreloadResult(result.preloadResult);
-            
+
             if (result.preloadResult.success) {
               // ✅ No marcar como completado aquí, esperar al callback de progreso
               console.log('✅ [LOGIN] Precarga exitosa, esperando progreso del callback');
@@ -216,7 +217,7 @@ export default function Home() {
     }
 
     try {
-      await sendPasswordResetEmail(auth, username);
+      await sendPasswordResetEmail(getAuthClient(), username);
       showToast(`Se ha enviado un correo de recuperación a ${username}. Por favor, revise su bandeja de entrada.`);
     } catch (error: any) {
       console.error('Password reset error:', error);
@@ -233,7 +234,7 @@ export default function Home() {
   // Función para detectar si hay conexión a internet
   const isOnline = async (): Promise<boolean> => {
     if (!navigator.onLine) return false;
-    
+
     try {
       const response = await fetch('/favicon.ico', {
         method: 'HEAD',
@@ -250,39 +251,39 @@ export default function Home() {
   const handleTemporaryUser = async (email: string, password: string) => {
     try {
       console.log('🔍 Buscando usuario temporal aprobado:', email);
-      
+
       // Buscar usuario aprobado temporal en Firestore
       const usersQuery = query(
-        collection(db, 'users'), 
+        collection(getFirestoreClient(), 'users'),
         where('email', '==', email),
         where('isTemporaryUser', '==', true)
       );
-      
+
       const querySnapshot = await getDocs(usersQuery);
-      
+
       if (querySnapshot.empty) {
         console.log('❌ No se encontró usuario temporal para:', email);
         return null;
       }
-      
+
       const userDoc = querySnapshot.docs[0];
       const userData = userDoc.data();
-      
+
       console.log('📋 Usuario temporal encontrado:', userData);
-      
+
       // Verificar contraseña temporal
       if (userData.tempPassword !== password) {
         console.log('❌ Contraseña temporal incorrecta');
         return null;
       }
-      
+
       // ✅ Crear usuario en Firebase Auth
       console.log('🔄 Creando usuario en Firebase Auth...');
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(getAuthClient(), email, password);
       const firebaseUid = userCredential.user.uid;
-      
+
       console.log('✅ Usuario creado en Firebase Auth con UID:', firebaseUid);
-      
+
       // Actualizar documento para remover campos temporales y usar UID de Firebase
       const updatedUserData = {
         ...userData,
@@ -292,23 +293,23 @@ export default function Home() {
         tempPassword: deleteField(),
         activatedAt: new Date()
       };
-      
+
       // Actualizar el documento existente
-      await updateDoc(doc(db, 'users', userDoc.id), {
+      await updateDoc(doc(getFirestoreClient(), 'users', userDoc.id), {
         uid: firebaseUid,
         status: 'active',
         isTemporaryUser: deleteField(),
         tempPassword: deleteField(),
         activatedAt: new Date()
       });
-      
+
       console.log('✅ Usuario temporal convertido a usuario activo');
-      
+
       return {
         userCredential,
         userData: updatedUserData
       };
-      
+
     } catch (error) {
       console.error('❌ Error manejando usuario temporal:', error);
       return null;
@@ -329,7 +330,7 @@ export default function Home() {
     // Credenciales de prueba temporales
     if (username.toLowerCase() === 'admin' && password === 'admin') {
       console.log('Admin login attempt successful (local bypass). Setting isAdminLoggedIn.');
-      
+
       // Crear datos temporales del admin para que el dashboard funcione
       const tempAdminData = {
         uid: 'temp-admin-uid',
@@ -339,14 +340,14 @@ export default function Home() {
         sede: 'GRUPO DISBATTERY',
         region: 'Centro-capital'
       };
-      
+
       if (typeof window !== 'undefined') {
         localStorage.setItem('userLoggedIn', 'true'); // ✅ Marcar como logueado
         localStorage.setItem('isAdminLoggedIn', 'true');
         localStorage.setItem('currentUser', JSON.stringify(tempAdminData));
         localStorage.removeItem('merchandiserLoggedIn');
       }
-      
+
       saveUserToStorage(tempAdminData);
       console.log('🆔 Datos del admin temporal guardados:', tempAdminData);
       showToast('¡Login exitoso! Bienvenido Administrador.');
@@ -357,7 +358,7 @@ export default function Home() {
     // Credencial temporal para testing
     if (username === 'dsalcedo@smartautomatai.com' && password === 'test123') {
       console.log('Temporary test login successful.');
-      
+
       // Crear datos temporales del admin master para que el dashboard funcione
       const tempMasterData = {
         uid: 'temp-master-uid',
@@ -365,14 +366,14 @@ export default function Home() {
         fullName: 'Dioscar Salcedo',
         role: 'AdminMaster' as const
       };
-      
+
       if (typeof window !== 'undefined') {
         localStorage.setItem('userLoggedIn', 'true'); // ✅ Marcar como logueado
         localStorage.setItem('isAdminLoggedIn', 'true');
         localStorage.setItem('currentUser', JSON.stringify(tempMasterData));
         localStorage.removeItem('merchandiserLoggedIn');
       }
-      
+
       saveUserToStorage(tempMasterData);
       showToast('¡Login exitoso! Bienvenido Admin Master.');
       router.push('/admin/dashboard');
@@ -386,28 +387,28 @@ export default function Home() {
     // Si NO hay conexión, intentar login offline con datos guardados
     if (!hasConnection) {
       console.log('📱 Modo offline activado - Verificando localStorage...');
-      
+
       // Buscar usuario previamente autenticado en localStorage
       const storedUser = localStorage.getItem('currentUser');
       const storedCredentials = localStorage.getItem('userCredentials');
-      
+
       if (storedUser && storedCredentials) {
         try {
           const userData = JSON.parse(storedUser);
           const credentials = JSON.parse(storedCredentials);
-          
+
           // Verificar credenciales offline
-          if ((credentials.email === username || credentials.username === username) && 
-              credentials.password === password) {
-            
+          if ((credentials.email === username || credentials.username === username) &&
+            credentials.password === password) {
+
             console.log('✅ Login offline exitoso con credenciales guardadas');
-            
+
             // Restaurar datos del usuario
             saveUserToStorage(userData);
-            
+
             // ✅ Marcar como logueado (ya estaba logueado previamente)
             localStorage.setItem('userLoggedIn', 'true');
-            
+
             if (userData.role === 'AdminMaster' || userData.role === 'Administrador') {
               localStorage.setItem('isAdminLoggedIn', 'true');
               localStorage.removeItem('merchandiserLoggedIn');
@@ -415,23 +416,23 @@ export default function Home() {
               localStorage.setItem('merchandiserLoggedIn', 'true');
               localStorage.removeItem('isAdminLoggedIn');
             }
-            
+
             showToast('¡Login offline exitoso! 📱');
-            
+
             // Redirigir según el rol
             if (userData.role === 'AdminMaster' || userData.role === 'Administrador') {
               router.push('/admin/dashboard');
             } else {
               router.push('/mi-ruta');
             }
-            
+
             return;
           }
         } catch (error) {
           console.error('Error procesando datos offline:', error);
         }
       }
-      
+
       // Si no hay datos offline válidos
       showToast('Sin conexión y no hay datos offline guardados. Conéctese a internet para iniciar sesión.');
       setIsLoading(false);
@@ -441,9 +442,9 @@ export default function Home() {
     try {
       console.log('🌐 Conexión disponible - Intentando login con Firebase...');
       console.log(`Attempting Firebase sign-in with email: ${username}`);
-      const userCredential = await signInWithEmailAndPassword(auth, username, password);
+      const userCredential = await signInWithEmailAndPassword(getAuthClient(), username, password);
       console.log('Firebase sign-in successful! User UID:', userCredential.user.uid);
-      
+
       // 💾 GUARDAR CREDENCIALES PARA USO OFFLINE
       try {
         const userCredentials = {
@@ -457,7 +458,7 @@ export default function Home() {
       } catch (error) {
         console.error('Error guardando credenciales offline:', error);
       }
-      
+
       const userEmail = userCredential.user.email;
 
       // Obtener datos completos del usuario desde Firestore
@@ -466,34 +467,34 @@ export default function Home() {
         if (userData) {
           // ✅ VERIFICACIÓN CORREGIDA: Controlar acceso según status del usuario
           console.log('📋 Status del usuario:', userData.status);
-          
+
           // ✅ CORRECCIÓN: Si status es undefined/null (usuarios existentes), tratarlo como 'active'
           const userStatus = userData.status || 'active';
           console.log('📋 Status procesado:', userStatus);
-          
+
           if (userStatus === 'pending_approval') {
             // Usuario pendiente de aprobación
-            await auth.signOut(); // Hacer logout inmediatamente
+            await getAuthClient().signOut(); // Hacer logout inmediatamente
             showToast('⏳ Tu cuenta está pendiente de aprobación por el administrador. Recibirás un email cuando sea aprobada.');
             setIsLoading(false);
             return;
           }
-          
+
           if (userStatus === 'rejected') {
             // Usuario rechazado
-            await auth.signOut(); // Hacer logout inmediatamente
+            await getAuthClient().signOut(); // Hacer logout inmediatamente
             showToast('❌ Tu solicitud de cuenta ha sido rechazada. Contacta al administrador para más información.');
             setIsLoading(false);
             return;
           }
-          
+
           // ✅ CORRECCIÓN: Solo rechazar si explícitamente es 'rejected' o 'pending_approval'
           // Usuarios sin status (legacy) o con status 'active' pueden continuar
-          
+
           // ✅ Usuario activo - proceder normalmente
           saveUserToStorage(userData);
           console.log('Datos del usuario guardados:', userData);
-          
+
           // Determinar el tipo de login y redirección basado en el rol real del usuario
           if (userData.role === 'AdminMaster' || userData.role === 'Administrador' || userData.role === 'Supervisor') {
             // Es un usuario administrativo
@@ -503,7 +504,7 @@ export default function Home() {
               localStorage.setItem('isAdminLoggedIn', 'true');
               localStorage.removeItem('merchandiserLoggedIn');
             }
-            
+
             // Redirección según el rol específico
             if (userData.role === 'AdminMaster' || userData.role === 'Administrador') {
               router.push('/admin/dashboard');
@@ -517,17 +518,17 @@ export default function Home() {
               localStorage.setItem('userLoggedIn', 'true'); // ✅ Marcar como logueado
               localStorage.setItem('merchandiserLoggedIn', 'true');
               localStorage.removeItem('isAdminLoggedIn');
-              
+
               // Emitir evento para activar el descargador de datos
               const loginEvent = new CustomEvent('mercaderista-login-success', {
                 detail: userData
               });
               window.dispatchEvent(loginEvent);
             }
-            
+
             // NO ejecutar estrategia post-login aquí, lo hará el MercaderistaDataLoader
             // await executePostLoginStrategy(userData);
-            
+
             // Redirigir directo a Mi Ruta, el modal aparecerá si necesita datos
             router.push('/mi-ruta');
           }
@@ -541,7 +542,7 @@ export default function Home() {
             localStorage.setItem('merchandiserLoggedIn', 'true');
             localStorage.removeItem('isAdminLoggedIn');
           }
-          
+
           // Crear userData por defecto
           const defaultUserData = {
             uid: userCredential.user.uid,
@@ -551,7 +552,7 @@ export default function Home() {
             status: 'active' as const
           };
           saveUserToStorage(defaultUserData);
-          
+
           // Emitir evento para activar el descargador de datos
           if (typeof window !== 'undefined') {
             const loginEvent = new CustomEvent('mercaderista-login-success', {
@@ -559,14 +560,14 @@ export default function Home() {
             });
             window.dispatchEvent(loginEvent);
           }
-          
+
           // Redirigir directo a Mi Ruta
           router.push('/mi-ruta');
           return;
         }
       } catch (userDataError) {
         console.error('Error obteniendo datos del usuario:', userDataError);
-        
+
         // Fallback: verificar si es admin master por email
         if (userEmail && isAdminMaster(userEmail)) {
           showToast('¡Login exitoso! Bienvenido Admin Master.');
@@ -582,7 +583,7 @@ export default function Home() {
             localStorage.setItem('merchandiserLoggedIn', 'true');
             localStorage.removeItem('isAdminLoggedIn');
           }
-          
+
           // Crear userData por defecto y ejecutar estrategia
           const fallbackUserData = {
             uid: userCredential.user.uid,
@@ -598,17 +599,17 @@ export default function Home() {
     } catch (error: any) {
       console.error('Firebase Auth Login Error:', error);
       console.log(`Failed Firebase sign-in attempt with email: ${username}. Error code: ${error.code}, message: ${error.message}`);
-      
+
       // ✅ NUEVO: Manejar usuarios temporales aprobados
       if (error.code === 'auth/user-not-found') {
         console.log('🔍 Usuario no encontrado en Firebase Auth, verificando usuarios temporales...');
-        
+
         try {
           const temporaryUserResult = await handleTemporaryUser(username, password);
-          
+
           if (temporaryUserResult) {
             console.log('✅ Usuario temporal procesado exitosamente');
-            
+
             const { userCredential, userData } = temporaryUserResult;
 
             return;
@@ -617,7 +618,7 @@ export default function Home() {
           console.error('Error procesando usuario temporal:', tempUserError);
         }
       }
-      
+
       // Manejo de errores estándar
       let errorMessage = 'Error al iniciar sesión. Verifique sus credenciales.';
       if (error.code) {
@@ -652,23 +653,23 @@ export default function Home() {
   if (isCheckingSession) {
     return (
       <div>
-        <img 
-          src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png" 
-          alt="Disbattery Logo" 
-          className="disbattery-logo-top" 
+        <img
+          src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png"
+          alt="Disbattery Logo"
+          className="disbattery-logo-top"
         />
-        
+
         <div className="login-container">
           <div className="login-card">
-            <img 
-              src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png" 
-              alt="Disbattery Lubricantes Logo" 
-              className="disbattery-logo" 
+            <img
+              src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png"
+              alt="Disbattery Lubricantes Logo"
+              className="disbattery-logo"
             />
-            
+
             <h1 className="title">Disbattery Mercaderista</h1>
             <p className="subtitle">Verificando sesión...</p>
-            
+
             <div className="loading-spinner">
               <div className="spinner"></div>
             </div>
@@ -676,7 +677,7 @@ export default function Home() {
         </div>
 
         {/* Logo de Shell removido */}
-        
+
         <div id="toast" className="toast"></div>
       </div>
     );
@@ -684,57 +685,57 @@ export default function Home() {
 
   return (
     <div>
-      <img 
-        src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png" 
-        alt="Disbattery Logo" 
-        className="disbattery-logo-top" 
+      <img
+        src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png"
+        alt="Disbattery Logo"
+        className="disbattery-logo-top"
       />
-      
+
       <div className="login-container">
         <div className="login-card">
-          <img 
-            src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png" 
-            alt="Disbattery Lubricantes Logo" 
-            className="disbattery-logo" 
+          <img
+            src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png"
+            alt="Disbattery Lubricantes Logo"
+            className="disbattery-logo"
           />
-          
+
           <h1 className="title">Disbattery Mercaderista</h1>
           <p className="subtitle">por favor inicie sesión para continuar</p>
-          
+
           <form onSubmit={handleLogin}>
             <div className="input-group">
               <label htmlFor="username">Usuario</label>
-              <input 
-                type="email" 
-                id="username" 
+              <input
+                type="email"
+                id="username"
                 placeholder="Ingrese su correo"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={isLoading}
               />
             </div>
-            
+
             <div className="input-group">
               <label htmlFor="password">Contraseña</label>
               <div className="password-wrapper">
-                <input 
-                  type={showPassword ? 'text' : 'password'} 
-                  id="password" 
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="password"
                   placeholder="Ingrese su contraseña"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
                 />
-                <i 
-                  className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} 
+                <i
+                  className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}
                   id="togglePassword"
                   onClick={togglePasswordVisibility}
                 ></i>
               </div>
             </div>
-            
-            <button 
-              type="submit" 
+
+            <button
+              type="submit"
               className="login-button"
               disabled={isLoading}
             >
@@ -742,7 +743,7 @@ export default function Home() {
             </button>
           </form>
 
-          <a 
+          <a
             className="forgot-password-link"
             onClick={handleForgotPassword}
           >
@@ -771,9 +772,9 @@ export default function Home() {
       />
 
       {/* Font Awesome para el ícono del ojo */}
-      <link 
-        rel="stylesheet" 
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" 
+      <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
       />
     </div>
   );

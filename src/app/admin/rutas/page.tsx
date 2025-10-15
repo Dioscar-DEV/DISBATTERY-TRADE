@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { format, addDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { collection, getDocs, query, orderBy, where, addDoc, doc, setDoc, Timestamp, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/firebase/clientApp';
+import { getFirestoreClient } from '@/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
 import { type Route, type RoutePoint, type Cliente, type EventoIndependiente } from '@/types/routes';
 import { obtenerUltimasVisitasUsuarios } from '@/services/visitas';
@@ -148,27 +148,27 @@ export default function RutasPage() {
         console.log('🔄 Cargando usuarios de Firestore...');
         console.log('🔐 Usuario actual:', currentUser);
         console.log('🔐 Permisos actuales:', userPermissions);
-        
-        const usersCollectionRef = collection(db, 'users');
+
+        const usersCollectionRef = collection(getFirestoreClient(), 'users');
         const q = query(usersCollectionRef, orderBy('fullName', 'asc'));
         const querySnapshot = await getDocs(q);
         const fetchedUsers: User[] = [];
-        
+
         console.log(`📊 Encontrados ${querySnapshot.docs.length} documentos en la colección users`);
-        
+
         querySnapshot.forEach((userDoc) => {
           const data = userDoc.data();
-          
+
           // ✅ FILTRO CRÍTICO: Solo usuarios con cuenta activa
           const userStatus = data.status || 'active'; // Usuarios viejos sin status = activos
           if (userStatus !== 'active') {
             console.log(`🚫 Usuario ${data.fullName} con status "${userStatus}" - EXCLUIDO (solo usuarios activos pueden recibir rutas)`);
             return; // Saltar este usuario
           }
-          
+
           // Solo incluir usuarios que el usuario actual puede gestionar
           let canIncludeUser = false;
-          
+
           console.log(`🔍 Evaluando usuario:`, {
             fullName: data.fullName,
             role: data.role,
@@ -177,7 +177,7 @@ export default function RutasPage() {
             sedeDelUsuarioActual: currentUser.sede,
             isAdminMaster: userPermissions.isAdminMaster
           });
-          
+
           if (userPermissions.isAdminMaster) {
             // Admin Master ve todo
             canIncludeUser = true;
@@ -193,7 +193,7 @@ export default function RutasPage() {
               console.log(`🎯 Verificando mercaderista ${data.fullName} de sede "${data.sede}" vs sede actual "${currentUser.sede}": ${canIncludeUser ? 'INCLUIDO' : 'EXCLUIDO'}`);
             }
           }
-          
+
           if (canIncludeUser) {
             fetchedUsers.push({
               id: userDoc.id,
@@ -205,10 +205,10 @@ export default function RutasPage() {
             });
           }
         });
-        
+
         console.log(`✅ Total usuarios cargados tras filtro: ${fetchedUsers.length}`);
         console.log(`🎯 Mercaderistas filtrados:`, fetchedUsers.filter(u => u.role === 'Mercaderista'));
-        
+
         setUsers(fetchedUsers);
       } catch (error) {
         console.error("❌ Error fetching users:", error);
@@ -221,7 +221,7 @@ export default function RutasPage() {
         setIsLoadingUsers(false);
       }
     };
-    
+
     fetchUsers();
   }, [toast, currentUser, userPermissions]); // Dependencias actualizadas
 
@@ -243,20 +243,20 @@ export default function RutasPage() {
         console.log('🔄 Cargando clientes de Firestore...');
         console.log('🔐 Usuario actual para clientes:', currentUser);
         console.log('🔐 Permisos actuales para clientes:', userPermissions);
-        
-        const clientesCollectionRef = collection(db, 'clientes');
+
+        const clientesCollectionRef = collection(getFirestoreClient(), 'clientes');
         const q = query(clientesCollectionRef, orderBy('nombre', 'asc'));
         const querySnapshot = await getDocs(q);
         const fetchedClientes: Cliente[] = [];
-        
+
         console.log(`📊 Encontrados ${querySnapshot.docs.length} documentos en la colección clientes`);
-        
+
         querySnapshot.forEach((clienteDoc) => {
           const data = clienteDoc.data();
-          
+
           // Solo incluir clientes que el usuario actual puede gestionar
           let canIncludeCliente = false;
-          
+
           console.log(`🔍 Evaluando cliente:`, {
             rif: data.rif,
             nombre: data.nombre,
@@ -264,7 +264,7 @@ export default function RutasPage() {
             sedeDelUsuarioActual: currentUser.sede,
             isAdminMaster: userPermissions.isAdminMaster
           });
-          
+
           if (userPermissions.isAdminMaster) {
             // Admin Master ve todos los clientes
             canIncludeCliente = true;
@@ -278,7 +278,7 @@ export default function RutasPage() {
             canIncludeCliente = canAccessSede(currentUser, data.sede);
             console.log(`🏢 Verificando cliente ${data.nombre} de sede "${data.sede}" vs sede actual "${currentUser.sede}": ${canIncludeCliente ? 'INCLUIDO' : 'EXCLUIDO'}`);
           }
-          
+
           if (canIncludeCliente) {
             fetchedClientes.push({
               id: clienteDoc.id,
@@ -302,9 +302,9 @@ export default function RutasPage() {
             });
           }
         });
-        
+
         console.log(`✅ Total clientes cargados tras filtro: ${fetchedClientes.length}`);
-        
+
         setClientes(fetchedClientes);
 
         // Por ahora comentamos la carga de visitas para evitar errores
@@ -321,7 +321,7 @@ export default function RutasPage() {
         setIsLoadingClientes(false);
       }
     };
-    
+
     fetchClientes();
   }, [toast, currentUser, userPermissions]); // Dependencias actualizadas para clientes
 
@@ -336,25 +336,25 @@ export default function RutasPage() {
     console.log('🔄 Configurando listener de rutas en tiempo real filtradas por sede...');
     console.log('🔐 Usuario actual para rutas:', currentUser.fullName, 'Sede:', currentUser.sede);
     console.log('🎯 Mercaderistas disponibles:', mercaderistas.map(m => `${m.fullName} (${m.sede})`));
-    
-    const routesCollectionRef = collection(db, 'routes');
+
+    const routesCollectionRef = collection(getFirestoreClient(), 'routes');
     const q = query(routesCollectionRef, orderBy('date', 'desc'));
-    
-    const unsubscribe = onSnapshot(q, 
+
+    const unsubscribe = onSnapshot(q,
       (querySnapshot) => {
         console.log(`📊 Rutas encontradas en base de datos: ${querySnapshot.docs.length}`);
-        
+
         const fetchedRoutes: Route[] = [];
         const allowedMercaderistasIds = new Set(mercaderistas.map(m => m.id));
-        
+
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          
+
           // ✅ FILTRO CRÍTICO: Solo incluir rutas de mercaderistas que el usuario puede gestionar
           const canIncludeRoute = userPermissions.isAdminMaster || allowedMercaderistasIds.has(data.mercaderistoId);
-          
+
           console.log(`🔍 Evaluando ruta: ${data.mercaderista} (ID: ${data.mercaderistoId}) - ${canIncludeRoute ? 'INCLUIDA' : 'EXCLUIDA'}`);
-          
+
           if (canIncludeRoute) {
             fetchedRoutes.push({
               id: doc.id,
@@ -370,7 +370,7 @@ export default function RutasPage() {
             });
           }
         });
-        
+
         setRoutes(fetchedRoutes);
         console.log(`✅ ${fetchedRoutes.length} rutas cargadas tras filtro de sede`);
       },
@@ -383,7 +383,7 @@ export default function RutasPage() {
         });
       }
     );
-    
+
     // Cleanup listener cuando el componente se desmonte
     return () => {
       console.log('🧹 Limpiando listener de rutas');
@@ -402,27 +402,27 @@ export default function RutasPage() {
     console.log('🔄 Configurando listener de eventos en tiempo real filtrados por sede...');
     console.log('🔐 Usuario actual para eventos:', currentUser.fullName, 'Sede:', currentUser.sede);
     console.log('🎯 Mercaderistas disponibles:', mercaderistas.map(m => `${m.fullName} (${m.sede})`));
-    
-    const eventosCollectionRef = collection(db, 'eventos');
+
+    const eventosCollectionRef = collection(getFirestoreClient(), 'eventos');
     const q = query(eventosCollectionRef, orderBy('fechaInicio', 'desc'));
-    
-    const unsubscribe = onSnapshot(q, 
+
+    const unsubscribe = onSnapshot(q,
       (querySnapshot) => {
         console.log(`📊 Eventos encontrados en base de datos: ${querySnapshot.docs.length}`);
-        
+
         const fetchedEventos: EventoIndependiente[] = [];
         const allowedMercaderistasIds = new Set(mercaderistas.map(m => m.id));
-        
+
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          
+
           // ✅ FILTRO CRÍTICO: Solo incluir eventos de mercaderistas que el usuario puede gestionar
           const mercaderistasIds = data.mercaderistasIds || [data.mercaderistoId]; // Compatibilidad con formato anterior
-          const canIncludeEvento = userPermissions.isAdminMaster || 
+          const canIncludeEvento = userPermissions.isAdminMaster ||
             mercaderistasIds.some((id: string) => allowedMercaderistasIds.has(id));
-          
+
           console.log(`🔍 Evaluando evento: ${data.nombreEvento} (Mercaderistas IDs: ${mercaderistasIds.join(', ')}) - ${canIncludeEvento ? 'INCLUIDO' : 'EXCLUIDO'}`);
-          
+
           if (canIncludeEvento) {
             fetchedEventos.push({
               id: doc.id,
@@ -442,7 +442,7 @@ export default function RutasPage() {
             });
           }
         });
-        
+
         setEventos(fetchedEventos);
         console.log(`✅ ${fetchedEventos.length} eventos cargados tras filtro de sede`);
       },
@@ -455,7 +455,7 @@ export default function RutasPage() {
         });
       }
     );
-    
+
     // Cleanup listener cuando el componente se desmonte
     return () => {
       console.log('🧹 Limpiando listener de eventos');
@@ -477,7 +477,7 @@ export default function RutasPage() {
     const routeDate = newRoute.date.replace(/-/g, ''); // Remover guiones de la fecha
     const tipoVisitaSlug = tipoVisita.toLowerCase().replace(/[^a-z]/g, '');
     const uniqueId = `cliente-${cliente.id}-${routeDate}-${tipoVisitaSlug}-${timestamp}`;
-    
+
     console.log('🔧 [Admin] Generando punto de ruta ÚNICO:', {
       clienteId: cliente.id,
       uniqueId: uniqueId,
@@ -486,12 +486,12 @@ export default function RutasPage() {
       fechaRuta: newRoute.date,
       timestamp: timestamp
     });
-    
+
     // Determinar marca trabajada para este punto específico
-    const marcaTrabajada = tipoVisita === 'Trade (Impulso)' 
-      ? selectedMarcaForVisitType 
+    const marcaTrabajada = tipoVisita === 'Trade (Impulso)'
+      ? selectedMarcaForVisitType
       : undefined;
-    
+
     return {
       id: uniqueId, // ✅ ID súper único con fecha de ruta incluida
       name: cliente.nombre,
@@ -549,7 +549,7 @@ export default function RutasPage() {
     setIsSelectingCliente(false);
     setIsSelectingVisitType(false);
     setSelectedClienteForVisitType(null);
-    
+
     toast({
       title: 'Cliente agregado',
       description: `${cliente.nombre} ha sido agregado a la ruta con tipo de visita: ${tipoVisita}.`,
@@ -563,12 +563,12 @@ export default function RutasPage() {
     if (!newRoute.mercaderista) {
       return VENEZUELA_CENTER;
     }
-    
+
     const selectedUser = users.find(user => user.fullName === newRoute.mercaderista);
     if (selectedUser?.sede && SEDE_COORDINATES[selectedUser.sede]) {
       return SEDE_COORDINATES[selectedUser.sede];
     }
-    
+
     return VENEZUELA_CENTER;
   };
 
@@ -613,9 +613,9 @@ export default function RutasPage() {
 
   const deleteRoute = async (routeId: string) => {
     if (!confirm('¿Estás seguro de que quieres eliminar esta ruta?')) return;
-    
+
     try {
-      await deleteDoc(doc(db, 'routes', routeId));
+      await deleteDoc(doc(getFirestoreClient(), 'routes', routeId));
       toast({
         title: 'Ruta eliminada',
         description: 'La ruta ha sido eliminada correctamente.',
@@ -665,7 +665,7 @@ export default function RutasPage() {
     // }
 
     const routePoint = convertClienteToRoutePoint(selectedClienteForVisitType, selectedVisitTypeForClient);
-    
+
     setNewRoute(currentRoute => ({
       ...currentRoute,
       points: [...currentRoute.points, routePoint]
@@ -675,16 +675,16 @@ export default function RutasPage() {
     setSelectedClienteForVisitType(null);
     setSelectedMarcaForVisitType('');
     // Verificar si es un cliente duplicado para personalizar el mensaje
-    const duplicateCount = newRoute.points.filter(p => 
-      p.rif && selectedClienteForVisitType.rif && 
+    const duplicateCount = newRoute.points.filter(p =>
+      p.rif && selectedClienteForVisitType.rif &&
       p.rif.trim().toUpperCase() === selectedClienteForVisitType.rif.trim().toUpperCase()
     ).length;
-    
+
     const isMultipleVisit = duplicateCount > 0;
-    
+
     toast({
       title: isMultipleVisit ? 'Cliente agregado nuevamente' : 'Cliente agregado',
-      description: isMultipleVisit 
+      description: isMultipleVisit
         ? `${selectedClienteForVisitType.nombre} ha sido agregado como punto adicional (${duplicateCount + 1}° visita) con tipo: ${selectedVisitTypeForClient}.`
         : `${selectedClienteForVisitType.nombre} ha sido agregado a la ruta con tipo de visita: ${selectedVisitTypeForClient}.`,
     });
@@ -693,9 +693,9 @@ export default function RutasPage() {
   // Funciones para gestión de eventos
   const deleteEvento = async (eventoId: string) => {
     if (!confirm('¿Estás seguro de que quieres eliminar este evento?')) return;
-    
+
     try {
-      await deleteDoc(doc(db, 'eventos', eventoId));
+      await deleteDoc(doc(getFirestoreClient(), 'eventos', eventoId));
       toast({
         title: 'Evento eliminado',
         description: 'El evento ha sido eliminado correctamente.',
@@ -719,7 +719,7 @@ export default function RutasPage() {
       // Migrar datos antiguos
       marcasTrabajadas = [(evento as any).marcaTrabajada];
     }
-    
+
     setNewEvent({
       nombreEvento: evento.nombreEvento,
       mercaderistas: evento.mercaderistas,
@@ -747,12 +747,12 @@ export default function RutasPage() {
     }
 
     if (newRoute.points.length === 0) {
-        toast({
-            variant: 'destructive',
-            title: 'No hay Puntos de Venta',
-            description: 'Debes agregar al menos un punto a la ruta antes de crearla.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'No hay Puntos de Venta',
+        description: 'Debes agregar al menos un punto a la ruta antes de crearla.',
+      });
+      return;
     }
 
     try {
@@ -768,12 +768,12 @@ export default function RutasPage() {
       }
 
       // Determinar si la ruta tiene eventos y asignar marca trabajada
-      const hasTradeEvents = newRoute.points.some(point => 
+      const hasTradeEvents = newRoute.points.some(point =>
         point.tipoVisita === 'Trade (Impulso)'
       );
-      
-              // Si hay eventos, no asignar marca por defecto
-        const marcaTrabajada = undefined;
+
+      // Si hay eventos, no asignar marca por defecto
+      const marcaTrabajada = undefined;
 
       const routeData = {
         mercaderista: newRoute.mercaderista,
@@ -789,27 +789,27 @@ export default function RutasPage() {
       };
 
       // Guardar en Firestore
-      const docRef = await addDoc(collection(db, 'routes'), routeData);
-      
+      const docRef = await addDoc(collection(getFirestoreClient(), 'routes'), routeData);
+
       // ✅ MEJORA: Guardar también en localStorage para uso offline
       const routeWithId = {
         ...routeData,
         id: docRef.id
       };
-      
+
       // Guardar en localStorage bajo la clave que usa el merchandiser
       const savedRoutes = localStorage.getItem('todaysRoutesOffline');
       let existingRoutes = [];
       if (savedRoutes) {
         existingRoutes = JSON.parse(savedRoutes);
       }
-      
+
       // Agregar la nueva ruta a las existentes
       existingRoutes.push(routeWithId);
       localStorage.setItem('todaysRoutesOffline', JSON.stringify(existingRoutes));
-      
+
       console.log('💾 Ruta guardada en localStorage para uso offline:', routeWithId);
-      
+
       // 🔔 Enviar notificación al mercaderista
       try {
         console.log('📨 Intentando enviar notificación de nueva ruta');
@@ -820,7 +820,7 @@ export default function RutasPage() {
           role: selectedUser.role,
           sede: selectedUser.sede
         });
-        
+
         // 📧 NUEVA FUNCIONALIDAD: Enviar notificación por EMAIL
         const emailData = {
           mercaderista_nombre: selectedUser.fullName,
@@ -831,11 +831,11 @@ export default function RutasPage() {
           puntos_cantidad: newRoute.points.length,
           sede: selectedUser.sede || 'GRUPO DISBATTERY'
         };
-        
+
         console.log('📧 Enviando email de nueva ruta con datos:', emailData);
-        
+
         const emailSent = await sendNuevaRutaEmail(emailData);
-        
+
         if (emailSent) {
           console.log('✅ Email enviado correctamente al mercaderista');
           toast({
@@ -903,8 +903,8 @@ export default function RutasPage() {
   const updateRouteStatus = async (routeId: string, newStatus: Route['status']) => {
     try {
       console.log(`🔄 Cambiando status de ruta ${routeId} a: ${newStatus}`);
-      
-      const routeRef = doc(db, 'routes', routeId);
+
+      const routeRef = doc(getFirestoreClient(), 'routes', routeId);
       await updateDoc(routeRef, {
         status: newStatus,
         updatedAt: Timestamp.now(),
@@ -989,7 +989,7 @@ export default function RutasPage() {
         if (!a.lastVisitDate && !b.lastVisitDate) return 0; // Ambos sin visitas
         if (!a.lastVisitDate) return orderAsc ? 1 : -1; // A sin visitas: al final si asc, al principio si desc
         if (!b.lastVisitDate) return orderAsc ? -1 : 1; // B sin visitas: al final si asc, al principio si desc
-        
+
         // Ambos tienen fechas, ordenar normalmente
         const dateA = new Date(a.lastVisitDate).getTime();
         const dateB = new Date(b.lastVisitDate).getTime();
@@ -1001,8 +1001,8 @@ export default function RutasPage() {
   const handleDeleteRoute = async (routeId: string) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar esta ruta?')) return;
     try {
-      await deleteDoc(doc(db, 'routes', routeId));
-      
+      await deleteDoc(doc(getFirestoreClient(), 'routes', routeId));
+
       // ✅ MEJORA: Eliminar también de localStorage para uso offline
       const savedRoutes = localStorage.getItem('todaysRoutesOffline');
       if (savedRoutes) {
@@ -1011,7 +1011,7 @@ export default function RutasPage() {
         localStorage.setItem('todaysRoutesOffline', JSON.stringify(existingRoutes));
         console.log('💾 Ruta eliminada de localStorage para uso offline');
       }
-      
+
       toast({ title: 'Ruta eliminada', description: 'La ruta fue eliminada correctamente. ✅ Sincronizado offline.' });
       // Actualización automática en tiempo real - sin necesidad de recargar
     } catch (error) {
@@ -1036,7 +1036,7 @@ export default function RutasPage() {
   const saveEditedRoute = async () => {
     if (!routeToEdit) return;
     try {
-      await updateDoc(doc(db, 'routes', routeToEdit.id), {
+      await updateDoc(doc(getFirestoreClient(), 'routes', routeToEdit.id), {
         mercaderista: newRoute.mercaderista,
         mercaderistoId: newRoute.mercaderistoId,
         date: newRoute.date,
@@ -1046,12 +1046,12 @@ export default function RutasPage() {
         totalTime: newRoute.points.reduce((total, point) => total + point.estimatedTime, 0),
         updatedAt: Timestamp.now()
       });
-      
+
       // ✅ MEJORA: Actualizar también en localStorage para uso offline
       const savedRoutes = localStorage.getItem('todaysRoutesOffline');
       if (savedRoutes) {
         let existingRoutes = JSON.parse(savedRoutes);
-        
+
         // Buscar y actualizar la ruta específica
         const routeIndex = existingRoutes.findIndex((r: any) => r.id === routeToEdit.id);
         if (routeIndex !== -1) {
@@ -1066,18 +1066,18 @@ export default function RutasPage() {
             totalTime: newRoute.points.reduce((total, point) => total + point.estimatedTime, 0),
             updatedAt: Timestamp.now()
           };
-          
+
           localStorage.setItem('todaysRoutesOffline', JSON.stringify(existingRoutes));
           console.log('💾 Ruta actualizada en localStorage para uso offline');
         }
       }
-      
+
       // 🔔 NUEVA FUNCIONALIDAD: Enviar notificación al mercaderista sobre la edición de la ruta
       try {
         const selectedUser = mercaderistas.find(user => user.fullName === newRoute.mercaderista);
         if (selectedUser) {
           console.log('📨 Enviando notificación de ruta editada al mercaderista:', selectedUser.fullName);
-          
+
           const notificationData = {
             title: '✏️ Ruta Actualizada',
             body: `Tu ruta del ${newRoute.date} ha sido modificada. Revisa los cambios en la app.`,
@@ -1092,33 +1092,33 @@ export default function RutasPage() {
               sede: selectedUser.sede || 'GRUPO DISBATTERY'
             }
           };
-          
+
           console.log('📨 Datos de notificación de edición preparados:', notificationData);
-          
+
           const notificationSent = await sendNotificationToUsers([selectedUser.id], notificationData);
-          
+
           if (notificationSent) {
             console.log('✅ Notificación de edición enviada correctamente');
-            toast({ 
-              title: 'Ruta actualizada', 
-              description: `✅ Ruta actualizada y notificación enviada a ${selectedUser.fullName}. Disponible offline.` 
+            toast({
+              title: 'Ruta actualizada',
+              description: `✅ Ruta actualizada y notificación enviada a ${selectedUser.fullName}. Disponible offline.`
             });
           } else {
             console.log('⚠️ Ruta actualizada pero no se pudo notificar');
-            toast({ 
-              title: 'Ruta actualizada', 
-              description: `✅ Ruta actualizada correctamente. ⚠️ ${selectedUser.fullName} debe abrir la app para recibir notificaciones. Disponible offline.` 
+            toast({
+              title: 'Ruta actualizada',
+              description: `✅ Ruta actualizada correctamente. ⚠️ ${selectedUser.fullName} debe abrir la app para recibir notificaciones. Disponible offline.`
             });
           }
         }
       } catch (notificationError) {
         console.error('❌ Error enviando notificación de edición:', notificationError);
-        toast({ 
-          title: 'Ruta actualizada', 
-          description: 'La ruta fue actualizada correctamente. Las notificaciones están en configuración. ✅ Disponible offline.' 
+        toast({
+          title: 'Ruta actualizada',
+          description: 'La ruta fue actualizada correctamente. Las notificaciones están en configuración. ✅ Disponible offline.'
         });
       }
-      
+
       setIsEditingRoute(false);
       setRouteToEdit(null);
       setIsDialogOpen(false);
@@ -1195,7 +1195,7 @@ export default function RutasPage() {
       // Crear fechas en zona horaria local para evitar problemas de UTC
       const fechaInicioLocal = new Date(newEvent.fechaInicio + 'T00:00:00');
       const fechaFinLocal = new Date(newEvent.fechaFin + 'T23:59:59');
-      
+
       // Calcular duración en días usando fechas locales
       const duracionDias = Math.max(1, Math.ceil((fechaFinLocal.getTime() - fechaInicioLocal.getTime()) / (1000 * 60 * 60 * 24)));
 
@@ -1218,14 +1218,14 @@ export default function RutasPage() {
 
       if (isEditingEvent && selectedEvento) {
         // Actualizar evento existente
-        await updateDoc(doc(db, 'eventos', selectedEvento.id), eventoData);
+        await updateDoc(doc(getFirestoreClient(), 'eventos', selectedEvento.id), eventoData);
         toast({
           title: 'Evento Actualizado',
           description: `El evento "${newEvent.nombreEvento}" ha sido actualizado exitosamente.`,
         });
       } else {
         // Crear nuevo evento
-        await addDoc(collection(db, 'eventos'), eventoData);
+        await addDoc(collection(getFirestoreClient(), 'eventos'), eventoData);
         toast({
           title: 'Evento Creado',
           description: `El evento "${newEvent.nombreEvento}" ha sido creado exitosamente.`,
@@ -1270,7 +1270,7 @@ export default function RutasPage() {
           </Button>
           <h1 className="text-3xl font-bold">Gestión de Rutas y Eventos</h1>
         </div>
-        
+
         <div className="flex gap-2">
           <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
             <DialogTrigger asChild>
@@ -1387,11 +1387,11 @@ export default function RutasPage() {
                                 {index + 1}
                               </div>
                               <div className="flex flex-col">
-                                <ChevronUp 
+                                <ChevronUp
                                   className={`h-4 w-4 cursor-pointer hover:text-blue-600 ${index === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500'}`}
                                   onClick={() => index > 0 && movePointUp(index)}
                                 />
-                                <ChevronDown 
+                                <ChevronDown
                                   className={`h-4 w-4 cursor-pointer hover:text-blue-600 ${index === newRoute.points.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500'}`}
                                   onClick={() => index < newRoute.points.length - 1 && movePointDown(index)}
                                 />
@@ -1424,7 +1424,7 @@ export default function RutasPage() {
                                 <p className="text-xs text-gray-500">📞 {point.telefono}</p>
                               )}
                             </div>
-                            
+
                             {/* Badges y acciones */}
                             <div className="flex items-center space-x-2 ml-4">
                               <div className="flex flex-col space-y-1">
@@ -1438,11 +1438,10 @@ export default function RutasPage() {
                                 )}
                                 {/* Mostrar marca trabajada si existe */}
                                 {point.marcaTrabajada && (
-                                  <Badge className={`text-xs ${
-                                    point.marcaTrabajada === 'Shell' 
-                                      ? 'bg-yellow-100 text-yellow-800' 
-                                      : 'bg-green-100 text-green-800'
-                                  }`}>
+                                  <Badge className={`text-xs ${point.marcaTrabajada === 'Shell'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-green-100 text-green-800'
+                                    }`}>
                                     {point.marcaTrabajada === 'Shell' ? '🐚 Shell' : '🔧 Qualid'}
                                   </Badge>
                                 )}
@@ -1468,16 +1467,16 @@ export default function RutasPage() {
                   {/* Botones de acción */}
                   <div className="pt-4 border-t border-gray-200">
                     <div className="flex justify-between">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => setIsDialogOpen(false)}
                       >
                         Cancelar
                       </Button>
-                      
+
                       <div className="space-x-2">
                         {isEditingRoute && (
-                          <Button 
+                          <Button
                             onClick={saveEditedRoute}
                             disabled={!newRoute.mercaderista || !newRoute.date || newRoute.points.length === 0}
                             className="bg-green-600 hover:bg-green-700"
@@ -1485,9 +1484,9 @@ export default function RutasPage() {
                             Guardar Cambios
                           </Button>
                         )}
-                        
+
                         {!isEditingRoute && (
-                          <Button 
+                          <Button
                             onClick={createNewRoute}
                             disabled={!newRoute.mercaderista || !newRoute.date || newRoute.points.length === 0}
                           >
@@ -1524,7 +1523,7 @@ export default function RutasPage() {
               </div>
             </DialogContent>
           </Dialog>
-          
+
           <Dialog open={isEventDialogOpen} onOpenChange={setIsEventDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={handleNewEvent} variant="outline">
@@ -1537,8 +1536,8 @@ export default function RutasPage() {
                   {isEditingEvent ? '✏️ Editar Evento Trade' : '🎪 Crear Nuevo Evento'}
                 </DialogTitle>
                 <DialogDescription>
-                  {isEditingEvent 
-                    ? 'Modifica los detalles del evento Trade seleccionado.' 
+                  {isEditingEvent
+                    ? 'Modifica los detalles del evento Trade seleccionado.'
                     : 'Crea un evento Trade independiente (no asociado a clientes específicos)'
                   }
                 </DialogDescription>
@@ -1556,68 +1555,68 @@ export default function RutasPage() {
                     />
                   </div>
 
-                                     <div>
-                     <Label htmlFor="mercaderistas-evento">Mercaderistas Asociados *</Label>
-                     <div className="space-y-2">
-                       {newEvent.mercaderistas.length > 0 && (
-                         <div className="flex flex-wrap gap-2">
-                           {newEvent.mercaderistas.map((mercaderista, index) => (
-                             <Badge key={index} variant="outline" className="flex items-center gap-1">
-                               {mercaderista}
-                               <button
-                                 type="button"
-                                 onClick={() => {
-                                   const newMercaderistas = newEvent.mercaderistas.filter((_, i) => i !== index);
-                                   const newMercaderistasIds = newEvent.mercaderistasIds.filter((_, i) => i !== index);
-                                   setNewEvent({
-                                     ...newEvent,
-                                     mercaderistas: newMercaderistas,
-                                     mercaderistasIds: newMercaderistasIds
-                                   });
-                                 }}
-                                 className="ml-1 text-red-500 hover:text-red-700"
-                               >
-                                 ×
-                               </button>
-                             </Badge>
-                           ))}
-                         </div>
-                       )}
-                       <Select
-                         onValueChange={(value) => {
-                           const selectedUser = users.find(user => user.fullName === value);
-                           if (selectedUser && !newEvent.mercaderistas.includes(value)) {
-                             setNewEvent({
-                               ...newEvent,
-                               mercaderistas: [...newEvent.mercaderistas, value],
-                               mercaderistasIds: [...newEvent.mercaderistasIds, selectedUser.id]
-                             });
-                           }
-                         }}
-                       >
-                         <SelectTrigger>
-                           <SelectValue placeholder="Agregar mercaderista" />
-                         </SelectTrigger>
-                         <SelectContent>
-                           {users
-                             .filter(user => !newEvent.mercaderistas.includes(user.fullName))
-                             .map((user) => (
-                             <SelectItem key={user.id} value={user.fullName}>
-                               <div className="flex items-center space-x-2">
-                                 <UserCircle className="h-4 w-4" />
-                                 <span>{user.fullName}</span>
-                                 {user.sede && (
-                                   <Badge variant="outline" className="text-xs">
-                                     {user.sede}
-                                   </Badge>
-                                 )}
-                               </div>
-                             </SelectItem>
-                           ))}
-                         </SelectContent>
-                       </Select>
-                     </div>
-                   </div>
+                  <div>
+                    <Label htmlFor="mercaderistas-evento">Mercaderistas Asociados *</Label>
+                    <div className="space-y-2">
+                      {newEvent.mercaderistas.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {newEvent.mercaderistas.map((mercaderista, index) => (
+                            <Badge key={index} variant="outline" className="flex items-center gap-1">
+                              {mercaderista}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newMercaderistas = newEvent.mercaderistas.filter((_, i) => i !== index);
+                                  const newMercaderistasIds = newEvent.mercaderistasIds.filter((_, i) => i !== index);
+                                  setNewEvent({
+                                    ...newEvent,
+                                    mercaderistas: newMercaderistas,
+                                    mercaderistasIds: newMercaderistasIds
+                                  });
+                                }}
+                                className="ml-1 text-red-500 hover:text-red-700"
+                              >
+                                ×
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      <Select
+                        onValueChange={(value) => {
+                          const selectedUser = users.find(user => user.fullName === value);
+                          if (selectedUser && !newEvent.mercaderistas.includes(value)) {
+                            setNewEvent({
+                              ...newEvent,
+                              mercaderistas: [...newEvent.mercaderistas, value],
+                              mercaderistasIds: [...newEvent.mercaderistasIds, selectedUser.id]
+                            });
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Agregar mercaderista" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users
+                            .filter(user => !newEvent.mercaderistas.includes(user.fullName))
+                            .map((user) => (
+                              <SelectItem key={user.id} value={user.fullName}>
+                                <div className="flex items-center space-x-2">
+                                  <UserCircle className="h-4 w-4" />
+                                  <span>{user.fullName}</span>
+                                  {user.sede && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {user.sede}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
                   <div>
                     <Label htmlFor="fechaInicio">Fecha de Inicio *</Label>
@@ -1703,7 +1702,7 @@ export default function RutasPage() {
                 </div>
 
                 <div className="text-sm text-gray-600 bg-orange-50 p-3 rounded-lg">
-                  <strong>Nota:</strong> Los eventos Trade son independientes y no están asociados a clientes específicos. 
+                  <strong>Nota:</strong> Los eventos Trade son independientes y no están asociados a clientes específicos.
                   Se mostrarán en el calendario como actividades separadas.
                 </div>
 
@@ -1711,12 +1710,12 @@ export default function RutasPage() {
                   <Button variant="outline" onClick={() => setIsEventDialogOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button 
-                     onClick={createOrUpdateEvent}
-                     disabled={!newEvent.nombreEvento || newEvent.mercaderistas.length === 0 || newEvent.marcasTrabajadas.length === 0}
-                   >
-                     {isEditingEvent ? 'Actualizar Evento' : 'Crear Evento'}
-                   </Button>
+                  <Button
+                    onClick={createOrUpdateEvent}
+                    disabled={!newEvent.nombreEvento || newEvent.mercaderistas.length === 0 || newEvent.marcasTrabajadas.length === 0}
+                  >
+                    {isEditingEvent ? 'Actualizar Evento' : 'Crear Evento'}
+                  </Button>
                 </div>
               </div>
             </DialogContent>
@@ -1744,7 +1743,7 @@ export default function RutasPage() {
               locale={es}
               className="rounded-md"
             />
-            
+
             <div className="mt-4 space-y-2">
               {routesForSelectedDate.length > 0 && (
                 <div>
@@ -1755,14 +1754,14 @@ export default function RutasPage() {
                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                         <span className="font-medium">{route.mercaderista}</span>
                       </div>
-                      <Badge 
-                        className={route.status === 'completada' ? 'bg-green-100 text-green-800' : 
-                                   route.status === 'en_progreso' ? 'bg-blue-100 text-blue-800' : 
-                                   'bg-gray-100 text-gray-800'}
+                      <Badge
+                        className={route.status === 'completada' ? 'bg-green-100 text-green-800' :
+                          route.status === 'en_progreso' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'}
                       >
-                        {route.status === 'completada' ? '✓ Completada' : 
-                         route.status === 'en_progreso' ? '⏳ En Progreso' : 
-                         '📋 Planificada'}
+                        {route.status === 'completada' ? '✓ Completada' :
+                          route.status === 'en_progreso' ? '⏳ En Progreso' :
+                            '📋 Planificada'}
                       </Badge>
                     </div>
                   ))}
@@ -1806,11 +1805,10 @@ export default function RutasPage() {
             ) : (
               <div className="space-y-4">
                 {routesForSelectedDate.map(route => (
-                  <div 
-                    key={route.id} 
-                    className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                      selectedRoute?.id === route.id ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
-                    }`}
+                  <div
+                    key={route.id}
+                    className={`border rounded-lg p-4 cursor-pointer transition-colors ${selectedRoute?.id === route.id ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
+                      }`}
                     onClick={() => setSelectedRoute(route)}
                   >
                     <div className="flex justify-between items-start mb-3">
@@ -1823,14 +1821,14 @@ export default function RutasPage() {
                           </Badge>
                         )}
                       </div>
-                      <Badge 
-                        className={route.status === 'completada' ? 'bg-green-100 text-green-800' : 
-                                   route.status === 'en_progreso' ? 'bg-blue-100 text-blue-800' : 
-                                   'bg-gray-100 text-gray-800'}
+                      <Badge
+                        className={route.status === 'completada' ? 'bg-green-100 text-green-800' :
+                          route.status === 'en_progreso' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'}
                       >
-                        {route.status === 'completada' ? 'Completada' : 
-                         route.status === 'en_progreso' ? 'En Progreso' : 
-                         'Planificada'}
+                        {route.status === 'completada' ? 'Completada' :
+                          route.status === 'en_progreso' ? 'En Progreso' :
+                            'Planificada'}
                       </Badge>
                     </div>
 
@@ -1907,9 +1905,9 @@ export default function RutasPage() {
                   {selectedRoute && (
                     <>
                       <Badge className="text-sm">
-                        {selectedRoute.status === 'completada' ? '✓ Completada' : 
-                         selectedRoute.status === 'en_progreso' ? '⏳ En Progreso' : 
-                         '📋 Planificada'}
+                        {selectedRoute.status === 'completada' ? '✓ Completada' :
+                          selectedRoute.status === 'en_progreso' ? '⏳ En Progreso' :
+                            '📋 Planificada'}
                       </Badge>
                       <div className="flex gap-2">
                         <Button
@@ -1947,7 +1945,7 @@ export default function RutasPage() {
                   {/* Lista detallada de puntos */}
                   <div className="lg:col-span-1">
                     <h3 className="font-semibold mb-4">Puntos de la Ruta</h3>
-                    
+
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       {selectedRoute.points.map((point, index) => (
                         <div key={point.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
@@ -1958,15 +1956,15 @@ export default function RutasPage() {
                             <div className="min-w-0 flex-1">
                               <h4 className="font-medium text-gray-900 truncate">{point.name}</h4>
                               <p className="text-sm text-gray-600 line-clamp-2">{point.address}</p>
-                              
+
                               {point.rif && (
                                 <p className="text-xs text-gray-500 font-mono mt-1">RIF: {point.rif}</p>
                               )}
-                              
+
                               {point.telefono && (
                                 <p className="text-xs text-gray-500">📞 {point.telefono}</p>
                               )}
-                              
+
                               <div className="flex items-center justify-between mt-2">
                                 <div className="flex space-x-2">
                                   <Badge className={getPointTypeColor(point.type)}>
@@ -2037,7 +2035,7 @@ export default function RutasPage() {
             </div>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-blue-200 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
@@ -2051,20 +2049,20 @@ export default function RutasPage() {
             </div>
             <div className="text-sm font-medium text-gray-600">Rutas Programadas</div>
           </div>
-          
-                     <div className="bg-white rounded-xl p-6 shadow-sm border border-green-200 hover:shadow-md transition-shadow">
-             <div className="flex items-center justify-between mb-4">
-               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                 <span className="text-green-600 text-xl">✓</span>
-               </div>
-               <Badge className="bg-green-50 text-green-700 border-green-200">Completadas</Badge>
-             </div>
-             <div className="text-3xl font-bold text-green-600 mb-1">
-               {routesForSelectedDate.filter(r => r.status === 'completada').length}
-             </div>
-             <div className="text-sm font-medium text-gray-600">Completadas</div>
-           </div>
-          
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-green-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-green-600 text-xl">✓</span>
+              </div>
+              <Badge className="bg-green-50 text-green-700 border-green-200">Completadas</Badge>
+            </div>
+            <div className="text-3xl font-bold text-green-600 mb-1">
+              {routesForSelectedDate.filter(r => r.status === 'completada').length}
+            </div>
+            <div className="text-sm font-medium text-gray-600">Completadas</div>
+          </div>
+
           <div className="bg-white rounded-xl p-6 shadow-sm border border-orange-200 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
@@ -2077,7 +2075,7 @@ export default function RutasPage() {
             </div>
             <div className="text-sm font-medium text-gray-600">En Progreso</div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-sm border border-purple-200 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
@@ -2090,7 +2088,7 @@ export default function RutasPage() {
             </div>
             <div className="text-sm font-medium text-gray-600">Total Puntos</div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-sm border border-indigo-200 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
@@ -2103,7 +2101,7 @@ export default function RutasPage() {
             </div>
             <div className="text-sm font-medium text-gray-600">Eventos Trade</div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-sm border border-red-200 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -2112,13 +2110,13 @@ export default function RutasPage() {
               <Badge className="bg-red-50 text-red-700 border-red-200">Tiempo</Badge>
             </div>
             <div className="text-3xl font-bold text-red-600 mb-1">
-              {routesForSelectedDate.reduce((total, route) => 
+              {routesForSelectedDate.reduce((total, route) =>
                 total + route.points.reduce((pointTotal, point) => pointTotal + point.estimatedTime, 0), 0
               )}
             </div>
             <div className="text-sm font-medium text-gray-600">Minutos Totales</div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-sm border border-teal-200 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center">
@@ -2131,7 +2129,7 @@ export default function RutasPage() {
             </div>
             <div className="text-sm font-medium text-gray-600">Mercaderistas</div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-6 shadow-sm border border-pink-200 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
@@ -2140,14 +2138,14 @@ export default function RutasPage() {
               <Badge className="bg-pink-50 text-pink-700 border-pink-200">Merchandising</Badge>
             </div>
             <div className="text-3xl font-bold text-pink-600 mb-1">
-              {routesForSelectedDate.reduce((total, route) => 
+              {routesForSelectedDate.reduce((total, route) =>
                 total + route.points.filter(point => point.tipoVisita === 'Merchandising').length, 0
               )}
             </div>
             <div className="text-sm font-medium text-gray-600">Merchandising</div>
           </div>
         </div>
-        
+
         {/* Barra de progreso general */}
         <div className="mt-8 p-6 bg-white rounded-xl border border-gray-200">
           <div className="flex items-center justify-between mb-4">
@@ -2157,12 +2155,12 @@ export default function RutasPage() {
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3">
-            <div 
+            <div
               className="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all duration-500 ease-out"
-              style={{ 
-                width: routesForSelectedDate.length > 0 ? 
-                  `${(routesForSelectedDate.filter(r => r.status === 'completada').length / routesForSelectedDate.length) * 100}%` : 
-                  '0%' 
+              style={{
+                width: routesForSelectedDate.length > 0 ?
+                  `${(routesForSelectedDate.filter(r => r.status === 'completada').length / routesForSelectedDate.length) * 100}%` :
+                  '0%'
               }}
             ></div>
           </div>
@@ -2230,12 +2228,12 @@ export default function RutasPage() {
                         <UserCircle className="h-5 w-5 mr-3 text-orange-600" />
                         <span className="font-medium">{evento.mercaderistas.join(', ')}</span>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <div className="flex items-center text-gray-700">
                           <span className="mr-3 text-lg">📅</span>
                           <span className="font-medium">
-                            {format(new Date(evento.fechaInicio), 'dd/MM', { locale: es })} - 
+                            {format(new Date(evento.fechaInicio), 'dd/MM', { locale: es })} -
                             {format(new Date(evento.fechaFin), 'dd/MM', { locale: es })}
                           </span>
                         </div>
@@ -2259,16 +2257,16 @@ export default function RutasPage() {
                     </div>
 
                     <div className="pt-4 border-t border-orange-200 mt-4">
-                      <Badge 
+                      <Badge
                         className={
-                          evento.status === 'completado' ? 'bg-green-100 text-green-800 border-green-200' : 
-                          evento.status === 'en_progreso' ? 'bg-blue-100 text-blue-800 border-blue-200' : 
-                          'bg-gray-100 text-gray-800 border-gray-200'
+                          evento.status === 'completado' ? 'bg-green-100 text-green-800 border-green-200' :
+                            evento.status === 'en_progreso' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                              'bg-gray-100 text-gray-800 border-gray-200'
                         }
                       >
-                        {evento.status === 'completado' ? '✅ Completado' : 
-                         evento.status === 'en_progreso' ? '⏳ En Progreso' : 
-                         '📋 Planificado'}
+                        {evento.status === 'completado' ? '✅ Completado' :
+                          evento.status === 'en_progreso' ? '⏳ En Progreso' :
+                            '📋 Planificado'}
                       </Badge>
                     </div>
                   </div>
@@ -2279,446 +2277,445 @@ export default function RutasPage() {
         </div>
       </div>
 
-       {/* Dialog para seleccionar clientes - Movido fuera de tabs */}
-       <Dialog open={isSelectingCliente} onOpenChange={setIsSelectingCliente}>
-         <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
-           <DialogHeader className="pb-4 border-b">
-             <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-               Seleccionar Cliente Existente
-             </DialogTitle>
-             <DialogDescription className="text-base text-gray-600">
-               Busca y selecciona clientes de tu base de datos para agregarlos a la ruta. 
-               Usa los filtros para encontrar rápidamente lo que necesitas.
-               <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                 <p className="text-sm text-blue-800 font-medium">
-                   💡 <strong>Tip:</strong> Puedes agregar el mismo cliente múltiples veces para diferentes marcas (Shell/Qualid) o tipos de visita.
-                 </p>
-               </div>
-             </DialogDescription>
-           </DialogHeader>
-           
-           <div className="flex-1 flex flex-col overflow-hidden">
-             {/* Filtros mejorados */}
-             <div className="bg-gray-50 rounded-xl p-6 mb-6">
-               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                 <Filter className="mr-2 h-5 w-5 text-blue-600" />
-                 Filtros de Búsqueda
-               </h3>
-               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                 <div>
-                   <Label className="text-sm font-medium text-gray-700 mb-2 block">Buscar por nombre</Label>
-                   <Input 
-                     type="text" 
-                     value={filterNombre} 
-                     onChange={e => setFilterNombre(e.target.value)} 
-                     placeholder="Nombre del cliente..." 
-                     className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                   />
-                 </div>
-                 <div>
-                   <Label className="text-sm font-medium text-gray-700 mb-2 block">Buscar por RIF</Label>
-                   <Input 
-                     type="text" 
-                     value={filterRif} 
-                     onChange={e => setFilterRif(e.target.value)} 
-                     placeholder="Ej: J123456789" 
-                     className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                   />
-                 </div>
-                 <div>
-                   <Label className="text-sm font-medium text-gray-700 mb-2 block">Ciudad</Label>
-                   <Input 
-                     type="text" 
-                     value={filterCiudad} 
-                     onChange={e => setFilterCiudad(e.target.value)} 
-                     placeholder="Caracas, Maracay, Valencia..." 
-                     className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                   />
-                 </div>
-                 <div>
-                   <Label className="text-sm font-medium text-gray-700 mb-2 block">Tiempo sin visita</Label>
-                   <Select 
-                     value={filterLastVisit} 
-                     onValueChange={setFilterLastVisit}
-                   >
-                     <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                       <SelectValue placeholder="Filtrar por visita" />
-                     </SelectTrigger>
-                     <SelectContent>
-                       <SelectItem value="todos">Todos los clientes</SelectItem>
-                       <SelectItem value="nunca">🔴 Nunca visitados</SelectItem>
-                       <SelectItem value="7">🟡 +7 días sin visita</SelectItem>
-                       <SelectItem value="15">🟠 +15 días sin visita</SelectItem>
-                       <SelectItem value="30">🔴 +30 días sin visita</SelectItem>
-                       <SelectItem value="60">⚫ +60 días sin visita</SelectItem>
-                     </SelectContent>
-                   </Select>
-                 </div>
-                 <div>
-                   <Label className="text-sm font-medium text-gray-700 mb-2 block">Ordenar por visita</Label>
-                   <Select 
-                     value={orderAsc ? "asc" : "desc"} 
-                     onValueChange={(value) => setOrderAsc(value === "asc")}
-                   >
-                     <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                       <SelectValue />
-                     </SelectTrigger>
-                     <SelectContent>
-                       <SelectItem value="desc">🔽 Más antiguos primero</SelectItem>
-                       <SelectItem value="asc">🔼 Más recientes primero</SelectItem>
-                     </SelectContent>
-                   </Select>
-                 </div>
-               </div>
-             </div>
+      {/* Dialog para seleccionar clientes - Movido fuera de tabs */}
+      <Dialog open={isSelectingCliente} onOpenChange={setIsSelectingCliente}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="pb-4 border-b">
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              Seleccionar Cliente Existente
+            </DialogTitle>
+            <DialogDescription className="text-base text-gray-600">
+              Busca y selecciona clientes de tu base de datos para agregarlos a la ruta.
+              Usa los filtros para encontrar rápidamente lo que necesitas.
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800 font-medium">
+                  💡 <strong>Tip:</strong> Puedes agregar el mismo cliente múltiples veces para diferentes marcas (Shell/Qualid) o tipos de visita.
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
 
-             {/* Lista de clientes mejorada */}
-             <div className="flex-1 overflow-hidden flex flex-col">
-               <div className="flex justify-between items-center mb-4">
-                 <h3 className="text-lg font-semibold text-gray-800">
-                   Clientes Disponibles ({filteredClientes.length})
-                 </h3>
-                 <div className="flex items-center gap-4">
-                   {/* Resumen de prioridades */}
-                   <div className="flex items-center gap-2 text-xs">
-                     {(() => {
-                       const neverVisited = filteredClientes.filter(c => !c.lastVisitDate).length;
-                       const over60Days = filteredClientes.filter(c => c.lastVisitDate && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) >= 60).length;
-                       const over30Days = filteredClientes.filter(c => c.lastVisitDate && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) >= 30 && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) < 60).length;
-                       const over15Days = filteredClientes.filter(c => c.lastVisitDate && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) >= 15 && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) < 30).length;
-                       const over7Days = filteredClientes.filter(c => c.lastVisitDate && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) >= 7 && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) < 15).length;
-                       
-                       return (
-                         <>
-                           {neverVisited > 0 && <Badge className="bg-red-100 text-red-800">🔴 {neverVisited} nunca</Badge>}
-                           {over60Days > 0 && <Badge className="bg-red-100 text-red-800">⚫ {over60Days} +60d</Badge>}
-                           {over30Days > 0 && <Badge className="bg-red-100 text-red-800">🔴 {over30Days} +30d</Badge>}
-                           {over15Days > 0 && <Badge className="bg-orange-100 text-orange-800">🟠 {over15Days} +15d</Badge>}
-                           {over7Days > 0 && <Badge className="bg-yellow-100 text-yellow-800">🟡 {over7Days} +7d</Badge>}
-                         </>
-                       );
-                     })()}
-                   </div>
-                   <div className="text-sm text-gray-500">
-                     {filteredClientes.length !== clientes.length && (
-                       <span>Mostrando {filteredClientes.length} de {clientes.length}</span>
-                     )}
-                   </div>
-                 </div>
-               </div>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Filtros mejorados */}
+            <div className="bg-gray-50 rounded-xl p-6 mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <Filter className="mr-2 h-5 w-5 text-blue-600" />
+                Filtros de Búsqueda
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Buscar por nombre</Label>
+                  <Input
+                    type="text"
+                    value={filterNombre}
+                    onChange={e => setFilterNombre(e.target.value)}
+                    placeholder="Nombre del cliente..."
+                    className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Buscar por RIF</Label>
+                  <Input
+                    type="text"
+                    value={filterRif}
+                    onChange={e => setFilterRif(e.target.value)}
+                    placeholder="Ej: J123456789"
+                    className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Ciudad</Label>
+                  <Input
+                    type="text"
+                    value={filterCiudad}
+                    onChange={e => setFilterCiudad(e.target.value)}
+                    placeholder="Caracas, Maracay, Valencia..."
+                    className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Tiempo sin visita</Label>
+                  <Select
+                    value={filterLastVisit}
+                    onValueChange={setFilterLastVisit}
+                  >
+                    <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                      <SelectValue placeholder="Filtrar por visita" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos los clientes</SelectItem>
+                      <SelectItem value="nunca">🔴 Nunca visitados</SelectItem>
+                      <SelectItem value="7">🟡 +7 días sin visita</SelectItem>
+                      <SelectItem value="15">🟠 +15 días sin visita</SelectItem>
+                      <SelectItem value="30">🔴 +30 días sin visita</SelectItem>
+                      <SelectItem value="60">⚫ +60 días sin visita</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Ordenar por visita</Label>
+                  <Select
+                    value={orderAsc ? "asc" : "desc"}
+                    onValueChange={(value) => setOrderAsc(value === "asc")}
+                  >
+                    <SelectTrigger className="bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="desc">🔽 Más antiguos primero</SelectItem>
+                      <SelectItem value="asc">🔼 Más recientes primero</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
 
-               <div className="flex-1 overflow-y-auto">
-                 {isLoadingClientes ? (
-                   <div className="flex items-center justify-center py-12">
-                     <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                     <p className="ml-3 text-gray-600">Cargando clientes...</p>
-                   </div>
-                 ) : clientes.length === 0 ? (
-                   <div className="text-center py-12">
-                     <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                       <UserCircle className="h-12 w-12 text-gray-400" />
-                     </div>
-                     <p className="text-lg font-medium text-gray-900 mb-2">No hay clientes disponibles</p>
-                     <p className="text-sm text-gray-500">
-                       Ve a "Gestión de Clientes" para crear nuevos clientes
-                     </p>
-                   </div>
-                 ) : filteredClientes.length === 0 ? (
-                   <div className="text-center py-12">
-                     <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                       <Search className="h-12 w-12 text-gray-400" />
-                     </div>
-                     <p className="text-lg font-medium text-gray-900 mb-2">No se encontraron clientes</p>
-                     <p className="text-sm text-gray-500">
-                       Intenta ajustar los filtros de búsqueda
-                     </p>
-                   </div>
-                 ) : (
-                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-4">
-                     {filteredClientes.map((cliente) => (
-                       <div
-                         key={cliente.id}
-                         className="group border border-gray-200 rounded-xl p-5 cursor-pointer hover:border-blue-300 hover:shadow-lg transition-all duration-200 bg-white"
-                         onClick={() => initiateClienteSelection(cliente)}
-                       >
-                         <div className="flex justify-between items-start mb-3">
-                           <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors line-clamp-2">
-                             {cliente.nombre}
-                           </h3>
-                           <Badge className={`ml-2 flex-shrink-0 ${
-                             cliente.tipo === 'tienda' ? 'bg-blue-100 text-blue-800' :
-                             cliente.tipo === 'distribuidor' ? 'bg-green-100 text-green-800' :
-                             'bg-purple-100 text-purple-800'
-                           }`}>
-                             {cliente.tipo}
-                           </Badge>
-                         </div>
-                         
-                         <div className="space-y-2 text-sm">
-                           <p className="text-gray-600 flex items-center">
-                             <MapPin className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
-                             <span className="line-clamp-1">{cliente.direccion}</span>
-                           </p>
-                           
-                           <div className="flex items-center justify-between">
-                             <p className="text-gray-500 text-xs">
-                               {cliente.ciudad}, {cliente.region}
-                             </p>
-                             {cliente.sede && (
-                               <Badge variant="outline" className="text-xs">
-                                 {cliente.sede}
-                               </Badge>
-                             )}
-                           </div>
-                           
-                           {cliente.telefono && (
-                             <p className="text-gray-500 text-xs flex items-center">
-                               📞 {cliente.telefono}
-                             </p>
-                           )}
+            {/* Lista de clientes mejorada */}
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Clientes Disponibles ({filteredClientes.length})
+                </h3>
+                <div className="flex items-center gap-4">
+                  {/* Resumen de prioridades */}
+                  <div className="flex items-center gap-2 text-xs">
+                    {(() => {
+                      const neverVisited = filteredClientes.filter(c => !c.lastVisitDate).length;
+                      const over60Days = filteredClientes.filter(c => c.lastVisitDate && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) >= 60).length;
+                      const over30Days = filteredClientes.filter(c => c.lastVisitDate && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) >= 30 && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) < 60).length;
+                      const over15Days = filteredClientes.filter(c => c.lastVisitDate && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) >= 15 && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) < 30).length;
+                      const over7Days = filteredClientes.filter(c => c.lastVisitDate && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) >= 7 && Math.floor((Date.now() - new Date(c.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24)) < 15).length;
 
-                           {cliente.rif && (
-                             <p className="text-gray-500 text-xs font-mono">
-                               RIF: {cliente.rif}
-                             </p>
-                           )}
-                           
-                           <div className="pt-2 border-t border-gray-100">
-                             {(() => {
-                               if (!cliente.lastVisitDate) {
-                                 return (
-                                   <div className="flex items-center gap-2">
-                                     <Badge className="bg-red-100 text-red-800 text-xs">
-                                       🔴 NUNCA VISITADO
-                                     </Badge>
-                                     <span className="text-xs text-red-600 font-medium">¡Prioridad alta!</span>
-                                   </div>
-                                 );
-                               }
-                               
-                               const daysSinceVisit = Math.floor((Date.now() - new Date(cliente.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24));
-                               let priorityColor = 'text-green-600';
-                               let priorityBadge = null;
-                               
-                               if (daysSinceVisit >= 60) {
-                                 priorityColor = 'text-red-800';
-                                 priorityBadge = <Badge className="bg-red-100 text-red-800 text-xs">⚫ +60 días</Badge>;
-                               } else if (daysSinceVisit >= 30) {
-                                 priorityColor = 'text-red-600';
-                                 priorityBadge = <Badge className="bg-red-100 text-red-800 text-xs">🔴 +30 días</Badge>;
-                               } else if (daysSinceVisit >= 15) {
-                                 priorityColor = 'text-orange-600';
-                                 priorityBadge = <Badge className="bg-orange-100 text-orange-800 text-xs">🟠 +15 días</Badge>;
-                               } else if (daysSinceVisit >= 7) {
-                                 priorityColor = 'text-yellow-600';
-                                 priorityBadge = <Badge className="bg-yellow-100 text-yellow-800 text-xs">🟡 +7 días</Badge>;
-                               }
-                               
-                               return (
-                                 <div className="flex items-center justify-between">
-                                   <span className={`text-xs font-medium ${priorityColor}`}>
-                                     Última visita: {new Date(cliente.lastVisitDate).toLocaleDateString('es-VE', { 
-                                       day: '2-digit', 
-                                       month: '2-digit', 
-                                       year: 'numeric' 
-                                     })}
-                                   </span>
-                                   {priorityBadge}
-                                 </div>
-                               );
-                             })()}
-                           </div>
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 )}
-               </div>
-             </div>
-           </div>
-         </DialogContent>
-       </Dialog>
+                      return (
+                        <>
+                          {neverVisited > 0 && <Badge className="bg-red-100 text-red-800">🔴 {neverVisited} nunca</Badge>}
+                          {over60Days > 0 && <Badge className="bg-red-100 text-red-800">⚫ {over60Days} +60d</Badge>}
+                          {over30Days > 0 && <Badge className="bg-red-100 text-red-800">🔴 {over30Days} +30d</Badge>}
+                          {over15Days > 0 && <Badge className="bg-orange-100 text-orange-800">🟠 {over15Days} +15d</Badge>}
+                          {over7Days > 0 && <Badge className="bg-yellow-100 text-yellow-800">🟡 {over7Days} +7d</Badge>}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {filteredClientes.length !== clientes.length && (
+                      <span>Mostrando {filteredClientes.length} de {clientes.length}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-       {/* Dialog para seleccionar tipo de visita */}
-       <Dialog open={isSelectingVisitType} onOpenChange={setIsSelectingVisitType}>
-         <DialogContent className="max-w-md">
-           <DialogHeader>
-             <DialogTitle>Seleccionar Tipo de Visita</DialogTitle>
-             <DialogDescription>
-               Selecciona el tipo de visita que se realizará en: {selectedClienteForVisitType?.nombre}
-             </DialogDescription>
-           </DialogHeader>
-
-           <div className="space-y-4">
-             <div>
-               <Label htmlFor="visit-type">Tipo de Visita *</Label>
-               <Select 
-                 value={selectedVisitTypeForClient} 
-                 onValueChange={(value: 'Merchandising' | 'Trade (Eventos)' | 'Trade (Impulso)') => {
-                   setSelectedVisitTypeForClient(value);
-                   // Resetear marca cuando cambia el tipo de visita
-                   if (value === 'Merchandising') {
-                     setSelectedMarcaForVisitType('');
-                   }
-                 }}
-               >
-                 <SelectTrigger>
-                   <SelectValue placeholder="Seleccionar tipo de visita" />
-                 </SelectTrigger>
-                 <SelectContent>
-                   <SelectItem value="Merchandising">Merchandising</SelectItem>
-                   <SelectItem value="Trade (Impulso)">Trade (Impulso)</SelectItem>
-                 </SelectContent>
-               </Select>
-             </div>
-
-             {/* Selector de marca solo para tipos Trade */}
-             {selectedVisitTypeForClient === 'Trade (Impulso)' && (
-               <div>
-                 <Label htmlFor="marca-visit-type">Marca a Trabajar *</Label>
-                 <Select
-                   value={selectedMarcaForVisitType}
-                   onValueChange={(value) => setSelectedMarcaForVisitType(value as 'Shell' | 'Qualid')}
-                 >
-                   <SelectTrigger>
-                     <SelectValue placeholder="Seleccionar marca a trabajar" />
-                   </SelectTrigger>
-                   <SelectContent>
-                     <SelectItem value="Shell">Shell</SelectItem>
-                     <SelectItem value="Qualid">Qualid</SelectItem>
-                   </SelectContent>
-                 </Select>
-               </div>
-             )}
-
-                            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-                 <strong>Nota:</strong> El tipo de visita determina las actividades y objetivos específicos para este cliente.
-                 {selectedVisitTypeForClient === 'Trade (Impulso)' && (
-                   <div className="mt-2">
-                     <strong>Para eventos Trade:</strong> Debes seleccionar la marca que se trabajará en este cliente.
-                   </div>
-                 )}
-               </div>
-
-             <div className="flex justify-end gap-2 pt-4 border-t">
-               <Button variant="outline" onClick={() => setIsSelectingVisitType(false)}>
-                 Cancelar
-               </Button>
-               <Button 
-                 onClick={addClienteWithVisitType}
-                 disabled={!selectedVisitTypeForClient || 
-                   (selectedVisitTypeForClient === 'Trade (Impulso)' && !selectedMarcaForVisitType)}
-               >
-                 Agregar a Ruta
-               </Button>
-             </div>
-           </div>
-         </DialogContent>
-                </Dialog>
-
-         {/* Modal para detalles del evento seleccionado */}
-         {selectedEvento && (
-           <Dialog open={!!selectedEvento} onOpenChange={() => setSelectedEvento(null)}>
-             <DialogContent className="max-w-2xl">
-               <DialogHeader>
-                 <DialogTitle>Detalles del Evento</DialogTitle>
-                 <DialogDescription>
-                   {selectedEvento.nombreEvento}
-                 </DialogDescription>
-               </DialogHeader>
-
-               <div className="space-y-4">
-                 <div className="grid grid-cols-2 gap-4">
-                   <div>
-                     <Label className="text-sm font-medium">Nombre del Evento</Label>
-                     <p className="text-sm text-gray-700">{selectedEvento.nombreEvento}</p>
-                   </div>
-                   <div>
-                     <Label className="text-sm font-medium">Estado</Label>
-                     <Badge className={
-                       selectedEvento.status === 'completado' ? 'bg-green-100 text-green-800' : 
-                       selectedEvento.status === 'en_progreso' ? 'bg-blue-100 text-blue-800' : 
-                       'bg-gray-100 text-gray-800'
-                     }>
-                       {selectedEvento.status === 'completado' ? '✓ Completado' : 
-                        selectedEvento.status === 'en_progreso' ? '⏳ En Progreso' : 
-                        '📋 Planificado'}
-                     </Badge>
-                   </div>
-                 </div>
-
-                 <div>
-                   <Label className="text-sm font-medium">Mercaderistas Asignados</Label>
-                   <div className="flex flex-wrap gap-2 mt-1">
-                     {selectedEvento.mercaderistas.map((mercaderista, index) => (
-                       <Badge key={index} variant="outline">
-                         {mercaderista}
-                       </Badge>
-                     ))}
-                   </div>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-4">
-                   <div>
-                     <Label className="text-sm font-medium">Fecha de Inicio</Label>
-                     <p className="text-sm text-gray-700">{format(new Date(selectedEvento.fechaInicio), 'dd/MM/yyyy')}</p>
-                   </div>
-                   <div>
-                     <Label className="text-sm font-medium">Fecha de Fin</Label>
-                     <p className="text-sm text-gray-700">{format(new Date(selectedEvento.fechaFin), 'dd/MM/yyyy')}</p>
-                   </div>
-                 </div>
-
-                 <div>
-                   <Label className="text-sm font-medium">Duración</Label>
-                   <p className="text-sm text-gray-700">{selectedEvento.duracionDias} día{selectedEvento.duracionDias !== 1 ? 's' : ''}</p>
-                 </div>
-
-                 {selectedEvento.direccion && (
-                   <div>
-                     <Label className="text-sm font-medium">Dirección</Label>
-                     <p className="text-sm text-gray-700">{selectedEvento.direccion}</p>
-                   </div>
-                 )}
-
-                {selectedEvento.marcasTrabajadas && selectedEvento.marcasTrabajadas.length > 0 && (
-                  <div>
-                    <Label className="text-sm font-medium">Marcas a Trabajar</Label>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {selectedEvento.marcasTrabajadas.map((marca, index) => (
-                        <Badge key={index} className="bg-blue-100 text-blue-800">
-                          {marca === 'Shell' ? '🐚 Shell' : '🔧 Qualid'}
-                        </Badge>
-                      ))}
+              <div className="flex-1 overflow-y-auto">
+                {isLoadingClientes ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                    <p className="ml-3 text-gray-600">Cargando clientes...</p>
+                  </div>
+                ) : clientes.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <UserCircle className="h-12 w-12 text-gray-400" />
                     </div>
+                    <p className="text-lg font-medium text-gray-900 mb-2">No hay clientes disponibles</p>
+                    <p className="text-sm text-gray-500">
+                      Ve a "Gestión de Clientes" para crear nuevos clientes
+                    </p>
+                  </div>
+                ) : filteredClientes.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <Search className="h-12 w-12 text-gray-400" />
+                    </div>
+                    <p className="text-lg font-medium text-gray-900 mb-2">No se encontraron clientes</p>
+                    <p className="text-sm text-gray-500">
+                      Intenta ajustar los filtros de búsqueda
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-4">
+                    {filteredClientes.map((cliente) => (
+                      <div
+                        key={cliente.id}
+                        className="group border border-gray-200 rounded-xl p-5 cursor-pointer hover:border-blue-300 hover:shadow-lg transition-all duration-200 bg-white"
+                        onClick={() => initiateClienteSelection(cliente)}
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors line-clamp-2">
+                            {cliente.nombre}
+                          </h3>
+                          <Badge className={`ml-2 flex-shrink-0 ${cliente.tipo === 'tienda' ? 'bg-blue-100 text-blue-800' :
+                            cliente.tipo === 'distribuidor' ? 'bg-green-100 text-green-800' :
+                              'bg-purple-100 text-purple-800'
+                            }`}>
+                            {cliente.tipo}
+                          </Badge>
+                        </div>
+
+                        <div className="space-y-2 text-sm">
+                          <p className="text-gray-600 flex items-center">
+                            <MapPin className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
+                            <span className="line-clamp-1">{cliente.direccion}</span>
+                          </p>
+
+                          <div className="flex items-center justify-between">
+                            <p className="text-gray-500 text-xs">
+                              {cliente.ciudad}, {cliente.region}
+                            </p>
+                            {cliente.sede && (
+                              <Badge variant="outline" className="text-xs">
+                                {cliente.sede}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {cliente.telefono && (
+                            <p className="text-gray-500 text-xs flex items-center">
+                              📞 {cliente.telefono}
+                            </p>
+                          )}
+
+                          {cliente.rif && (
+                            <p className="text-gray-500 text-xs font-mono">
+                              RIF: {cliente.rif}
+                            </p>
+                          )}
+
+                          <div className="pt-2 border-t border-gray-100">
+                            {(() => {
+                              if (!cliente.lastVisitDate) {
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    <Badge className="bg-red-100 text-red-800 text-xs">
+                                      🔴 NUNCA VISITADO
+                                    </Badge>
+                                    <span className="text-xs text-red-600 font-medium">¡Prioridad alta!</span>
+                                  </div>
+                                );
+                              }
+
+                              const daysSinceVisit = Math.floor((Date.now() - new Date(cliente.lastVisitDate).getTime()) / (1000 * 60 * 60 * 24));
+                              let priorityColor = 'text-green-600';
+                              let priorityBadge = null;
+
+                              if (daysSinceVisit >= 60) {
+                                priorityColor = 'text-red-800';
+                                priorityBadge = <Badge className="bg-red-100 text-red-800 text-xs">⚫ +60 días</Badge>;
+                              } else if (daysSinceVisit >= 30) {
+                                priorityColor = 'text-red-600';
+                                priorityBadge = <Badge className="bg-red-100 text-red-800 text-xs">🔴 +30 días</Badge>;
+                              } else if (daysSinceVisit >= 15) {
+                                priorityColor = 'text-orange-600';
+                                priorityBadge = <Badge className="bg-orange-100 text-orange-800 text-xs">🟠 +15 días</Badge>;
+                              } else if (daysSinceVisit >= 7) {
+                                priorityColor = 'text-yellow-600';
+                                priorityBadge = <Badge className="bg-yellow-100 text-yellow-800 text-xs">🟡 +7 días</Badge>;
+                              }
+
+                              return (
+                                <div className="flex items-center justify-between">
+                                  <span className={`text-xs font-medium ${priorityColor}`}>
+                                    Última visita: {new Date(cliente.lastVisitDate).toLocaleDateString('es-VE', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric'
+                                    })}
+                                  </span>
+                                  {priorityBadge}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-                 {selectedEvento.descripcion && (
-                   <div>
-                     <Label className="text-sm font-medium">Descripción</Label>
-                     <p className="text-sm text-gray-700">{selectedEvento.descripcion}</p>
-                   </div>
-                 )}
+      {/* Dialog para seleccionar tipo de visita */}
+      <Dialog open={isSelectingVisitType} onOpenChange={setIsSelectingVisitType}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Seleccionar Tipo de Visita</DialogTitle>
+            <DialogDescription>
+              Selecciona el tipo de visita que se realizará en: {selectedClienteForVisitType?.nombre}
+            </DialogDescription>
+          </DialogHeader>
 
-                 <div className="flex justify-end gap-2 pt-4 border-t">
-                   <Button variant="outline" onClick={() => setSelectedEvento(null)}>
-                     Cerrar
-                   </Button>
-                   <Button variant="outline" onClick={() => editEvento(selectedEvento)}>
-                     Editar
-                   </Button>
-                   <Button 
-                     variant="destructive" 
-                     onClick={() => deleteEvento(selectedEvento.id)}
-                   >
-                     Eliminar
-                   </Button>
-                 </div>
-               </div>
-             </DialogContent>
-           </Dialog>
-         )}
-       </div>
-     );
-   }
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="visit-type">Tipo de Visita *</Label>
+              <Select
+                value={selectedVisitTypeForClient}
+                onValueChange={(value: 'Merchandising' | 'Trade (Eventos)' | 'Trade (Impulso)') => {
+                  setSelectedVisitTypeForClient(value);
+                  // Resetear marca cuando cambia el tipo de visita
+                  if (value === 'Merchandising') {
+                    setSelectedMarcaForVisitType('');
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar tipo de visita" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Merchandising">Merchandising</SelectItem>
+                  <SelectItem value="Trade (Impulso)">Trade (Impulso)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Selector de marca solo para tipos Trade */}
+            {selectedVisitTypeForClient === 'Trade (Impulso)' && (
+              <div>
+                <Label htmlFor="marca-visit-type">Marca a Trabajar *</Label>
+                <Select
+                  value={selectedMarcaForVisitType}
+                  onValueChange={(value) => setSelectedMarcaForVisitType(value as 'Shell' | 'Qualid')}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar marca a trabajar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Shell">Shell</SelectItem>
+                    <SelectItem value="Qualid">Qualid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+              <strong>Nota:</strong> El tipo de visita determina las actividades y objetivos específicos para este cliente.
+              {selectedVisitTypeForClient === 'Trade (Impulso)' && (
+                <div className="mt-2">
+                  <strong>Para eventos Trade:</strong> Debes seleccionar la marca que se trabajará en este cliente.
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setIsSelectingVisitType(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={addClienteWithVisitType}
+                disabled={!selectedVisitTypeForClient ||
+                  (selectedVisitTypeForClient === 'Trade (Impulso)' && !selectedMarcaForVisitType)}
+              >
+                Agregar a Ruta
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para detalles del evento seleccionado */}
+      {selectedEvento && (
+        <Dialog open={!!selectedEvento} onOpenChange={() => setSelectedEvento(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Detalles del Evento</DialogTitle>
+              <DialogDescription>
+                {selectedEvento.nombreEvento}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Nombre del Evento</Label>
+                  <p className="text-sm text-gray-700">{selectedEvento.nombreEvento}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Estado</Label>
+                  <Badge className={
+                    selectedEvento.status === 'completado' ? 'bg-green-100 text-green-800' :
+                      selectedEvento.status === 'en_progreso' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                  }>
+                    {selectedEvento.status === 'completado' ? '✓ Completado' :
+                      selectedEvento.status === 'en_progreso' ? '⏳ En Progreso' :
+                        '📋 Planificado'}
+                  </Badge>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Mercaderistas Asignados</Label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {selectedEvento.mercaderistas.map((mercaderista, index) => (
+                    <Badge key={index} variant="outline">
+                      {mercaderista}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Fecha de Inicio</Label>
+                  <p className="text-sm text-gray-700">{format(new Date(selectedEvento.fechaInicio), 'dd/MM/yyyy')}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Fecha de Fin</Label>
+                  <p className="text-sm text-gray-700">{format(new Date(selectedEvento.fechaFin), 'dd/MM/yyyy')}</p>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Duración</Label>
+                <p className="text-sm text-gray-700">{selectedEvento.duracionDias} día{selectedEvento.duracionDias !== 1 ? 's' : ''}</p>
+              </div>
+
+              {selectedEvento.direccion && (
+                <div>
+                  <Label className="text-sm font-medium">Dirección</Label>
+                  <p className="text-sm text-gray-700">{selectedEvento.direccion}</p>
+                </div>
+              )}
+
+              {selectedEvento.marcasTrabajadas && selectedEvento.marcasTrabajadas.length > 0 && (
+                <div>
+                  <Label className="text-sm font-medium">Marcas a Trabajar</Label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {selectedEvento.marcasTrabajadas.map((marca, index) => (
+                      <Badge key={index} className="bg-blue-100 text-blue-800">
+                        {marca === 'Shell' ? '🐚 Shell' : '🔧 Qualid'}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedEvento.descripcion && (
+                <div>
+                  <Label className="text-sm font-medium">Descripción</Label>
+                  <p className="text-sm text-gray-700">{selectedEvento.descripcion}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setSelectedEvento(null)}>
+                  Cerrar
+                </Button>
+                <Button variant="outline" onClick={() => editEvento(selectedEvento)}>
+                  Editar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => deleteEvento(selectedEvento.id)}
+                >
+                  Eliminar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+}

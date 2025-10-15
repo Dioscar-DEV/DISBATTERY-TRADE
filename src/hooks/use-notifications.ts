@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { useToast } from './use-toast';
-import { 
-  requestNotificationPermission, 
-  saveUserNotificationToken, 
-  setupForegroundMessageListener 
-} from '@/services/notifications';
+import { useEffect, useState } from "react";
+import { useToast } from "./use-toast";
+import {
+  requestNotificationPermission,
+  saveUserNotificationToken,
+  setupForegroundMessageListener,
+} from "@/services/notifications";
 
 export interface UseNotificationsProps {
   userId?: string;
@@ -31,7 +31,7 @@ export const useNotifications = ({
   fullName,
   role,
   sede,
-  autoSetup = true
+  autoSetup = true,
 }: UseNotificationsProps = {}): UseNotificationsReturn => {
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
@@ -39,15 +39,22 @@ export const useNotifications = ({
 
   // Verificar estado inicial de permisos
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setHasPermission(Notification.permission === 'granted');
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setHasPermission(Notification.permission === "granted");
     }
   }, []);
 
   // Auto-inicializar si se tienen todos los datos del usuario
   useEffect(() => {
-    if (autoSetup && userId && userEmail && fullName && role && !isInitialized) {
-      console.log('🔔 Auto-inicializando sistema de notificaciones...');
+    if (
+      autoSetup &&
+      userId &&
+      userEmail &&
+      fullName &&
+      role &&
+      !isInitialized
+    ) {
+      console.log("🔔 Auto-inicializando sistema de notificaciones...");
       initializeNotifications();
     }
   }, [userId, userEmail, fullName, role, autoSetup, isInitialized]);
@@ -57,31 +64,33 @@ export const useNotifications = ({
    */
   const requestPermission = async (): Promise<boolean> => {
     try {
-      console.log('🔔 Solicitando permisos de notificación...');
-      
+      console.log("🔔 Solicitando permisos de notificación...");
+
       const granted = await requestNotificationPermission();
       setHasPermission(granted);
-      
+
       if (granted) {
         toast({
-          title: '🔔 Notificaciones Habilitadas',
-          description: 'Recibirás notificaciones sobre nuevas rutas y actualizaciones.',
+          title: "🔔 Notificaciones Habilitadas",
+          description:
+            "Recibirás notificaciones sobre nuevas rutas y actualizaciones.",
         });
       } else {
         toast({
-          variant: 'destructive',
-          title: '❌ Permisos Denegados',
-          description: 'No podrás recibir notificaciones push. Puedes habilitarlas desde la configuración del navegador.',
+          variant: "destructive",
+          title: "❌ Permisos Denegados",
+          description:
+            "No podrás recibir notificaciones push. Puedes habilitarlas desde la configuración del navegador.",
         });
       }
-      
+
       return granted;
     } catch (error) {
-      console.error('❌ Error solicitando permisos de notificación:', error);
+      console.error("❌ Error solicitando permisos de notificación:", error);
       toast({
-        variant: 'destructive',
-        title: 'Error en Notificaciones',
-        description: 'No se pudieron configurar las notificaciones push.',
+        variant: "destructive",
+        title: "Error en Notificaciones",
+        description: "No se pudieron configurar las notificaciones push.",
       });
       return false;
     }
@@ -93,15 +102,17 @@ export const useNotifications = ({
   const initializeNotifications = async (): Promise<boolean> => {
     try {
       if (!userId || !userEmail || !fullName || !role) {
-        console.log('⚠️ Faltan datos del usuario para inicializar notificaciones');
+        console.log(
+          "⚠️ Faltan datos del usuario para inicializar notificaciones"
+        );
         return false;
       }
 
-      console.log('🔄 Inicializando sistema de notificaciones para:', {
+      console.log("🔄 Inicializando sistema de notificaciones para:", {
         userId,
         email: userEmail,
         role,
-        sede
+        sede,
       });
 
       // 1. Solicitar permisos si no los tenemos
@@ -109,13 +120,15 @@ export const useNotifications = ({
       if (!permissionGranted) {
         permissionGranted = await requestPermission();
         if (!permissionGranted) {
-          console.log('❌ No se pueden inicializar notificaciones sin permisos');
+          console.log(
+            "❌ No se pueden inicializar notificaciones sin permisos"
+          );
           return false;
         }
       }
 
       // 2. Guardar token del usuario
-      console.log('💾 Guardando token de notificación...');
+      console.log("💾 Guardando token de notificación...");
       const tokenSaved = await saveUserNotificationToken(
         userId,
         userEmail,
@@ -125,53 +138,75 @@ export const useNotifications = ({
       );
 
       if (!tokenSaved) {
-        console.log('❌ No se pudo guardar el token de notificación');
+        console.log("❌ No se pudo guardar el token de notificación");
         toast({
-          variant: 'destructive',
-          title: 'Error Guardando Token',
-          description: 'No se pudo registrar tu dispositivo para notificaciones.',
+          variant: "destructive",
+          title: "Error Guardando Token",
+          description:
+            "No se pudo registrar tu dispositivo para notificaciones.",
         });
         return false;
       }
 
       // 3. Configurar listener para mensajes en primer plano
-      console.log('👂 Configurando listener de mensajes...');
+      console.log("👂 Configurando listener de mensajes...");
       setupForegroundMessageListener();
 
       // 4. Registrar Service Worker si no está registrado
-      if ('serviceWorker' in navigator) {
+      if ("serviceWorker" in navigator) {
         try {
           // Registrar el service worker de Firebase para notificaciones
-          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-          console.log('✅ Firebase Service Worker registrado:', registration.scope);
-          
-          // También registrar nuestro service worker personalizado para otras funciones
+          const registration = await navigator.serviceWorker.register(
+            "/firebase-messaging-sw.js"
+          );
+          console.log(
+            "✅ Firebase Service Worker registrado:",
+            registration.scope
+          );
+
+          // También registrar nuestro service worker combinado para notificaciones y sync
           try {
-            const customRegistration = await navigator.serviceWorker.register('/sw-notifications.js');
-            console.log('✅ Service Worker personalizado registrado:', customRegistration.scope);
+            const customRegistration = await navigator.serviceWorker.register(
+              "/sw-combined.js"
+            );
+            console.log(
+              "✅ Service Worker combinado registrado:",
+              customRegistration.scope
+            );
           } catch (customError) {
-            console.log('⚠️ Service Worker personalizado ya registrado o error menor:', customError.message);
+            const customErrorMsg =
+              customError instanceof Error
+                ? customError.message
+                : String(customError);
+            console.log(
+              "⚠️ Service Worker combinado ya registrado o error menor:",
+              customErrorMsg
+            );
           }
         } catch (swError) {
-          console.error('❌ Error registrando Service Worker de Firebase:', swError);
+          console.error(
+            "❌ Error registrando Service Worker de Firebase:",
+            swError
+          );
         }
       }
 
       setIsInitialized(true);
-      console.log('✅ Sistema de notificaciones inicializado correctamente');
+      console.log("✅ Sistema de notificaciones inicializado correctamente");
 
       toast({
-        title: '✅ Notificaciones Configuradas',
-        description: 'Recibirás notificaciones sobre rutas y actualizaciones importantes.',
+        title: "✅ Notificaciones Configuradas",
+        description:
+          "Recibirás notificaciones sobre rutas y actualizaciones importantes.",
       });
 
       return true;
     } catch (error) {
-      console.error('❌ Error inicializando notificaciones:', error);
+      console.error("❌ Error inicializando notificaciones:", error);
       toast({
-        variant: 'destructive',
-        title: 'Error de Configuración',
-        description: 'No se pudo configurar el sistema de notificaciones.',
+        variant: "destructive",
+        title: "Error de Configuración",
+        description: "No se pudo configurar el sistema de notificaciones.",
       });
       return false;
     }
@@ -181,7 +216,7 @@ export const useNotifications = ({
     hasPermission,
     isInitialized,
     requestPermission,
-    initializeNotifications
+    initializeNotifications,
   };
 };
 
@@ -193,12 +228,13 @@ export const useNotificationStatus = () => {
   const [isSupported, setIsSupported] = useState<boolean>(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const supported = 'Notification' in window && 'serviceWorker' in navigator;
+    if (typeof window !== "undefined") {
+      const supported =
+        "Notification" in window && "serviceWorker" in navigator;
       setIsSupported(supported);
-      
+
       if (supported) {
-        setHasPermission(Notification.permission === 'granted');
+        setHasPermission(Notification.permission === "granted");
       }
     }
   }, []);
@@ -206,6 +242,6 @@ export const useNotificationStatus = () => {
   return {
     hasPermission,
     isSupported,
-    canReceiveNotifications: isSupported && hasPermission
+    canReceiveNotifications: isSupported && hasPermission,
   };
 };

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, db } from '@/firebase/clientApp';
+import { getAuthClient, getFirestoreClient } from '@/firebase/clientApp';
 import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { toast } from '@/hooks/use-toast';
@@ -26,7 +26,8 @@ export function UserStatusChecker() {
         if (!currentUser.id) return;
 
         // Obtener status actualizado desde Firestore
-        const userDoc = await getDoc(doc(db, 'users', currentUser.id));
+        const firestore = getFirestoreClient();
+        const userDoc = await getDoc(doc(firestore, 'users', currentUser.id));
         if (!userDoc.exists()) return;
 
         const userData = userDoc.data();
@@ -35,17 +36,17 @@ export function UserStatusChecker() {
         // Verificar si el usuario fue rechazado o está pendiente
         if (userStatus === 'rejected') {
           console.log('🚫 Usuario rechazado detectado - forzando logout');
-          
+
           // Limpiar todo y desloguear
           localStorage.clear();
-          await auth.signOut();
-          
+          await getAuthClient().signOut();
+
           toast({
             title: "Cuenta Rechazada",
             description: "Tu cuenta ha sido rechazada por el administrador.",
             variant: "destructive",
           });
-          
+
           // Redirigir al login
           router.push('/');
           return;
@@ -53,17 +54,17 @@ export function UserStatusChecker() {
 
         if (userStatus === 'pending_approval') {
           console.log('⏳ Usuario pendiente detectado - forzando logout');
-          
+
           // Limpiar todo y desloguear
           localStorage.clear();
-          await auth.signOut();
-          
+          await getAuthClient().signOut();
+
           toast({
             title: "Cuenta Pendiente",
             description: "Tu cuenta está pendiente de aprobación.",
             variant: "default",
           });
-          
+
           // Redirigir al login
           router.push('/');
           return;
@@ -76,7 +77,7 @@ export function UserStatusChecker() {
     }, 30000); // Verificar cada 30 segundos
 
     // También verificar cuando cambia el estado de autenticación
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(getAuthClient(), async (user) => {
       if (!user) {
         // Usuario no autenticado, limpiar localStorage
         localStorage.clear();
@@ -91,7 +92,8 @@ export function UserStatusChecker() {
         const currentUser = JSON.parse(currentUserStr);
         if (!currentUser.id) return;
 
-        const userDoc = await getDoc(doc(db, 'users', currentUser.id));
+        const firestore = getFirestoreClient();
+        const userDoc = await getDoc(doc(firestore, 'users', currentUser.id));
         if (!userDoc.exists()) return;
 
         const userData = userDoc.data();
@@ -99,7 +101,7 @@ export function UserStatusChecker() {
 
         if (userStatus === 'rejected' || userStatus === 'pending_approval') {
           localStorage.clear();
-          await auth.signOut();
+          await getAuthClient().signOut();
           router.push('/');
         }
       } catch (error) {

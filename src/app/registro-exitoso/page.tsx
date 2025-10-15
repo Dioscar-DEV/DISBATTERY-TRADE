@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { autoUpdateRouteStatus } from '@/services/routes';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '@/firebase/clientApp';
+import { getAuthClient, getFirestoreClient } from '@/firebase/clientApp';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { format } from 'date-fns';
 import {
@@ -18,7 +18,7 @@ import {
   CardTitle,
   CardFooter,
 } from '@/components/ui/card';
-import { CheckCircle } from 'lucide-react'; 
+import { CheckCircle } from 'lucide-react';
 
 export default function RegistroExitosoPage() {
   const router = useRouter();
@@ -29,14 +29,14 @@ export default function RegistroExitosoPage() {
   // ✅ LOGGING DETALLADO AL CARGAR LA PÁGINA DE ÉXITO
   useEffect(() => {
     console.log('🎉 ========= PÁGINA DE REGISTRO EXITOSO CARGADA =========');
-    
+
     // Verificar qué hay en localStorage
     const clienteDataString = localStorage.getItem('clienteData');
     const currentUserString = localStorage.getItem('currentUser');
-    
+
     console.log('📊 [REGISTRO-EXITOSO] ClienteData en localStorage:', clienteDataString);
     console.log('👤 [REGISTRO-EXITOSO] CurrentUser en localStorage:', currentUserString);
-    
+
     if (clienteDataString) {
       try {
         const clienteData = JSON.parse(clienteDataString);
@@ -48,13 +48,13 @@ export default function RegistroExitosoPage() {
           isEvent: clienteData.isEvent,
           eventId: clienteData.eventId
         });
-        
+
         if (!clienteData.pointId) {
           console.error('❌ [PROBLEMA DETECTADO] El pointId está vacío en el clienteData:', clienteData.pointId);
         } else {
           console.log('✅ [ÉXITO] PointId correcto encontrado:', clienteData.pointId);
         }
-        
+
 
       } catch (error) {
         console.error('❌ [ERROR] No se pudo parsear clienteData:', error);
@@ -62,7 +62,7 @@ export default function RegistroExitosoPage() {
     } else {
       console.warn('⚠️ [ADVERTENCIA] No se encontró clienteData en localStorage');
     }
-    
+
     console.log('🎉 ========= INICIANDO COUNTDOWN DE REDIRECCIÓN =========');
   }, [toast]);
 
@@ -101,7 +101,7 @@ export default function RegistroExitosoPage() {
 
   // Configurar listener de autenticación y verificar auto-completación de ruta
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(getAuthClient(), (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         // ✅ FUNCIÓN REMOVIDA: La función checkAndCompleteRoute causaba que rutas nuevas 
@@ -116,7 +116,7 @@ export default function RegistroExitosoPage() {
   // ✅ FUNCIÓN REMOVIDA: checkAndCompleteRoute causaba que rutas nuevas 
   // aparecieran como completadas incorrectamente. El autocompletado automático
   // se deshabilitó para evitar confusiones entre rutas diferentes del mismo día.
-  
+
   const handleGoToMyRoute = () => {
     console.log('🔄 [REDIRECT] Navegando manualmente a /mi-ruta (sin autocompletado automático)');
     router.push('/mi-ruta');
@@ -133,7 +133,7 @@ export default function RegistroExitosoPage() {
         className="absolute bottom-0 right-0 h-[75vh] w-[70vw] sm:h-[80vh] sm:w-[65vw] bg-[#D50000] -z-0" // Disbattery Red
         style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }}
       />
-       <div
+      <div
         className="absolute bottom-0 right-0 h-[60vh] w-[55vw] sm:h-[65vh] sm:w-[50vw] bg-[#FFC72C] -z-0" // Disbattery Yellow
         style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }}
       />
@@ -197,7 +197,7 @@ export default function RegistroExitosoPage() {
             </Button>
             <Button
               onClick={handleVolverAlInicio}
-              variant="ghost" 
+              variant="ghost"
               className="w-full text-muted-foreground"
             >
               Volver al Inicio

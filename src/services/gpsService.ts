@@ -1,4 +1,5 @@
-import { db, DebugLog } from '@/lib/indexedDB';
+import { db, DebugLog } from "@/lib/indexedDB";
+import { getFirestoreClient } from "@/firebase/clientApp";
 
 export interface GPSCoordinates {
   latitude: number;
@@ -14,12 +15,14 @@ export interface GPSError {
 }
 
 // Función GPS offline pura - SOLO captura y guarda local
-export async function captureGPSOffline(visitDraftId?: string): Promise<GPSCoordinates | null> {
+export async function captureGPSOffline(
+  visitDraftId?: string
+): Promise<GPSCoordinates | null> {
   return new Promise((resolve) => {
     // Verificar si el navegador soporta geolocalización
     if (!navigator.geolocation) {
-      console.error('GPS: Geolocation not supported');
-      logGPSEvent('error', 'Geolocation not supported', null, visitDraftId);
+      console.error("GPS: Geolocation not supported");
+      logGPSEvent("error", "Geolocation not supported", null, visitDraftId);
       resolve(null);
       return;
     }
@@ -27,10 +30,10 @@ export async function captureGPSOffline(visitDraftId?: string): Promise<GPSCoord
     const options: PositionOptions = {
       enableHighAccuracy: true,
       timeout: 15000, // 15 segundos
-      maximumAge: 60000 // Cache por 1 minuto
+      maximumAge: 60000, // Cache por 1 minuto
     };
 
-    logGPSEvent('info', 'GPS capture started', null, visitDraftId);
+    logGPSEvent("info", "GPS capture started", null, visitDraftId);
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -38,7 +41,7 @@ export async function captureGPSOffline(visitDraftId?: string): Promise<GPSCoord
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
 
         try {
@@ -48,17 +51,22 @@ export async function captureGPSOffline(visitDraftId?: string): Promise<GPSCoord
             if (draft) {
               await db.visitDrafts.update(visitDraftId, {
                 gpsData: coords,
-                updatedAt: Date.now()
+                updatedAt: Date.now(),
               });
-              logGPSEvent('info', 'GPS saved to draft', coords, visitDraftId);
+              logGPSEvent("info", "GPS saved to draft", coords, visitDraftId);
             }
           }
 
-          logGPSEvent('info', 'GPS capture successful', coords, visitDraftId);
+          logGPSEvent("info", "GPS capture successful", coords, visitDraftId);
           resolve(coords);
         } catch (error) {
-          console.error('Error saving GPS to IndexedDB:', error);
-          logGPSEvent('error', 'Error saving GPS to IndexedDB', error, visitDraftId);
+          console.error("Error saving GPS to IndexedDB:", error);
+          logGPSEvent(
+            "error",
+            "Error saving GPS to IndexedDB",
+            error,
+            visitDraftId
+          );
           // Aún así devolver las coordenadas
           resolve(coords);
         }
@@ -67,11 +75,11 @@ export async function captureGPSOffline(visitDraftId?: string): Promise<GPSCoord
         const gpsError: GPSError = {
           code: error.code,
           message: getGPSErrorMessage(error.code),
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
 
-        console.error('GPS Error:', gpsError);
-        logGPSEvent('error', 'GPS capture failed', gpsError, visitDraftId);
+        console.error("GPS Error:", gpsError);
+        logGPSEvent("error", "GPS capture failed", gpsError, visitDraftId);
         resolve(null);
       },
       options
@@ -87,18 +95,19 @@ export async function getGPSLocation(): Promise<GPSCoordinates | null> {
 // Función para validar si las coordenadas son válidas
 export function validateGPSCoordinates(coords: GPSCoordinates | null): boolean {
   if (!coords) return false;
-  
+
   const { latitude, longitude, accuracy } = coords;
-  
+
   // Validaciones básicas
-  if (typeof latitude !== 'number' || typeof longitude !== 'number') return false;
+  if (typeof latitude !== "number" || typeof longitude !== "number")
+    return false;
   if (latitude < -90 || latitude > 90) return false;
   if (longitude < -180 || longitude > 180) return false;
   if (accuracy < 0) return false;
-  
+
   // Validar que no sean coordenadas por defecto (0,0)
   if (latitude === 0 && longitude === 0) return false;
-  
+
   return true;
 }
 
@@ -110,11 +119,14 @@ export function calculateDistance(
   const R = 6371; // Radio de la Tierra en km
   const dLat = toRadians(coords2.latitude - coords1.latitude);
   const dLon = toRadians(coords2.longitude - coords1.longitude);
-  
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(coords1.latitude)) * Math.cos(toRadians(coords2.latitude)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(coords1.latitude)) *
+      Math.cos(toRadians(coords2.latitude)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c * 1000; // Retornar en metros
 }
@@ -125,17 +137,20 @@ export function isGPSWithinRange(
   expectedGPS: GPSCoordinates,
   maxDistanceMeters: number = 500
 ): boolean {
-  if (!validateGPSCoordinates(capturedGPS) || !validateGPSCoordinates(expectedGPS)) {
+  if (
+    !validateGPSCoordinates(capturedGPS) ||
+    !validateGPSCoordinates(expectedGPS)
+  ) {
     return false;
   }
-  
+
   const distance = calculateDistance(capturedGPS, expectedGPS);
   return distance <= maxDistanceMeters;
 }
 
 // Función helper para logging de eventos GPS
 async function logGPSEvent(
-  level: 'info' | 'warn' | 'error',
+  level: "info" | "warn" | "error",
   message: string,
   data: any,
   visitDraftId?: string
@@ -147,13 +162,13 @@ async function logGPSEvent(
       message: `GPS: ${message}`,
       data,
       timestamp: Date.now(),
-      source: 'gpsService',
-      visitId: visitDraftId
+      source: "gpsService",
+      visitId: visitDraftId,
     };
-    
+
     await db.debugLogs.add(logEntry);
   } catch (error) {
-    console.error('Error logging GPS event:', error);
+    console.error("Error logging GPS event:", error);
   }
 }
 
@@ -166,11 +181,11 @@ function toRadians(degrees: number): number {
 function getGPSErrorMessage(code: number): string {
   switch (code) {
     case 1:
-      return 'Permission denied - El usuario denegó el acceso a la ubicación';
+      return "Permission denied - El usuario denegó el acceso a la ubicación";
     case 2:
-      return 'Position unavailable - No se pudo determinar la ubicación';
+      return "Position unavailable - No se pudo determinar la ubicación";
     case 3:
-      return 'Timeout - Se agotó el tiempo de espera para obtener la ubicación';
+      return "Timeout - Se agotó el tiempo de espera para obtener la ubicación";
     default:
       return `Unknown GPS error (code: ${code})`;
   }
@@ -178,16 +193,17 @@ function getGPSErrorMessage(code: number): string {
 
 // Función para limpiar datos GPS antiguos
 export async function cleanupOldGPSLogs() {
-  const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-  
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
   try {
     await db.debugLogs
-      .where('source').equals('gpsService')
-      .and(log => log.timestamp < oneWeekAgo)
+      .where("source")
+      .equals("gpsService")
+      .and((log) => log.timestamp < oneWeekAgo)
       .delete();
-      
-    console.log('GPS logs cleanup completed');
+
+    console.log("GPS logs cleanup completed");
   } catch (error) {
-    console.error('Error cleaning up GPS logs:', error);
+    console.error("Error cleaning up GPS logs:", error);
   }
 }

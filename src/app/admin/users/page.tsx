@@ -41,7 +41,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PlusCircle, Users, Edit3, Trash2, Eye, EyeOff, Loader2, UserCircle, ArrowLeft, Menu } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { auth, db } from '@/firebase/clientApp'; 
+import { getAuthClient, getFirestoreClient } from '@/firebase/clientApp';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, addDoc, getDocs, doc, deleteDoc, query, orderBy, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { Region, Sede, SEDES_DATA, getSedesByRegion, getCitiesBySede } from '@/types/routes';
@@ -80,7 +80,7 @@ interface User {
 
 function UserManagementPageContent() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [users, setUsers] = useState<User[]>([]); 
+  const [users, setUsers] = useState<User[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<Region | ''>('');
@@ -99,18 +99,18 @@ function UserManagementPageContent() {
     sede: 'GRUPO DISBATTERY' as Sede,
     city: ''
   });
-  
+
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'todos' | 'Mercaderista' | 'Administrador' | 'Supervisor'>('todos');
   const [filterRegion, setFilterRegion] = useState<'todos' | Region>('todos');
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
+
   // Estados para visitas y permisos
-  const [ultimasVisitas, setUltimasVisitas] = useState<{[email: string]: Visita | null}>({});
+  const [ultimasVisitas, setUltimasVisitas] = useState<{ [email: string]: Visita | null }>({});
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermissions | null>(null);
-  
+
   // ✅ Usar la función centralizada de auth.ts
   const isCurrentUserAdminMaster = currentUser ? isUserAdminMaster(currentUser.email) : false;
 
@@ -136,23 +136,23 @@ function UserManagementPageContent() {
   const approveUser = async (userId: string) => {
     try {
       console.log('🔄 Aprobando usuario:', userId);
-      
+
       // 1. Obtener datos del usuario en la colección 'users'
-      const userDoc = await getDoc(doc(db, 'users', userId));
+      const userDoc = await getDoc(doc(getFirestoreClient(), 'users', userId));
       if (!userDoc.exists()) {
         throw new Error('Usuario no encontrado');
       }
-      
+
       const userData = userDoc.data();
       console.log('📋 Datos del usuario:', userData);
 
       // 2. ✅ SIMPLE: Solo cambiar el status a 'active'
-      await updateDoc(doc(db, 'users', userId), {
+      await updateDoc(doc(getFirestoreClient(), 'users', userId), {
         status: 'active',
         approvedAt: new Date(),
         approvedBy: currentUser?.email || 'admin'
       });
-      
+
       console.log('✅ Usuario aprobado - status cambiado a active');
 
       toast({
@@ -166,7 +166,7 @@ function UserManagementPageContent() {
       return true;
     } catch (error: any) {
       console.error('❌ Error aprobando usuario:', error);
-      
+
       // Debugging más específico
       if (error.code === 'permission-denied') {
         console.error('🚨 Error de permisos específico:', {
@@ -175,11 +175,11 @@ function UserManagementPageContent() {
           step: 'firestore_operation'
         });
       }
-      
+
       toast({
         title: "Error",
-        description: error.code === 'permission-denied' 
-          ? "Sin permisos para aprobar usuarios. Contacta al administrador." 
+        description: error.code === 'permission-denied'
+          ? "Sin permisos para aprobar usuarios. Contacta al administrador."
           : error.message || "No se pudo aprobar el usuario.",
         variant: "destructive",
       });
@@ -191,24 +191,24 @@ function UserManagementPageContent() {
   const rejectUser = async (userId: string) => {
     try {
       console.log('❌ Rechazando usuario:', userId);
-      
+
       // 1. Obtener datos del usuario
-      const userDoc = await getDoc(doc(db, 'users', userId));
+      const userDoc = await getDoc(doc(getFirestoreClient(), 'users', userId));
       if (!userDoc.exists()) {
         throw new Error('Usuario no encontrado');
       }
-      
+
       const userData = userDoc.data();
-      
+
       // 2. ✅ SIMPLE: Solo cambiar el status a 'rejected'
-      await updateDoc(doc(db, 'users', userId), {
+      await updateDoc(doc(getFirestoreClient(), 'users', userId), {
         status: 'rejected',
         rejectedAt: new Date(),
         rejectedBy: currentUser?.email || 'admin'
       });
-      
+
       console.log('✅ Usuario rechazado - status cambiado a rejected');
-      
+
       // 3. ✅ CRÍTICO: Limpiar cualquier sesión activa del usuario rechazado
       if (typeof window !== 'undefined') {
         // Si el usuario rechazado es el mismo que está logueado, hacer logout
@@ -236,7 +236,7 @@ function UserManagementPageContent() {
     } catch (error: any) {
       console.error('❌ Error rechazando usuario:', error);
       toast({
-        title: "Error", 
+        title: "Error",
         description: error.message || "No se pudo rechazar el usuario.",
         variant: "destructive",
       });
@@ -252,7 +252,7 @@ function UserManagementPageContent() {
 
     if (action && userId) {
       console.log('🎯 Procesando acción desde email:', { action, userId });
-      
+
       if (action === 'approve') {
         approveUser(userId).then(() => {
           // Limpiar parámetros de URL después de procesar
@@ -275,7 +275,7 @@ function UserManagementPageContent() {
         if (userData) {
           setCurrentUser(userData.user);
           setUserPermissions(userData.permissions);
-          
+
           // Verificar permisos
           if (!userData.permissions.canManageUsers) {
             toast({
@@ -302,12 +302,12 @@ function UserManagementPageContent() {
   const loadUsers = useCallback(async () => {
     setIsLoadingUsers(true);
     try {
-      const usersCollection = collection(db, 'users');
+      const usersCollection = collection(getFirestoreClient(), 'users');
       const usersSnapshot = await getDocs(query(usersCollection, orderBy('fullName', 'asc')));
       const usersData = usersSnapshot.docs.map(doc => {
         const data = doc.data();
         let createdAtDate = new Date();
-        
+
         // Manejo seguro de timestamps
         if (data.createdAt) {
           if (typeof data.createdAt.toDate === 'function') {
@@ -321,23 +321,23 @@ function UserManagementPageContent() {
             createdAtDate = new Date(data.createdAt);
           }
         }
-        
+
         return {
           id: doc.id,
           ...data,
           createdAt: createdAtDate,
         };
       }) as User[];
-      
+
       console.log('Usuarios cargados exitosamente:', usersData);
       setUsers(usersData);
-      
+
       // Cargar últimas visitas
       try {
         const correosMercaderistas = usersData
           .filter(user => user.role === 'Mercaderista')
           .map(user => user.email);
-        
+
         if (correosMercaderistas.length > 0) {
           const visitas = await obtenerUltimasVisitasUsuarios(correosMercaderistas);
           setUltimasVisitas(visitas);
@@ -399,10 +399,10 @@ function UserManagementPageContent() {
 
       // ✅ Usar la función centralizada de auth.ts
       const isAdminMasterUser = isUserAdminMaster(currentUser.email);
-      
+
       // ✅ NUEVA LÓGICA: AdminMaster elige sede, Admin regular hereda
       let sedeHeredada, regionHeredada;
-      
+
       if (isAdminMasterUser) {
         // AdminMaster puede crear usuarios de cualquier sede
         sedeHeredada = data.sede; // Del formulario
@@ -423,7 +423,7 @@ function UserManagementPageContent() {
           regionHeredada
         });
       }
-      
+
       console.log('🔍 VERIFICANDO ADMINMASTER:', {
         currentUserEmail: currentUser.email,
         isAdminMasterDetected: isAdminMasterUser,
@@ -433,12 +433,12 @@ function UserManagementPageContent() {
       if (isAdminMasterUser) {
         // ✅ ADMINMASTER: Crear directamente en Firebase Auth SIN EMAIL
         console.log('👑 AdminMaster detectado - creando usuario directamente SIN EMAIL DE APROBACIÓN');
-        
-        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+
+        const userCredential = await createUserWithEmailAndPassword(getAuthClient(), data.email, data.password);
         const { uid } = userCredential.user;
 
         // Guardar datos adicionales en Firestore
-        await setDoc(doc(db, 'users', uid), {
+        await setDoc(doc(getFirestoreClient(), 'users', uid), {
           fullName: data.fullName,
           email: data.email,
           phone: data.phone,
@@ -459,13 +459,13 @@ function UserManagementPageContent() {
         resetForm();
         setIsDialogOpen(false);
         loadUsers();
-        
+
       } else {
         // ✅ ADMINISTRADOR REGULAR: Crear en Firebase Auth pero con status pendiente
         console.log('👤 Administrador regular - creando usuario con status pendiente');
-        
+
         // ✅ CREAR SIEMPRE EN FIREBASE AUTH (como sugiere el usuario)
-        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        const userCredential = await createUserWithEmailAndPassword(getAuthClient(), data.email, data.password);
         const { uid } = userCredential.user;
         console.log('✅ Usuario creado en Firebase Auth:', uid);
 
@@ -485,7 +485,7 @@ function UserManagementPageContent() {
           approvedBy: null
         };
 
-        await setDoc(doc(db, 'users', uid), userData);
+        await setDoc(doc(getFirestoreClient(), 'users', uid), userData);
         console.log('✅ Usuario guardado en Firestore con status pending_approval');
 
         // Enviar email de aprobación a AdminMaster
@@ -514,7 +514,7 @@ function UserManagementPageContent() {
         setIsDialogOpen(false);
         loadUsers();
       }
-      
+
     } catch (error: any) {
       console.error('Error creando usuario:', error);
       toast({
@@ -529,7 +529,7 @@ function UserManagementPageContent() {
   const getRegionBySede = (sede: string): string => {
     const mapping: Record<string, string> = {
       'GRUPO DISBATTERY': 'Centro-capital',
-      'BLITZ 2000': 'Centro-Los llanos', 
+      'BLITZ 2000': 'Centro-Los llanos',
       'GRUPO VICTORIA': 'Occidente',
       'DISBATTERY': 'Oriente'
     };
@@ -555,7 +555,7 @@ function UserManagementPageContent() {
     if (!userToEdit) return;
 
     try {
-      await setDoc(doc(db, 'users', userToEdit.id), {
+      await setDoc(doc(getFirestoreClient(), 'users', userToEdit.id), {
         ...editForm,
         updatedAt: new Date(),
       }, { merge: true });
@@ -604,7 +604,7 @@ function UserManagementPageContent() {
     }
 
     try {
-      await deleteDoc(doc(db, 'users', user.id));
+      await deleteDoc(doc(getFirestoreClient(), 'users', user.id));
       toast({
         title: "Usuario eliminado",
         description: `Usuario ${user.fullName} eliminado exitosamente.`,
@@ -627,12 +627,12 @@ function UserManagementPageContent() {
   // Función para formatear última visita
   const formatLastVisit = (timestamp?: any) => {
     if (!timestamp) return 'Sin visitas';
-    
+
     try {
       const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
       return date.toLocaleDateString('es-VE', {
         day: '2-digit',
-        month: '2-digit', 
+        month: '2-digit',
         year: 'numeric'
       });
     } catch (error) {
@@ -691,7 +691,7 @@ function UserManagementPageContent() {
     }
 
     const matchesSearch = user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = filterRole === 'todos' || user.role === filterRole;
     const matchesRegion = filterRegion === 'todos' || user.region === filterRegion;
 
@@ -733,8 +733,8 @@ function UserManagementPageContent() {
               <div className="text-left flex-1">
                 <div className="text-xl font-semibold">{currentUser?.fullName || 'Usuario'}</div>
                 <div className="text-sm opacity-75">
-                  {userPermissions?.isAdminMaster ? 'Admin Master' : 
-                   `${currentUser?.role} - ${currentUser?.sede}`}
+                  {userPermissions?.isAdminMaster ? 'Admin Master' :
+                    `${currentUser?.role} - ${currentUser?.sede}`}
                 </div>
               </div>
               <LogoutButton className="ml-3 bg-red-800 hover:bg-red-900 text-white border-0 px-3 py-1 text-sm" />
@@ -742,12 +742,12 @@ function UserManagementPageContent() {
             {/* Mobile Title */}
             <h1 className="sm:hidden text-xl font-semibold text-white">Gestión de Usuarios</h1>
           </div>
-           {/* Mobile Hamburger Button */}
+          {/* Mobile Hamburger Button */}
           <div className="sm:hidden">
-            <Button 
-              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
+              variant="ghost"
+              size="sm"
               className="text-white hover:bg-red-700/50 p-2 rounded-md"
             >
               <Menu className="w-6 h-6" />
@@ -766,7 +766,7 @@ function UserManagementPageContent() {
 
       {/* Collapsible Mobile Menu */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
           onClick={() => setMobileMenuOpen(false)}
         >
@@ -775,8 +775,8 @@ function UserManagementPageContent() {
             <div className="text-left flex-1 overflow-hidden">
               <div className="text-xl font-semibold truncate">{currentUser?.fullName || 'Usuario'}</div>
               <div className="text-sm opacity-75 truncate">
-                {userPermissions?.isAdminMaster ? 'Admin Master' : 
-                 `${currentUser?.role} - ${currentUser?.sede}`}
+                {userPermissions?.isAdminMaster ? 'Admin Master' :
+                  `${currentUser?.role} - ${currentUser?.sede}`}
               </div>
             </div>
           </div>
@@ -824,7 +824,7 @@ function UserManagementPageContent() {
                         />
                         {errors.fullName && <p className="text-xs text-red-500 mt-1">{errors.fullName.message}</p>}
                       </div>
-                      
+
                       <div>
                         <Label htmlFor="email">Email</Label>
                         <Input
@@ -836,7 +836,7 @@ function UserManagementPageContent() {
                         />
                         {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
                       </div>
-                      
+
                       <div>
                         <Label htmlFor="password">Contraseña</Label>
                         <div className="relative">
@@ -859,7 +859,7 @@ function UserManagementPageContent() {
                         </div>
                         {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
                       </div>
-                      
+
                       <div>
                         <Label htmlFor="role">Rol</Label>
                         <Controller
@@ -908,7 +908,7 @@ function UserManagementPageContent() {
                             />
                             {errors.region && <p className="text-xs text-red-500 mt-1">{errors.region.message}</p>}
                           </div>
-                          
+
                           <div>
                             <Label htmlFor="sede">Sede</Label>
                             <Controller
@@ -942,7 +942,7 @@ function UserManagementPageContent() {
                             <p className="text-sm font-medium text-blue-900">Sede y Región asignadas automáticamente</p>
                           </div>
                           <p className="text-xs text-blue-700 mt-1">
-                            <strong>Sede:</strong> {currentUser?.sede || 'GRUPO DISBATTERY'} • 
+                            <strong>Sede:</strong> {currentUser?.sede || 'GRUPO DISBATTERY'} •
                             <strong> Región:</strong> {getRegionBySede(currentUser?.sede || 'GRUPO DISBATTERY')}
                           </p>
                           <p className="text-xs text-blue-600 mt-1">
@@ -986,8 +986,8 @@ function UserManagementPageContent() {
                       </div>
 
                       <div className="flex justify-end space-x-2 pt-4 border-t sticky bottom-0 bg-white">
-                        <Button 
-                          type="button" 
+                        <Button
+                          type="button"
                           variant="outline"
                           onClick={() => setIsDialogOpen(false)}
                           disabled={isSubmitting}
@@ -1018,7 +1018,7 @@ function UserManagementPageContent() {
                     className="mt-1"
                   />
                 </div>
-                
+
                 <div>
                   <Label htmlFor="filterRole">Filtrar por Rol</Label>
                   <Select value={filterRole} onValueChange={(value: typeof filterRole) => setFilterRole(value)}>
@@ -1150,7 +1150,7 @@ function UserManagementPageContent() {
           <img
             src="https://storage.googleapis.com/iandai/imagenes/shelllogo.png"
             alt="Shell Logo"
-            className="max-h-14" 
+            className="max-h-14"
             data-ai-hint="shell pecten"
           />
         </div>
@@ -1165,7 +1165,7 @@ function UserManagementPageContent() {
               Modifica la información del usuario. Los cambios se guardarán en Firestore.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
             <div>
               <Label htmlFor="editFullName">Nombre Completo</Label>
@@ -1175,7 +1175,7 @@ function UserManagementPageContent() {
                 onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
               />
             </div>
-            
+
             <div>
               <Label htmlFor="editEmail">Email</Label>
               <Input
@@ -1188,7 +1188,7 @@ function UserManagementPageContent() {
               />
               <p className="text-xs text-gray-500 mt-1">El email no se puede modificar</p>
             </div>
-            
+
             <div>
               <Label htmlFor="editPhone">Teléfono</Label>
               <Input
@@ -1197,11 +1197,11 @@ function UserManagementPageContent() {
                 onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
               />
             </div>
-            
+
             <div>
               <Label htmlFor="editRole">Rol</Label>
-              <Select 
-                value={editForm.role} 
+              <Select
+                value={editForm.role}
                 onValueChange={(value: 'Mercaderista' | 'Administrador' | 'Supervisor') => setEditForm({ ...editForm, role: value })}
                 disabled={userToEdit ? isUserAdminMaster(userToEdit.email) : false}
               >
@@ -1218,13 +1218,13 @@ function UserManagementPageContent() {
 
             <div>
               <Label htmlFor="editRegion">Región</Label>
-              <Select 
-                value={editForm.region} 
+              <Select
+                value={editForm.region}
                 onValueChange={(value: Region) => {
                   const sedesDisponibles = getSedesByRegion(value);
-                  setEditForm({ 
-                    ...editForm, 
-                    region: value, 
+                  setEditForm({
+                    ...editForm,
+                    region: value,
                     sede: sedesDisponibles[0]?.name || 'GRUPO DISBATTERY',
                     city: ''
                   });
@@ -1244,8 +1244,8 @@ function UserManagementPageContent() {
 
             <div>
               <Label htmlFor="editSede">Sede</Label>
-              <Select 
-                value={editForm.sede} 
+              <Select
+                value={editForm.sede}
                 onValueChange={(value: Sede) => setEditForm({ ...editForm, sede: value, city: '' })}
               >
                 <SelectTrigger>
@@ -1265,8 +1265,8 @@ function UserManagementPageContent() {
 
             <div>
               <Label htmlFor="editCity">Ciudad</Label>
-              <Select 
-                value={editForm.city} 
+              <Select
+                value={editForm.city}
                 onValueChange={(value: string) => setEditForm({ ...editForm, city: value })}
               >
                 <SelectTrigger>
@@ -1305,4 +1305,4 @@ export default function UserManagementPage() {
     </Suspense>
   );
 }
-    
+

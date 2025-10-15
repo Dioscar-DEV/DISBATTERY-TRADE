@@ -1,16 +1,16 @@
-import Dexie, { Table } from 'dexie';
+import Dexie, { Table } from "dexie";
 
 // Esquemas de datos para IndexedDB
 export interface VisitDraft {
   id: string;
   routePointId: string;
   clienteId: string;
-  brand: 'shell' | 'qualid';
-  status: 'draft' | 'completed' | 'synced';
+  brand: "shell" | "qualid";
+  status: "draft" | "completed" | "synced";
   createdAt: number;
   updatedAt: number;
   version: number;
-  
+
   // Datos del formulario por pasos
   step1?: {
     visitType: string;
@@ -31,7 +31,7 @@ export interface VisitDraft {
     finalObservations?: string;
     additionalPhotos?: string[];
   };
-  
+
   // GPS capturado
   gpsData?: {
     latitude: number;
@@ -43,10 +43,15 @@ export interface VisitDraft {
 
 export interface PendingOperation {
   id: string;
-  type: 'uploadImage' | 'createVisita' | 'updateCliente' | 'updateRoute' | 'webhook';
+  type:
+    | "uploadImage"
+    | "createVisita"
+    | "updateCliente"
+    | "updateRoute"
+    | "webhook";
   payload: any;
   dependencies: string[];
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: "pending" | "processing" | "completed" | "failed";
   retries: number;
   maxRetries: number;
   lastError?: string;
@@ -76,7 +81,7 @@ export interface OfflineRoute {
   userId: string;
   date: string;
   points: OfflineRoutePoint[];
-  status: 'pending' | 'started' | 'completed';
+  status: "pending" | "started" | "completed";
   lastSyncAt: number;
   createdAt: number;
   updatedAt: number;
@@ -93,7 +98,7 @@ export interface OfflineRoutePoint {
     latitude?: number;
     longitude?: number;
   };
-  status: 'pending' | 'visited' | 'omitted';
+  status: "pending" | "visited" | "omitted";
   visitedAt?: number;
   localVisitId?: string;
 }
@@ -113,7 +118,7 @@ export interface ClientSnapshot {
 
 export interface DebugLog {
   id: string;
-  level: 'info' | 'warn' | 'error' | 'debug';
+  level: "info" | "warn" | "error" | "debug";
   message: string;
   data?: any;
   timestamp: number;
@@ -132,23 +137,41 @@ class DisbatteryDB extends Dexie {
   debugLogs!: Table<DebugLog>;
 
   constructor() {
-    // Nuevo nombre de base para evitar conflictos con versiones previas
-    // y garantizar una migración limpia en todos los clientes
-    super('DisbatteryOfflineDB_v3');
-    
-    // Versión dinámica basada en timestamp en milisegundos para evitar
-    // cualquier conflicto con versiones anteriores (algunas usaron segundos)
-    const dynamicVersion = Date.now(); // Timestamp en ms
-    console.log(`🔢 Usando versión dinámica IndexedDB: ${dynamicVersion}`);
-    
-    this.version(dynamicVersion).stores({
-      visitDrafts: 'id, routePointId, clienteId, status, createdAt, updatedAt',
-      pendingOps: 'id, type, status, draftId, createdAt, idempotencyKey',
-      images: 'id, draftId, fieldKey, createdAt, size',
-      offlineRoutes: 'id, routeId, userId, date, status, lastSyncAt',
-      clientSnapshots: 'id, rif, nombre, lastSyncAt',
-      debugLogs: 'id, timestamp, level, source, visitId, userId'
-    });
+    // Nombre fijo de la base para evitar recreaciones innecesarias
+    super("DisbatteryOfflineDB_v3");
+
+    // Usar una versión fija y controlada. Incrementar manualmente cuando
+    // se necesite una migración (NO usar Date.now()).
+    const DB_VERSION = 3;
+
+    // Definir stores y proporcionar un handler de migración minimalista.
+    // Añadir nuevas versiones con this.version(n).stores(...).upgrade(tx => { ... })
+    this.version(DB_VERSION)
+      .stores({
+        visitDrafts:
+          "id, routePointId, clienteId, status, createdAt, updatedAt",
+        pendingOps: "id, type, status, draftId, createdAt, idempotencyKey",
+        images: "id, draftId, fieldKey, createdAt, size",
+        offlineRoutes: "id, routeId, userId, date, status, lastSyncAt",
+        clientSnapshots: "id, rif, nombre, lastSyncAt",
+        debugLogs: "id, timestamp, level, source, visitId, userId",
+      })
+      .upgrade(async (trans) => {
+        // Migration hook: aquí podemos normalizar datos si migramos desde
+        // una versión anterior. Mantener ligero para minimizar riesgos.
+        try {
+          // example: ensure all visitDrafts have 'version' and timestamps
+          const drafts = await trans.table("visitDrafts").toArray();
+          for (const d of drafts) {
+            if (!("version" in d)) d.version = DB_VERSION;
+            if (!d.createdAt) d.createdAt = Date.now();
+            if (!d.updatedAt) d.updatedAt = Date.now();
+            await trans.table("visitDrafts").put(d);
+          }
+        } catch (err) {
+          console.warn("IndexedDB migration warning:", err);
+        }
+      });
   }
 }
 
@@ -159,52 +182,52 @@ export async function migrateFromLocalStorage() {
   try {
     // Migrar datos existentes de localStorage a IndexedDB
     const keys = Object.keys(localStorage);
-    
+
     for (const key of keys) {
       try {
-        if (key.startsWith('visitDraft_')) {
-          const data = JSON.parse(localStorage.getItem(key) || '{}');
+        if (key.startsWith("visitDraft_")) {
+          const data = JSON.parse(localStorage.getItem(key) || "{}");
           if (data.id) {
             await db.visitDrafts.put({
               ...data,
               version: data.version || Date.now(),
-              updatedAt: Date.now()
+              updatedAt: Date.now(),
             });
             console.log(`Migrated visit draft: ${data.id}`);
           }
         }
-        
-        if (key.startsWith('routeData_')) {
-          const data = JSON.parse(localStorage.getItem(key) || '{}');
+
+        if (key.startsWith("routeData_")) {
+          const data = JSON.parse(localStorage.getItem(key) || "{}");
           if (data.id) {
             await db.offlineRoutes.put({
               ...data,
               lastSyncAt: data.lastSyncAt || 0,
               createdAt: data.createdAt || Date.now(),
-              updatedAt: Date.now()
+              updatedAt: Date.now(),
             });
             console.log(`Migrated route data: ${data.id}`);
           }
         }
-        
-        if (key.startsWith('pendingImage_')) {
-          const data = JSON.parse(localStorage.getItem(key) || '{}');
+
+        if (key.startsWith("pendingImage_")) {
+          const data = JSON.parse(localStorage.getItem(key) || "{}");
           if (data.id && data.base64) {
             // Convertir base64 a Blob
             const response = await fetch(data.base64);
             const blob = await response.blob();
-            
+
             await db.images.put({
               id: data.id,
-              draftId: data.draftId || '',
-              fieldKey: data.fieldKey || '',
+              draftId: data.draftId || "",
+              fieldKey: data.fieldKey || "",
               blob: blob,
               base64: data.base64,
-              filename: data.filename || 'image.jpg',
+              filename: data.filename || "image.jpg",
               size: blob.size,
               type: blob.type,
               compressed: data.compressed || false,
-              createdAt: data.createdAt || Date.now()
+              createdAt: data.createdAt || Date.now(),
             });
             console.log(`Migrated image: ${data.id}`);
           }
@@ -213,44 +236,44 @@ export async function migrateFromLocalStorage() {
         console.warn(`Error migrating ${key}:`, error);
       }
     }
-    
+
     // Marcar migración como completada
-    localStorage.setItem('indexeddb_migration_completed', 'true');
-    console.log('Migration from localStorage to IndexedDB completed');
-    
+    localStorage.setItem("indexeddb_migration_completed", "true");
+    console.log("Migration from localStorage to IndexedDB completed");
   } catch (error) {
-    console.error('Error during localStorage migration:', error);
+    console.error("Error during localStorage migration:", error);
   }
 }
 
 // Función para limpiar datos antiguos
 export async function cleanupOldData() {
-  const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-  
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
   try {
     // Limpiar logs antiguos
-    await db.debugLogs.where('timestamp').below(oneWeekAgo).delete();
-    
+    await db.debugLogs.where("timestamp").below(oneWeekAgo).delete();
+
     // Limpiar drafts antiguos completados
     await db.visitDrafts
-      .where('status').equals('synced')
-      .and(draft => draft.updatedAt < oneWeekAgo)
+      .where("status")
+      .equals("synced")
+      .and((draft) => draft.updatedAt < oneWeekAgo)
       .delete();
-    
+
     // Limpiar imágenes huérfanas
     const allImages = await db.images.toArray();
     const allDrafts = await db.visitDrafts.toArray();
-    const draftIds = new Set(allDrafts.map(d => d.id));
-    
+    const draftIds = new Set(allDrafts.map((d) => d.id));
+
     for (const image of allImages) {
       if (!draftIds.has(image.draftId)) {
         await db.images.delete(image.id);
       }
     }
-    
-    console.log('Cleanup completed');
+
+    console.log("Cleanup completed");
   } catch (error) {
-    console.error('Error during cleanup:', error);
+    console.error("Error during cleanup:", error);
   }
 }
 
@@ -258,20 +281,22 @@ export async function cleanupOldData() {
 export async function initializeOfflineDB() {
   try {
     await db.open();
-    
+
     // Verificar si ya se migró
-    const migrationCompleted = localStorage.getItem('indexeddb_migration_completed');
+    const migrationCompleted = localStorage.getItem(
+      "indexeddb_migration_completed"
+    );
     if (!migrationCompleted) {
       await migrateFromLocalStorage();
     }
-    
+
     // Cleanup periódico
     await cleanupOldData();
-    
-    console.log('Offline database initialized successfully');
+
+    console.log("Offline database initialized successfully");
     return true;
   } catch (error) {
-    console.error('Error initializing offline database:', error);
+    console.error("Error initializing offline database:", error);
     return false;
   }
 }

@@ -3,24 +3,24 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  doc, 
-  updateDoc 
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc
 } from 'firebase/firestore';
 import { format, isSameDay, startOfWeek, startOfMonth, subDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 // Firebase
-import { auth, db } from '@/firebase/clientApp';
+import { getAuthClient, getFirestoreClient } from '@/firebase/clientApp';
 
 // Services
 import { getCurrentUserWithPermissions, UserData, UserPermissions } from '@/services/auth';
-import { 
-  listenToMercaderistaRoutes, 
+import {
+  listenToMercaderistaRoutes,
   autoUpdateRouteStatus
 } from '@/services/routes';
 import { obtenerVisitas } from '@/services/visitas';
@@ -37,12 +37,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -186,7 +186,7 @@ export default function MyRoutePage() {
 
   useEffect(() => {
     // Escuchar cambios en la autenticación para obtener el usuario
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onAuthStateChanged(getAuthClient(), async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
 
@@ -233,8 +233,8 @@ export default function MyRoutePage() {
         correoMercaderista: user?.email?.toLowerCase() || undefined,
       });
       const visitasDeHoy = visitasReales.filter((visita: any) => {
-        const visitaDate = visita.createdAt instanceof Date ? 
-          visita.createdAt : 
+        const visitaDate = visita.createdAt instanceof Date ?
+          visita.createdAt :
           (visita.createdAt as any)?.toDate ? (visita.createdAt as any).toDate() : new Date(visita.createdAt);
 
         return (
@@ -292,7 +292,7 @@ export default function MyRoutePage() {
       const todayString = format(new Date(), 'yyyy-MM-dd');
       console.log('🎪 Cargando eventos para:', userData.fullName);
 
-      const eventosRef = collection(db, 'eventos');
+      const eventosRef = collection(getFirestoreClient(), 'eventos');
       const querySnapshot = await getDocs(eventosRef);
 
       const eventosDelDia: EventoIndependiente[] = [];
@@ -320,7 +320,7 @@ export default function MyRoutePage() {
           // 2. Búsqueda case-insensitive
           if (!isAssigned && nombreUsuario) {
             const nombreNormalizado = nombreUsuario.toLowerCase().trim();
-            const encontrado = mercaderistas.find((m: any) => 
+            const encontrado = mercaderistas.find((m: any) =>
               m && typeof m === 'string' && m.toLowerCase().trim() === nombreNormalizado
             );
             if (encontrado) {
@@ -334,7 +334,7 @@ export default function MyRoutePage() {
             const encontrado = mercaderistas.find((m: any) => {
               if (!m || typeof m !== 'string') return false;
               const mercNormalizado = m.toLowerCase();
-              return partesNombre.some((parte: string) => 
+              return partesNombre.some((parte: string) =>
                 parte.length > 2 && mercNormalizado.includes(parte)
               );
             });
@@ -414,9 +414,9 @@ export default function MyRoutePage() {
 
         // ✅ ESTRATEGIA 1: Intentar cargar con dualRouteLoader (offline-first para mercaderistas)
         console.log('📱 [DUAL LOADER] Intentando carga con estrategia dual...');
-        
+
         const routeResult = await dualRouteLoader.getTodayRoutes(userData);
-        
+
         console.log(`📋 [${routeResult.source.toUpperCase()}] ${routeResult.routes.length} rutas encontradas`);
         console.log('📊 Detalles de carga:', {
           source: routeResult.source,
@@ -424,7 +424,7 @@ export default function MyRoutePage() {
           offlineCount: routeResult.offlineCount,
           onlineCount: routeResult.onlineCount
         });
-        
+
         if (routeResult.routes.length > 0) {
           console.log('📍 Primera ruta:', {
             id: routeResult.routes[0].id,
@@ -432,11 +432,11 @@ export default function MyRoutePage() {
             pointsCount: routeResult.routes[0].points.length,
             date: routeResult.routes[0].date
           });
-          
+
           // ✅ Guardar en localStorage como backup
           localStorage.setItem('todaysRoutesOffline', JSON.stringify(routeResult.routes));
           console.log('💾 Rutas guardadas en localStorage para uso offline');
-          
+
           // ⚠️ CRÍTICO: Validar con servidor si el estado es "planificada" pero existen visitas del día
           let finalRoutes = routeResult.routes;
           try {
@@ -461,7 +461,7 @@ export default function MyRoutePage() {
 
         // ✅ ESTRATEGIA 2: Si no hay rutas del dual loader, intentar localStorage
         console.log('📦 [FALLBACK] No hay rutas del dual loader, intentando localStorage...');
-        
+
         const savedRoutes = localStorage.getItem('todaysRoutesOffline');
         if (savedRoutes) {
           try {
@@ -480,18 +480,18 @@ export default function MyRoutePage() {
         // ✅ ESTRATEGIA 3: Si aún no hay nada y hay conexión, intentar directo de Firebase
         if (navigator.onLine && userData.role === 'Mercaderista') {
           console.log('🌐 [FIREBASE DIRECT] Último intento: carga directa desde Firebase...');
-          
+
           try {
-            const routesRef = collection(db, 'routes');
+            const routesRef = collection(getFirestoreClient(), 'routes');
             const q = query(
               routesRef,
               where('mercaderistoId', '==', userData.uid),
               where('date', '==', todayString)
             );
-            
+
             const snapshot = await getDocs(q);
             const directRoutes: Route[] = [];
-            
+
             snapshot.forEach(doc => {
               const data = doc.data();
               directRoutes.push({
@@ -500,7 +500,7 @@ export default function MyRoutePage() {
                 createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
               } as Route);
             });
-            
+
             if (directRoutes.length > 0) {
               console.log(`🎯 [FIREBASE DIRECT] ${directRoutes.length} rutas encontradas directamente`);
               localStorage.setItem('todaysRoutesOffline', JSON.stringify(directRoutes));
@@ -520,7 +520,7 @@ export default function MyRoutePage() {
 
       } catch (error) {
         console.error('❌ [ROUTE LOADER] Error crítico cargando rutas:', error);
-        
+
         // ✅ ÚLTIMO RECURSO: localStorage
         const savedRoutes = localStorage.getItem('todaysRoutesOffline');
         if (savedRoutes) {
@@ -534,7 +534,7 @@ export default function MyRoutePage() {
         } else {
           setTodaysRoutes([]);
         }
-        
+
         setIsLoading(false);
       }
     };
@@ -560,7 +560,7 @@ export default function MyRoutePage() {
         setTodaysRoutes(routes);
         try {
           localStorage.setItem('todaysRoutesOffline', JSON.stringify(routes));
-        } catch {}
+        } catch { }
       },
       (error) => {
         console.error('Listener de rutas (mi-ruta) error:', error);
@@ -568,7 +568,7 @@ export default function MyRoutePage() {
     );
 
     return () => {
-      try { unsubscribe && unsubscribe(); } catch {}
+      try { unsubscribe && unsubscribe(); } catch { }
     };
   }, [user, userData]);
 
@@ -590,7 +590,7 @@ export default function MyRoutePage() {
       // Reaccionar a eventos personalizados disparados por marcarPuntoComoCompletado
       if (userData) {
         console.log('🔄 [STORAGE EVENT] Eventos actualizados, recargando desde localStorage...');
-        
+
         // Cargar eventos desde localStorage directamente
         const todaysEventsStr = localStorage.getItem('todaysEventsOffline');
         if (todaysEventsStr) {
@@ -735,9 +735,9 @@ export default function MyRoutePage() {
       }
 
       console.log('📊 Total visitas encontradas:', allVisitas.length);
-      console.log('📊 Método de búsqueda usado:', 
-        allVisitas.length > 0 ? 
-          (allVisitas[0].direccionCorreo === user.email ? 'Email' : 'Nombre') : 
+      console.log('📊 Método de búsqueda usado:',
+        allVisitas.length > 0 ?
+          (allVisitas[0].direccionCorreo === user.email ? 'Email' : 'Nombre') :
           'Ninguno'
       );
 
@@ -756,7 +756,7 @@ export default function MyRoutePage() {
       }
 
       // Calcular métricas reales
-      const visitasHoy = allVisitas.filter((v: any) => 
+      const visitasHoy = allVisitas.filter((v: any) =>
         isSameDay(v.createdAt, today)
       ).length;
 
@@ -772,8 +772,8 @@ export default function MyRoutePage() {
 
       // Promedio de visitas diarias (últimos 30 días)
       const visitasUltimos30Dias = allVisitas.filter((v: any) => v.createdAt >= last30Days).length;
-      const promedioVisitasDiarias = visitasUltimos30Dias > 0 
-        ? Math.round((visitasUltimos30Dias / 30) * 10) / 10 
+      const promedioVisitasDiarias = visitasUltimos30Dias > 0
+        ? Math.round((visitasUltimos30Dias / 30) * 10) / 10
         : 0;
 
       // Contar rutas completadas hoy
@@ -822,7 +822,7 @@ export default function MyRoutePage() {
       }
 
       // 1. Obtener rutas históricas
-      const routesRef = collection(db, 'routes');
+      const routesRef = collection(getFirestoreClient(), 'routes');
       const allHistoricalRoutes: Route[] = [];
 
       for (const fecha of fechasConsulta) {
@@ -866,7 +866,7 @@ export default function MyRoutePage() {
 
         // ✅ NUEVO: Calcular visitas reales del día
         const fechaDate = parseISO(fecha);
-        const visitasDelDia = allVisitas.filter((visita: any) => 
+        const visitasDelDia = allVisitas.filter((visita: any) =>
           isSameDay(visita.createdAt, fechaDate)
         ).length;
 
@@ -939,7 +939,7 @@ export default function MyRoutePage() {
   };
 
   // Unir todos los puntos de todas las rutas y eventos
-  const routePoints: RoutePoint[] = todaysRoutes.flatMap(route => 
+  const routePoints: RoutePoint[] = todaysRoutes.flatMap(route =>
     route.points.map(point => ({ ...point, _routeId: route.id, _routeName: route.mercaderista, _isEvent: false }))
   );
 
@@ -998,7 +998,7 @@ export default function MyRoutePage() {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude, accuracy, altitude, altitudeAccuracy, heading, speed } = position.coords;
-          
+
           // ✅ INFORMACIÓN DETALLADA DE GPS
           console.log('📍 ========= UBICACIÓN GPS OBTENIDA =========');
           console.log('📍 Coordenadas:', { lat: latitude, lng: longitude });
@@ -1007,12 +1007,12 @@ export default function MyRoutePage() {
           console.log('📍 Altitud:', altitude ? `${altitude.toFixed(0)}m` : 'No disponible');
           console.log('📍 Timestamp:', new Date(position.timestamp).toLocaleString());
           console.log('📍 ==========================================');
-          
+
           // ✅ Advertir si la precisión es baja (probablemente red en lugar de GPS)
           if (accuracy && accuracy > 100) {
             console.warn('⚠️ PRECISIÓN BAJA - Posible uso de red en lugar de GPS puro');
           }
-          
+
           resolve({ lat: latitude, lng: longitude });
         },
         (error) => {
@@ -1077,7 +1077,7 @@ export default function MyRoutePage() {
       console.log('✅ Coordenadas:', position);
       console.log('✅ Se subirán automáticamente cuando haya conexión');
       console.log('✅ =========================================================');
-      
+
       return true;
     } catch (error) {
       console.error('❌ [OFFLINE] Error guardando coordenadas en cola:', error);
@@ -1093,10 +1093,10 @@ export default function MyRoutePage() {
 
     try {
       console.log('📱 [OFFLINE] Obteniendo ubicación GPS...');
-      
+
       // ✅ Solo usar navigator.geolocation - completamente local
       const currentPosition = await getCurrentLocation();
-      
+
       console.log('✅ [OFFLINE] Ubicación obtenida:', currentPosition);
 
       // ✅ OFFLINE: Solo guardar para sincronización posterior (no Firebase)
@@ -1119,16 +1119,16 @@ export default function MyRoutePage() {
       };
 
       console.log('✅ [OFFLINE] Continuando con visita offline...');
-      
+
       // ✅ Continuar con la visita usando las nuevas coordenadas
       proceedWithVisit(updatedPoint);
 
     } catch (error: any) {
       console.error('❌ [OFFLINE] Error obteniendo ubicación GPS:', error);
-      
+
       // ✅ Manejo de errores offline específico
       let errorMessage = 'No se pudo obtener la ubicación GPS';
-      
+
       if (error.message?.includes('User denied')) {
         errorMessage = 'Acceso a ubicación denegado. Habilite la geolocalización para continuar.';
       } else if (error.message?.includes('Position unavailable')) {
@@ -1136,7 +1136,7 @@ export default function MyRoutePage() {
       } else if (error.message?.includes('Timeout')) {
         errorMessage = 'Tiempo de espera agotado. Intente nuevamente.';
       }
-      
+
       toast({
         variant: 'destructive',
         title: '📱 Error de ubicación GPS',
@@ -1274,8 +1274,8 @@ export default function MyRoutePage() {
       });
       const visitasDeHoy = visitasReales.filter((visita: any) => {
         try {
-          const visitaDate = visita.createdAt instanceof Date ? 
-            visita.createdAt : 
+          const visitaDate = visita.createdAt instanceof Date ?
+            visita.createdAt :
             new Date(visita.createdAt);
 
           return (
@@ -1395,10 +1395,10 @@ export default function MyRoutePage() {
   // Función para tomar foto del cliente cerrado
   const tomarFotoCerrado = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
       });
-      
+
       const video = document.createElement('video');
       video.srcObject = stream;
       await video.play();
@@ -1408,12 +1408,12 @@ export default function MyRoutePage() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const context = canvas.getContext('2d');
-      
+
       if (context) {
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         const photoURL = canvas.toDataURL('image/jpeg', 0.8);
         setFotoCerrado(photoURL);
-        
+
         toast({
           title: '📸 Foto Capturada',
           description: 'Foto del cliente cerrado guardada correctamente.',
@@ -1422,7 +1422,7 @@ export default function MyRoutePage() {
 
       // Detener el stream
       stream.getTracks().forEach(track => track.stop());
-      
+
     } catch (error) {
       console.error('Error tomando foto:', error);
       toast({
@@ -1456,7 +1456,7 @@ export default function MyRoutePage() {
       const { uploadImageToStorage } = await import('@/services/images');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const fileName = `cliente-cerrado-${currentPointForCerrado.name.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}.jpg`;
-      
+
       console.log('📸 Subiendo foto de cliente cerrado...');
       const fotoUrl = await uploadImageToStorage(fotoCerrado, 'clientes-cerrados', fileName);
       console.log('✅ Foto subida exitosamente:', fotoUrl);
@@ -1473,26 +1473,26 @@ export default function MyRoutePage() {
         'Comentarios Adicionales:': comentariosCerrado || 'Sin comentarios',
         'Foto del Cliente Cerrado:': fotoUrl,
         'Fecha y Hora:': new Date().toLocaleString('es-VE'),
-        'Mercaderista:': userData?.displayName || 'N/A',
+        'Mercaderista:': userData?.fullName || user?.displayName || 'N/A',
         'Correo Mercaderista:': userData?.email || 'N/A'
       };
 
       // 3. Crear visita especial para cliente cerrado
       const { crearVisita } = await import('@/services/visitas');
-      
+
       const visitaId = await crearVisita({
         rifCliente: currentPointForCerrado.rif || '',
         nombreEstablecimiento: currentPointForCerrado.name,
-        tipoVisita: 'Cliente Cerrado',
-        mercaderista: userData?.displayName || 'N/A',
+        tipoVisita: ('Cliente Cerrado' as any),
+        mercaderista: userData?.fullName || user?.displayName || 'N/A',
         correoMercaderista: userData?.email || 'N/A',
-        ubicacion: currentPointForCerrado.position || { lat: 0, lng: 0 },
-        sucursal: userData?.sede || 'GRUPO DISBATTERY',
-        respuestas: {
-          razonCierre: razonCerrado,
-          comentarios: comentariosCerrado,
-          fotoUrl: fotoUrl
+        ubicacion: {
+          lat: Number((currentPointForCerrado.position as any)?.lat ?? (currentPointForCerrado.position as any)?.latitude ?? 0),
+          lng: Number((currentPointForCerrado.position as any)?.lng ?? (currentPointForCerrado.position as any)?.longitude ?? 0),
+          direccion: (currentPointForCerrado as any).address || (currentPointForCerrado as any).direccion || ''
         },
+        sucursal: userData?.sede || 'GRUPO DISBATTERY',
+        respuestas: ({ razonCierre: razonCerrado, comentarios: comentariosCerrado, fotoUrl } as any),
         observacionesAdicionales: `Cliente cerrado: ${razonCerrado}`,
         datosN8N: {
           datosSheet: datosSheet,
@@ -1505,7 +1505,7 @@ export default function MyRoutePage() {
       // 4. Actualizar status en Firestore
       const { updateRoutePointStatus } = await import('@/services/routes');
       const today = format(new Date(), 'yyyy-MM-dd');
-      
+
       if (userData?.uid && currentPointForCerrado.id) {
         console.log('🔄 Actualizando status del punto en Firestore...');
         const result = await updateRoutePointStatus(
@@ -1515,7 +1515,7 @@ export default function MyRoutePage() {
           'cerrado' as any, // Añadimos 'cerrado' como nuevo status
           currentPointForCerrado.rif
         );
-        
+
         if (result.updated) {
           console.log('✅ Status actualizado en Firestore:', result.reason);
         } else {
@@ -1530,15 +1530,15 @@ export default function MyRoutePage() {
           const routes = JSON.parse(todaysRoutesStr);
           const updatedRoutes = routes.map((route: any) => ({
             ...route,
-            points: route.points?.map((point: any) => 
-              point.id === currentPointForCerrado.id 
+            points: route.points?.map((point: any) =>
+              point.id === currentPointForCerrado.id
                 ? { ...point, status: 'cerrado' }
                 : point
             ) || []
           }));
           localStorage.setItem('todaysRoutesOffline', JSON.stringify(updatedRoutes));
           console.log('✅ LocalStorage actualizado con status cerrado');
-          
+
           // Disparar evento para actualizar la UI
           window.dispatchEvent(new Event('storage'));
         } catch (error) {
@@ -1582,10 +1582,10 @@ export default function MyRoutePage() {
   // Función para tomar foto del cliente prospecto
   const tomarFotoProspecto = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
       });
-      
+
       const video = document.createElement('video');
       video.srcObject = stream;
       await video.play();
@@ -1595,12 +1595,12 @@ export default function MyRoutePage() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const context = canvas.getContext('2d');
-      
+
       if (context) {
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         const photoURL = canvas.toDataURL('image/jpeg', 0.8);
         setFotoProspecto(photoURL);
-        
+
         toast({
           title: '📸 Foto Capturada',
           description: 'Foto del cliente prospecto guardada correctamente.',
@@ -1609,7 +1609,7 @@ export default function MyRoutePage() {
 
       // Detener el stream
       stream.getTracks().forEach(track => track.stop());
-      
+
     } catch (error) {
       console.error('Error tomando foto:', error);
       toast({
@@ -1652,7 +1652,7 @@ export default function MyRoutePage() {
         const { uploadImageToStorage } = await import('@/services/images');
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const fileName = `cliente-prospecto-${nombreProspecto.replace(/[^a-zA-Z0-9]/g, '-')}-${timestamp}.jpg`;
-        
+
         console.log('📸 Subiendo foto de cliente prospecto...');
         fotoUrl = await uploadImageToStorage(fotoProspecto, 'clientes-prospectos', fileName);
         console.log('✅ Foto subida exitosamente:', fotoUrl);
@@ -1669,35 +1669,31 @@ export default function MyRoutePage() {
         'Tipo de Negocio:': tipoNegocioProspecto,
         'Comentarios:': comentariosProspecto || 'Sin comentarios',
         'Foto del Negocio:': fotoUrl || 'No proporcionada',
-        'Latitud:': gpsLocation.latitude,
-        'Longitud:': gpsLocation.longitude,
-        'Dirección GPS:': `${gpsLocation.latitude}, ${gpsLocation.longitude}`,
+        'Latitud:': Number(gpsLocation?.latitude ?? (gpsLocation as any)?.lat ?? 0),
+        'Longitud:': Number(gpsLocation?.longitude ?? (gpsLocation as any)?.lng ?? 0),
+        'Dirección GPS:': `${Number(gpsLocation?.latitude ?? (gpsLocation as any)?.lat ?? 0)}, ${Number(gpsLocation?.longitude ?? (gpsLocation as any)?.lng ?? 0)}`,
         'Fecha y Hora:': new Date().toLocaleString('es-VE'),
-        'Mercaderista:': userData?.displayName || 'N/A',
+        'Mercaderista:': userData?.fullName || user?.displayName || 'N/A',
         'Correo Mercaderista:': userData?.email || 'N/A',
         'Sede:': userData?.sede || 'GRUPO DISBATTERY'
       };
 
       // 4. Crear visita especial para cliente prospecto
       const { crearVisita } = await import('@/services/visitas');
-      
+
       const visitaId = await crearVisita({
         rifCliente: '', // Los prospectos no tienen RIF aún
         nombreEstablecimiento: nombreProspecto,
-        tipoVisita: 'Cliente Prospecto',
-        mercaderista: userData?.displayName || 'N/A',
+        tipoVisita: ('Cliente Prospecto' as any),
+        mercaderista: userData?.fullName || user?.displayName || 'N/A',
         correoMercaderista: userData?.email || 'N/A',
-        ubicacion: { lat: gpsLocation.latitude, lng: gpsLocation.longitude },
-        sucursal: userData?.sede || 'GRUPO DISBATTERY',
-        respuestas: {
-          nombreNegocio: nombreProspecto,
-          direccion: direccionProspecto,
-          telefono: telefonoProspecto,
-          tipoNegocio: tipoNegocioProspecto,
-          comentarios: comentariosProspecto,
-          fotoUrl: fotoUrl,
-          gpsCoordinates: gpsLocation
+        ubicacion: {
+          lat: Number(gpsLocation?.latitude ?? (gpsLocation as any)?.lat ?? 0),
+          lng: Number(gpsLocation?.longitude ?? (gpsLocation as any)?.lng ?? 0),
+          direccion: (gpsLocation as any)?.address || ''
         },
+        sucursal: userData?.sede || 'GRUPO DISBATTERY',
+        respuestas: ({ nombreNegocio: nombreProspecto, direccion: direccionProspecto, telefono: telefonoProspecto, tipoNegocio: tipoNegocioProspecto, comentarios: comentariosProspecto, fotoUrl, gpsCoordinates: gpsLocation } as any),
         observacionesAdicionales: `Cliente prospecto: ${tipoNegocioProspecto} - ${nombreProspecto}`,
         datosN8N: {
           datosSheet: datosSheet,
@@ -1836,7 +1832,7 @@ export default function MyRoutePage() {
                           <div className="text-xs text-orange-800">Clientes Únicos</div>
                         </div>
                       </div>
-                      
+
                       <div className="border-t pt-4">
                         <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
                           <TrendingUp className="w-4 h-4" />
@@ -1996,7 +1992,7 @@ export default function MyRoutePage() {
                                 {getStatusText(todaysRoutes[0].status)}
                               </Badge>
                             </div>
-                            
+
                             {/* Información adicional según el estado */}
                             {todaysRoutes[0].status === 'planificada' && (
                               <div className="mt-2 text-sm text-blue-700 bg-blue-100 rounded p-2">
@@ -2013,11 +2009,11 @@ export default function MyRoutePage() {
                                 ✅ ¡Excelente! Ruta completada - Puedes continuar visitando clientes
                               </div>
                             )}
-                            
+
                             {/* Botón para completar manualmente la ruta - solo si está en progreso */}
                             {todaysRoutes[0].status === 'en_progreso' && (
                               <div className="mt-3 flex justify-center">
-                                <Button 
+                                <Button
                                   onClick={handleCompleteRoute}
                                   className="bg-green-600 hover:bg-green-700 text-white"
                                   size="sm"
@@ -2028,9 +2024,9 @@ export default function MyRoutePage() {
                             )}
                           </div>
                         )}
-                        
+
                         <h2 className="text-xl font-semibold text-gray-700">Puntos de Visita:</h2>
-                        
+
                         {/* Mostrar contador de eventos y rutas */}
                         <div className="flex gap-4 mb-4 text-sm">
                           {routePoints.length > 0 && (
@@ -2046,7 +2042,7 @@ export default function MyRoutePage() {
                             </div>
                           )}
                         </div>
-                        
+
                         <ul className="space-y-3 max-h-96 overflow-y-auto">
                           {allPoints.map((point) => {
                             const isPendiente = point.status === 'pendiente';
@@ -2054,20 +2050,19 @@ export default function MyRoutePage() {
                             const isOmitido = point.status === 'omitido';
                             const isCerrado = point.status === 'cerrado';
                             const isRouteCompleted = todaysRoutes[0]?.status === 'completada';
-                            
+
                             // ✅ CORRECCIÓN: Solo permitir clicks si está pendiente AND la ruta no está completada AND no está cerrado
                             const isClickable = isPendiente && !isRouteCompleted && !isCerrado;
-                            
+
                             return (
                               <li key={point.id}>
                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                                   <button
                                     onClick={() => isClickable && handleStartVisit(point)}
-                                    className={`flex-1 text-left ${
-                                      !isClickable 
-                                        ? 'opacity-60 cursor-not-allowed' 
-                                        : 'hover:bg-gray-50 hover:shadow-md transition-all duration-200'
-                                    } ${isRouteCompleted ? 'bg-gray-100 border-gray-300' : ''}`}
+                                    className={`flex-1 text-left ${!isClickable
+                                      ? 'opacity-60 cursor-not-allowed'
+                                      : 'hover:bg-gray-50 hover:shadow-md transition-all duration-200'
+                                      } ${isRouteCompleted ? 'bg-gray-100 border-gray-300' : ''}`}
                                     disabled={!isClickable}
                                   >
                                     <Card className={isRouteCompleted ? 'border-gray-300 bg-gray-50' : ''}>
@@ -2075,9 +2070,8 @@ export default function MyRoutePage() {
                                         <div className="flex items-start sm:items-center gap-2 sm:gap-4">
                                           {getPointTypeIcon(point)}
                                           <div className="min-w-0 flex-1">
-                                            <p className={`font-bold text-base sm:text-lg flex flex-wrap items-center gap-1 sm:gap-2 ${
-                                              isRouteCompleted ? 'text-gray-500' : 'text-gray-900'
-                                            }`}>
+                                            <p className={`font-bold text-base sm:text-lg flex flex-wrap items-center gap-1 sm:gap-2 ${isRouteCompleted ? 'text-gray-500' : 'text-gray-900'
+                                              }`}>
                                               <span className="truncate">{point.name}</span>
                                               {point._isEvent && (
                                                 <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
@@ -2094,13 +2088,12 @@ export default function MyRoutePage() {
                                               {isCerrado && <span className="text-red-600 text-base">🚪</span>}
                                               {isRouteCompleted && <span className="text-gray-500 text-sm ml-2 font-medium">🔒</span>}
                                             </p>
-                                            <div className={`flex items-center text-xs sm:text-sm mt-1 ${
-                                              isRouteCompleted ? 'text-gray-400' : 'text-gray-500'
-                                            }`}>
+                                            <div className={`flex items-center text-xs sm:text-sm mt-1 ${isRouteCompleted ? 'text-gray-400' : 'text-gray-500'
+                                              }`}>
                                               <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                               <span className="truncate">{point.address}</span>
                                             </div>
-                                            
+
                                             {/* Mostrar tipo de visita y marca trabajada */}
                                             <div className="flex flex-wrap items-center gap-2 mt-2">
                                               {point.tipoVisita && (
@@ -2117,29 +2110,27 @@ export default function MyRoutePage() {
                                           </div>
                                         </div>
                                         <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
-                                          <Badge variant="outline" className={`flex items-center space-x-1 text-xs ${
-                                            isRouteCompleted ? 'border-gray-300 text-gray-500' : ''
-                                          }`}>
+                                          <Badge variant="outline" className={`flex items-center space-x-1 text-xs ${isRouteCompleted ? 'border-gray-300 text-gray-500' : ''
+                                            }`}>
                                             <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                                             <span>{point.estimatedTime} min</span>
                                           </Badge>
-                                          <span className={`text-xs font-semibold ${
-                                            isRouteCompleted 
-                                              ? 'text-gray-500' 
-                                              : isPendiente 
-                                                ? 'text-blue-600' 
-                                                : isVisitado 
-                                                  ? 'text-green-600' 
-                                                  : isCerrado
-                                                    ? 'text-red-600'
-                                                    : 'text-amber-600'
-                                          }`}>
-                                            {isRouteCompleted 
-                                              ? 'No Disponible' 
-                                              : isPendiente 
-                                                ? 'Pendiente' 
-                                                : isVisitado 
-                                                  ? 'Visitado' 
+                                          <span className={`text-xs font-semibold ${isRouteCompleted
+                                            ? 'text-gray-500'
+                                            : isPendiente
+                                              ? 'text-blue-600'
+                                              : isVisitado
+                                                ? 'text-green-600'
+                                                : isCerrado
+                                                  ? 'text-red-600'
+                                                  : 'text-amber-600'
+                                            }`}>
+                                            {isRouteCompleted
+                                              ? 'No Disponible'
+                                              : isPendiente
+                                                ? 'Pendiente'
+                                                : isVisitado
+                                                  ? 'Visitado'
                                                   : isCerrado
                                                     ? 'Cerrado'
                                                     : 'Omitido'
@@ -2154,7 +2145,7 @@ export default function MyRoutePage() {
                                       </CardContent>
                                     </Card>
                                   </button>
-                                  
+
                                   {/* Botón para ver detalles del cliente - siempre disponible */}
                                   <Button
                                     variant="outline"
@@ -2166,19 +2157,19 @@ export default function MyRoutePage() {
                                   </Button>
 
                                   {/* Botón Cliente Cerrado - solo para Merchandising y Trade (Impulso) */}
-                                  {!point._isEvent && 
-                                   (point.tipoVisita?.includes('Merchandising') || point.tipoVisita?.includes('Trade (Impulso)')) && 
-                                   isPendiente && !isRouteCompleted && !isCerrado && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleClienteCerrado(point)}
-                                      className="px-2 sm:px-3 h-8 sm:h-9 border-red-200 text-red-600 hover:bg-red-50"
-                                      title="Marcar cliente como cerrado"
-                                    >
-                                      <DoorClosed className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    </Button>
-                                  )}
+                                  {!point._isEvent &&
+                                    (point.tipoVisita?.includes('Merchandising') || point.tipoVisita?.includes('Trade (Impulso)')) &&
+                                    isPendiente && !isRouteCompleted && !isCerrado && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleClienteCerrado(point)}
+                                        className="px-2 sm:px-3 h-8 sm:h-9 border-red-200 text-red-600 hover:bg-red-50"
+                                        title="Marcar cliente como cerrado"
+                                      >
+                                        <DoorClosed className="w-3 h-3 sm:w-4 sm:h-4" />
+                                      </Button>
+                                    )}
                                 </div>
                               </li>
                             );
@@ -2203,7 +2194,7 @@ export default function MyRoutePage() {
                           {getPointTypeIcon(selectedClient)}
                           <h2 className="text-2xl font-bold text-gray-800">{selectedClient.name}</h2>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <Card>
                             <CardHeader>
@@ -2317,7 +2308,7 @@ export default function MyRoutePage() {
                         <CalendarDays className="w-6 h-6 text-blue-600" />
                         <h2 className="text-2xl font-bold text-gray-800">Historial de Rutas</h2>
                       </div>
-                      
+
                       {calendarData.length > 0 ? (
                         <>
                           <div className="grid grid-cols-7 gap-2 mb-4">
@@ -2327,14 +2318,14 @@ export default function MyRoutePage() {
                               </div>
                             ))}
                           </div>
-                          
+
                           <div className="grid grid-cols-7 gap-2 max-h-96 overflow-y-auto">
                             {calendarData.slice().reverse().map((rutaInfo, index) => {
                               const fecha = parseISO(rutaInfo.fecha);
                               const diaDelMes = format(fecha, 'd');
                               const esHoy = isSameDay(fecha, new Date());
                               const tieneActividad = rutaInfo.rutasCompletadas > 0 || rutaInfo.visitasRealizadas > 0;
-                              
+
                               return (
                                 <div
                                   key={rutaInfo.fecha}
@@ -2343,8 +2334,8 @@ export default function MyRoutePage() {
                                     ${getCalendarDayColor(rutaInfo)}
                                     ${esHoy ? 'ring-2 ring-blue-500 ring-offset-1' : ''}
                                   `}
-                                  title={`${format(fecha, 'EEEE, dd MMMM', { locale: es })}${tieneActividad ? 
-                                    `\n✅ ${rutaInfo.rutasCompletadas} rutas completadas\n📋 ${rutaInfo.visitasRealizadas} visitas realizadas` : 
+                                  title={`${format(fecha, 'EEEE, dd MMMM', { locale: es })}${tieneActividad ?
+                                    `\n✅ ${rutaInfo.rutasCompletadas} rutas completadas\n📋 ${rutaInfo.visitasRealizadas} visitas realizadas` :
                                     '\nSin actividad registrada'}`}
                                 >
                                   <div className="text-lg font-bold">{diaDelMes}</div>
@@ -2371,7 +2362,7 @@ export default function MyRoutePage() {
                               );
                             })}
                           </div>
-                          
+
                           {/* Leyenda mejorada */}
                           <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                             <h4 className="font-semibold text-sm text-gray-700 mb-3">Leyenda del Calendario:</h4>
@@ -2434,7 +2425,7 @@ export default function MyRoutePage() {
                         <UserPlus className="w-6 h-6 text-green-600" />
                         <h2 className="text-2xl font-bold text-gray-800">Registrar Cliente Prospecto</h2>
                       </div>
-                      
+
                       <Card>
                         <CardContent className="p-4 sm:p-6">
                           <div className="text-center space-y-3 sm:space-y-4">
@@ -2449,7 +2440,7 @@ export default function MyRoutePage() {
                                 Registra clientes potenciales que encuentres durante tu ruta para futuras visitas
                               </p>
                             </div>
-                            <Button 
+                            <Button
                               onClick={handleClienteProspecto}
                               className="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base w-full max-w-xs mx-auto"
                               size="sm"
@@ -2459,7 +2450,7 @@ export default function MyRoutePage() {
                               <span className="sm:hidden">Nuevo Prospecto</span>
                             </Button>
                           </div>
-                          
+
                           <div className="mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg">
                             <h4 className="font-semibold text-blue-800 mb-2 text-sm sm:text-base">¿Qué información necesitas capturar?</h4>
                             <ul className="text-xs sm:text-sm text-blue-700 space-y-1">
@@ -2503,16 +2494,16 @@ export default function MyRoutePage() {
               Registra que el cliente {currentPointForCerrado?.name} está cerrado
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* Foto del cliente cerrado */}
             <div className="space-y-2">
               <Label>Foto del Cliente Cerrado *</Label>
               {fotoCerrado ? (
                 <div className="space-y-2">
-                  <img 
-                    src={fotoCerrado} 
-                    alt="Cliente cerrado" 
+                  <img
+                    src={fotoCerrado}
+                    alt="Cliente cerrado"
                     className="w-full h-48 object-cover rounded-md border"
                   />
                   <Button
@@ -2599,16 +2590,16 @@ export default function MyRoutePage() {
               Captura información de un nuevo punto de venta potencial
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-3 sm:space-y-4">
             {/* Foto del prospecto */}
             <div className="space-y-2">
               <Label className="text-sm">Foto del Establecimiento (Opcional)</Label>
               {fotoProspecto ? (
                 <div className="space-y-2">
-                  <img 
-                    src={fotoProspecto} 
-                    alt="Cliente prospecto" 
+                  <img
+                    src={fotoProspecto}
+                    alt="Cliente prospecto"
                     className="w-full h-48 object-cover rounded-md border"
                   />
                   <Button
@@ -2736,7 +2727,7 @@ export default function MyRoutePage() {
               Ubicación GPS Requerida
             </DialogTitle>
             <DialogDescription>
-              El cliente <strong>{currentPointForLocation?.name}</strong> no tiene coordenadas GPS guardadas. 
+              El cliente <strong>{currentPointForLocation?.name}</strong> no tiene coordenadas GPS guardadas.
               Usa tu ubicación actual para registrar la visita:
             </DialogDescription>
           </DialogHeader>

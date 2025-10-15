@@ -1,34 +1,38 @@
-import { db, VisitaOffline } from '../db/database';
-import { crearVisita } from './visitas'; // Asumimos que podemos importar esto
-import { uploadMultipleImages } from './images'; // Asumimos que podemos importar esto
+import { db, VisitaOffline } from "../db/database";
+import { crearVisita } from "./visitas"; // Asumimos que podemos importar esto
+import { uploadMultipleImages } from "./images"; // Asumimos que podemos importar esto
+import { getFirestoreClient, getStorageClient } from "@/firebase/clientApp";
 
 function generateUniqueId() {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 // Lógica de compresión de imagen (movida aquí para centralizar)
-const comprimirImagenBase64 = (base64String: string, calidad: number = 0.6): Promise<string> => {
+const comprimirImagenBase64 = (
+  base64String: string,
+  calidad: number = 0.6
+): Promise<string> => {
   return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       // No se puede comprimir en el servidor o en un worker sin canvas
       return resolve(base64String);
     }
     const img = new Image();
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
     img.onload = () => {
       const maxWidth = 800;
       const ratio = Math.min(maxWidth / img.width, 1); // No agrandar, solo reducir
       const newWidth = img.width * ratio;
       const newHeight = img.height * ratio;
-      
+
       canvas.width = newWidth;
       canvas.height = newHeight;
-      
+
       ctx?.drawImage(img, 0, 0, newWidth, newHeight);
-      
-      const comprimida = canvas.toDataURL('image/jpeg', calidad);
+
+      const comprimida = canvas.toDataURL("image/jpeg", calidad);
       resolve(comprimida);
     };
     img.onerror = (err) => {
@@ -41,75 +45,81 @@ const comprimirImagenBase64 = (base64String: string, calidad: number = 0.6): Pro
 
 // Lógica para subir una visita a Firebase (extraída de reportes-finales)
 async function uploadVisitaToFirebase(visita: VisitaOffline) {
-    const datosAcumulados = visita.data;
-    const cliente = datosAcumulados.clienteData;
+  const datosAcumulados = visita.data;
+  const cliente = datosAcumulados.clienteData;
 
-    // Aquí iría toda la lógica de `handleGuardarYContinuar`
-    // 1. Comprimir imágenes
-    let fotosComprimidas: Record<string, string> = {};
-    const compresiones: Promise<void>[] = [];
-    
-    // Extraer todas las fotos en base64 de `datosAcumulados` y comprimirlas
-    // Esta parte necesita una implementación robusta que recorra el objeto
-    // y encuentre todas las propiedades que son imágenes base64.
-    // Por simplicidad, aquí solo mostramos un ejemplo:
-    if (datosAcumulados.signagePhoto && datosAcumulados.signagePhoto.startsWith('data:image/')) {
-        compresiones.push(
-            comprimirImagenBase64(datosAcumulados.signagePhoto).then(c => {
-                fotosComprimidas.foto_senalizacion = c;
-            })
-        );
-    }
-    // ... aquí se añadirían compresiones para TODAS las demás fotos ...
+  // Aquí iría toda la lógica de `handleGuardarYContinuar`
+  // 1. Comprimir imágenes
+  let fotosComprimidas: Record<string, string> = {};
+  const compresiones: Promise<void>[] = [];
 
-    await Promise.all(compresiones);
+  // Extraer todas las fotos en base64 de `datosAcumulados` y comprimirlas
+  // Esta parte necesita una implementación robusta que recorra el objeto
+  // y encuentre todas las propiedades que son imágenes base64.
+  // Por simplicidad, aquí solo mostramos un ejemplo:
+  if (
+    datosAcumulados.signagePhoto &&
+    datosAcumulados.signagePhoto.startsWith("data:image/")
+  ) {
+    compresiones.push(
+      comprimirImagenBase64(datosAcumulados.signagePhoto).then((c) => {
+        fotosComprimidas.foto_senalizacion = c;
+      })
+    );
+  }
+  // ... aquí se añadirían compresiones para TODAS las demás fotos ...
 
-    // 2. Subir imágenes a Firebase Storage
-    const imagesToUpload = Object.entries(fotosComprimidas).map(([key, base64]) => ({
-        base64: base64,
-        path: `visitas/${cliente.rif}/${Date.now()}`,
-        prefix: key
-    }));
-    const fotosUrls = await uploadMultipleImages(imagesToUpload);
+  await Promise.all(compresiones);
 
-    // 3. Preparar el objeto de datos final con URLs
-    // Esta lógica de mapeo también debe ser extraída de `reportes-finales`
-    const datosSheet = { /* ... objeto de datos mapeado con URLs ... */ };
+  // 2. Subir imágenes a Firebase Storage
+  const imagesToUpload = Object.entries(fotosComprimidas).map(
+    ([key, base64]) => ({
+      base64: base64,
+      path: `visitas/${cliente.rif}/${Date.now()}`,
+      prefix: key,
+    })
+  );
+  const fotosUrls = await uploadMultipleImages(imagesToUpload);
 
-    // 4. Enviar a Firestore y N8N
-    const visitaId = await crearVisita({
-        rifCliente: cliente.rif,
-        nombreEstablecimiento: cliente.nombre,
-        tipoVisita: datosAcumulados.tipoVisita,
-        // ... resto de los datos ...
-        respuestas: {
-            datosSheet: datosSheet,
-            fotos: fotosUrls
-        },
-        datosN8N: {
-            datosSheet: datosSheet,
-            fotos: fotosUrls
-        }
-    });
+  // 3. Preparar el objeto de datos final con URLs
+  // Esta lógica de mapeo también debe ser extraída de `reportes-finales`
+  const datosSheet = {
+    /* ... objeto de datos mapeado con URLs ... */
+  };
 
-    return visitaId;
+  // 4. Enviar a Firestore y N8N
+  const visitaId = await crearVisita({
+    rifCliente: cliente.rif,
+    nombreEstablecimiento: cliente.nombre,
+    tipoVisita: datosAcumulados.tipoVisita,
+    // ... resto de los datos ...
+    respuestas: {
+      datosSheet: datosSheet,
+      fotos: fotosUrls,
+    },
+    datosN8N: {
+      datosSheet: datosSheet,
+      fotos: fotosUrls,
+    },
+  });
+
+  return visitaId;
 }
-
 
 export class SyncService {
   static async syncPendingVisitas() {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      console.log('Offline: La sincronización se pospone.');
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      console.log("Offline: La sincronización se pospone.");
       return;
     }
 
     const pendingVisitas = await db.visitas
-      .where('syncStatus')
-      .equals('pending')
+      .where("syncStatus")
+      .equals("pending")
       .toArray();
 
     if (pendingVisitas.length === 0) {
-      console.log('No hay visitas pendientes para sincronizar.');
+      console.log("No hay visitas pendientes para sincronizar.");
       return;
     }
 
@@ -117,17 +127,17 @@ export class SyncService {
 
     for (const visita of pendingVisitas) {
       try {
-        await db.visitas.update(visita.id!, { syncStatus: 'syncing' });
+        await db.visitas.update(visita.id!, { syncStatus: "syncing" });
 
         // Aquí iría la lógica para subir los datos a Firebase
-        console.log('Subiendo visita a Firebase:', visita.visitaId);
+        console.log("Subiendo visita a Firebase:", visita.visitaId);
         await uploadVisitaToFirebase(visita); // Lógica de subida real
 
-        await db.visitas.update(visita.id!, { syncStatus: 'synced' });
-        console.log('Visita sincronizada con éxito:', visita.visitaId);
+        await db.visitas.update(visita.id!, { syncStatus: "synced" });
+        console.log("Visita sincronizada con éxito:", visita.visitaId);
       } catch (error) {
-        console.error('Error al sincronizar visita:', visita.visitaId, error);
-        await db.visitas.update(visita.id!, { syncStatus: 'error' });
+        console.error("Error al sincronizar visita:", visita.visitaId, error);
+        await db.visitas.update(visita.id!, { syncStatus: "error" });
       }
     }
   }
@@ -139,35 +149,44 @@ export class SyncService {
       data: visitaData,
       fotos: visitaData.fotos || {},
       timestamp: Date.now(),
-      syncStatus: 'pending'
+      syncStatus: "pending",
     };
 
     try {
       const id = await db.visitas.add(visita);
-      console.log('Visita guardada offline con éxito. ID:', id);
+      console.log("Visita guardada offline con éxito. ID:", id);
 
       // Registrar para Background Sync
-      if ('serviceWorker' in navigator && 'SyncManager' in window) {
-        navigator.serviceWorker.ready.then(registration => {
-          registration.sync.register('sync-pending-visitas');
-          console.log('✅ Tarea de sincronización en segundo plano registrada.');
-        }).catch(err => {
-          console.error('❌ No se pudo registrar la tarea de sincronización:', err);
-          // Si falla el registro, intentar sincronización manual si hay conexión
-          if (navigator.onLine) {
-            this.syncPendingVisitas();
-          }
-        });
+      if ("serviceWorker" in navigator && "SyncManager" in window) {
+        navigator.serviceWorker.ready
+          .then((registration) => {
+            registration.sync.register("sync-pending-visitas");
+            console.log(
+              "✅ Tarea de sincronización en segundo plano registrada."
+            );
+          })
+          .catch((err) => {
+            console.error(
+              "❌ No se pudo registrar la tarea de sincronización:",
+              err
+            );
+            // Si falla el registro, intentar sincronización manual si hay conexión
+            if (navigator.onLine) {
+              this.syncPendingVisitas();
+            }
+          });
       } else {
         // Fallback para navegadores sin Background Sync
-        console.log('⚠️ Background Sync no soportado. Se intentará sincronización manual.');
+        console.log(
+          "⚠️ Background Sync no soportado. Se intentará sincronización manual."
+        );
         if (navigator.onLine) {
           this.syncPendingVisitas();
         }
       }
       return id;
     } catch (error) {
-      console.error('Error al guardar la visita offline:', error);
+      console.error("Error al guardar la visita offline:", error);
     }
   }
 }

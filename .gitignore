@@ -110,5 +110,6 @@ logs
 *.log
 
 # PWA
-sw.js
+# Allow committing custom service workers in public/ (keep generated workbox files ignored)
+public/sw.js
 workbox-*.js

@@ -1,14 +1,14 @@
-import emailjs from '@emailjs/browser';
+import emailjs from "@emailjs/browser";
 
 // Configuración de EmailJS
 const EMAILJS_CONFIG = {
-  serviceId: 'service_gxvt5sr',
-  publicKey: 'NldiItSGzS1TMPAz0',
+  serviceId: "service_gxvt5sr",
+  publicKey: "NldiItSGzS1TMPAz0",
   templates: {
-    nuevaRuta: 'template_swkb7yd',
-    rutaCompletada: 'template_3hl2pte',
-    nuevoUsuario: 'template_2lwmrgc' // Template para aprobación de usuarios
-  }
+    nuevaRuta: "template_swkb7yd",
+    rutaCompletada: "template_3hl2pte",
+    nuevoUsuario: "template_2lwmrgc", // Template para aprobación de usuarios
+  },
 };
 
 // Inicializar EmailJS
@@ -23,10 +23,10 @@ export interface EmailNotificationData {
   fecha_ruta?: string;
   puntos_cantidad?: number;
   sede?: string;
-  
+
   // Para Ruta Completada
   hora_finalizacion?: string;
-  
+
   // Para Aprobación de Usuario
   usuario_nombre?: string;
   usuario_email?: string;
@@ -41,11 +41,13 @@ export interface EmailNotificationData {
 /**
  * Envía notificación por email cuando se crea una nueva ruta
  */
-export const sendNuevaRutaEmail = async (data: EmailNotificationData): Promise<boolean> => {
+export const sendNuevaRutaEmail = async (
+  data: EmailNotificationData
+): Promise<boolean> => {
   try {
-    console.log('📧 Enviando email de nueva ruta a:', data.mercaderista_email);
-    console.log('📧 Datos del email:', data);
-    
+    console.log("📧 Enviando email de nueva ruta a:", data.mercaderista_email);
+    console.log("📧 Datos del email:", data);
+
     const templateParams = {
       mercaderista_nombre: data.mercaderista_nombre,
       mercaderista_email: data.mercaderista_email,
@@ -53,20 +55,19 @@ export const sendNuevaRutaEmail = async (data: EmailNotificationData): Promise<b
       admin_email: data.admin_email,
       fecha_ruta: data.fecha_ruta,
       puntos_cantidad: data.puntos_cantidad,
-      sede: data.sede
+      sede: data.sede,
     };
-    
+
     const response = await emailjs.send(
       EMAILJS_CONFIG.serviceId,
       EMAILJS_CONFIG.templates.nuevaRuta,
       templateParams
     );
-    
-    console.log('✅ Email de nueva ruta enviado exitosamente:', response);
+
+    console.log("✅ Email de nueva ruta enviado exitosamente:", response);
     return true;
-    
   } catch (error) {
-    console.error('❌ Error enviando email de nueva ruta:', error);
+    console.error("❌ Error enviando email de nueva ruta:", error);
     return false;
   }
 };
@@ -74,11 +75,13 @@ export const sendNuevaRutaEmail = async (data: EmailNotificationData): Promise<b
 /**
  * Envía notificación por email cuando se completa una ruta
  */
-export const sendRutaCompletadaEmail = async (data: EmailNotificationData): Promise<boolean> => {
+export const sendRutaCompletadaEmail = async (
+  data: EmailNotificationData
+): Promise<boolean> => {
   try {
-    console.log('📧 Enviando email de ruta completada a:', data.admin_email);
-    console.log('📧 Datos del email:', data);
-    
+    console.log("📧 Enviando email de ruta completada a:", data.admin_email);
+    console.log("📧 Datos del email:", data);
+
     const templateParams = {
       admin_nombre: data.admin_nombre,
       admin_email: data.admin_email,
@@ -86,20 +89,19 @@ export const sendRutaCompletadaEmail = async (data: EmailNotificationData): Prom
       mercaderista_email: data.mercaderista_email,
       fecha_ruta: data.fecha_ruta,
       hora_finalizacion: data.hora_finalizacion,
-      sede: data.sede
+      sede: data.sede,
     };
-    
+
     const response = await emailjs.send(
       EMAILJS_CONFIG.serviceId,
       EMAILJS_CONFIG.templates.rutaCompletada,
       templateParams
     );
-    
-    console.log('✅ Email de ruta completada enviado exitosamente:', response);
+
+    console.log("✅ Email de ruta completada enviado exitosamente:", response);
     return true;
-    
   } catch (error) {
-    console.error('❌ Error enviando email de ruta completada:', error);
+    console.error("❌ Error enviando email de ruta completada:", error);
     return false;
   }
 };
@@ -107,11 +109,16 @@ export const sendRutaCompletadaEmail = async (data: EmailNotificationData): Prom
 /**
  * Envía notificación por email cuando se crea un nuevo usuario pendiente de aprobación
  */
-export const sendNuevoUsuarioAprobacionEmail = async (data: EmailNotificationData): Promise<boolean> => {
+export const sendNuevoUsuarioAprobacionEmail = async (
+  data: EmailNotificationData
+): Promise<boolean> => {
   try {
-    console.log('📧 Enviando email de aprobación de usuario para:', data.usuario_nombre);
-    console.log('📧 Datos del email:', data);
-    
+    console.log(
+      "📧 Enviando email de aprobación de usuario para:",
+      data.usuario_nombre
+    );
+    console.log("📧 Datos del email:", data);
+
     const templateParams = {
       usuario_nombre: data.usuario_nombre,
       usuario_email: data.usuario_email,
@@ -123,20 +130,22 @@ export const sendNuevoUsuarioAprobacionEmail = async (data: EmailNotificationDat
       sede: data.sede,
       user_id: data.user_id,
       // URL para aprobar/rechazar (puedes personalizar esto)
-      approval_url: `https://disbattery-trade.web.app/admin/users/approve/${data.user_id}`
+      approval_url: `https://disbattery-trade.web.app/admin/users/approve/${data.user_id}`,
     };
-    
+
     const response = await emailjs.send(
       EMAILJS_CONFIG.serviceId,
       EMAILJS_CONFIG.templates.nuevoUsuario,
       templateParams
     );
-    
-    console.log('✅ Email de aprobación de usuario enviado exitosamente:', response);
+
+    console.log(
+      "✅ Email de aprobación de usuario enviado exitosamente:",
+      response
+    );
     return true;
-    
   } catch (error) {
-    console.error('❌ Error enviando email de aprobación de usuario:', error);
+    console.error("❌ Error enviando email de aprobación de usuario:", error);
     return false;
   }
 };
@@ -146,33 +155,32 @@ export const sendNuevoUsuarioAprobacionEmail = async (data: EmailNotificationDat
  */
 export const testEmailService = async (): Promise<boolean> => {
   try {
-    console.log('🧪 Probando servicio EmailJS...');
-    
+    console.log("🧪 Probando servicio EmailJS...");
+
     const testData: EmailNotificationData = {
-      mercaderista_nombre: 'Usuario Prueba',
-      mercaderista_email: 'dsalcedo@smartautomatai.com', // Tu email para pruebas
-      admin_nombre: 'Admin Prueba',
-      admin_email: 'dsalcedo@smartautomatai.com',
-      fecha_ruta: new Date().toLocaleDateString('es-VE'),
+      mercaderista_nombre: "Usuario Prueba",
+      mercaderista_email: "dsalcedo@smartautomatai.com", // Tu email para pruebas
+      admin_nombre: "Admin Prueba",
+      admin_email: "dsalcedo@smartautomatai.com",
+      fecha_ruta: new Date().toLocaleDateString("es-VE"),
       puntos_cantidad: 1,
-      sede: 'GRUPO DISBATTERY'
+      sede: "GRUPO DISBATTERY",
     };
-    
+
     const result = await sendNuevaRutaEmail(testData);
-    
+
     if (result) {
-      console.log('✅ Servicio EmailJS funcionando correctamente');
-      alert('✅ Email de prueba enviado! Revisa tu bandeja de entrada.');
+      console.log("✅ Servicio EmailJS funcionando correctamente");
+      alert("✅ Email de prueba enviado! Revisa tu bandeja de entrada.");
     } else {
-      console.log('❌ Error en el servicio EmailJS');
-      alert('❌ Error enviando email de prueba. Revisa la consola.');
+      console.log("❌ Error en el servicio EmailJS");
+      alert("❌ Error enviando email de prueba. Revisa la consola.");
     }
-    
+
     return result;
-    
   } catch (error) {
-    console.error('❌ Error probando EmailJS:', error);
-    alert('❌ Error: ' + error.message);
+    console.error("❌ Error probando EmailJS:", error);
+    alert("❌ Error: " + error.message);
     return false;
   }
 };
@@ -182,33 +190,37 @@ export const testEmailService = async (): Promise<boolean> => {
  */
 export const testRutaCompletadaEmail = async (): Promise<boolean> => {
   try {
-    console.log('🧪 Probando email de ruta completada...');
-    
+    console.log("🧪 Probando email de ruta completada...");
+
     const testData: EmailNotificationData = {
-      admin_nombre: 'Admin Prueba',
-      admin_email: 'dsalcedo@smartautomatai.com',
-      mercaderista_nombre: 'Mercaderista Prueba',
-      mercaderista_email: 'dsalcedo@smartautomatai.com',
-      fecha_ruta: new Date().toLocaleDateString('es-VE'),
-      hora_finalizacion: new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }),
-      sede: 'GRUPO DISBATTERY'
+      admin_nombre: "Admin Prueba",
+      admin_email: "dsalcedo@smartautomatai.com",
+      mercaderista_nombre: "Mercaderista Prueba",
+      mercaderista_email: "dsalcedo@smartautomatai.com",
+      fecha_ruta: new Date().toLocaleDateString("es-VE"),
+      hora_finalizacion: new Date().toLocaleTimeString("es-VE", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      sede: "GRUPO DISBATTERY",
     };
-    
+
     const result = await sendRutaCompletadaEmail(testData);
-    
+
     if (result) {
-      console.log('✅ Email de ruta completada enviado correctamente');
-      alert('✅ Email de ruta completada enviado! Revisa tu bandeja de entrada.');
+      console.log("✅ Email de ruta completada enviado correctamente");
+      alert(
+        "✅ Email de ruta completada enviado! Revisa tu bandeja de entrada."
+      );
     } else {
-      console.log('❌ Error enviando email de ruta completada');
-      alert('❌ Error enviando email de ruta completada. Revisa la consola.');
+      console.log("❌ Error enviando email de ruta completada");
+      alert("❌ Error enviando email de ruta completada. Revisa la consola.");
     }
-    
+
     return result;
-    
   } catch (error) {
-    console.error('❌ Error probando email de ruta completada:', error);
-    alert('❌ Error: ' + error.message);
+    console.error("❌ Error probando email de ruta completada:", error);
+    alert("❌ Error: " + error.message);
     return false;
   }
 };
@@ -218,98 +230,115 @@ export const testRutaCompletadaEmail = async (): Promise<boolean> => {
  */
 export const debugRutaCompletada = async (): Promise<void> => {
   try {
-    console.log('🕵️ === DEBUG RUTA COMPLETADA ===');
-    
+    console.log("🕵️ === DEBUG RUTA COMPLETADA ===");
+
     // Importar dependencias necesarias
-    const { collection, query, where, getDocs } = await import('firebase/firestore');
-    const { db } = await import('@/firebase/clientApp');
-    
+    const { collection, query, where, getDocs } = await import(
+      "firebase/firestore"
+    );
+    const { getFirestoreClient } = await import("@/firebase/clientApp");
+    const db = getFirestoreClient();
+
     // 1. Verificar que hay administradores en la base de datos
-    console.log('1️⃣ Buscando administradores en la base de datos...');
-    const usersRef = collection(db, 'users');
+    console.log("1️⃣ Buscando administradores en la base de datos...");
+    const usersRef = collection(db, "users");
     const q = query(
       usersRef,
-      where('role', 'in', ['Administrador', 'AdminMaster', 'Supervisor'])
+      where("role", "in", ["Administrador", "AdminMaster", "Supervisor"])
     );
-    
+
     const querySnapshot = await getDocs(q);
-    
+
     if (querySnapshot.empty) {
-      console.error('❌ ERROR: No se encontraron administradores en la base de datos');
-      console.error('💡 SOLUCIÓN: Asegúrate de que hay usuarios con role "Administrador", "AdminMaster" o "Supervisor"');
+      console.error(
+        "❌ ERROR: No se encontraron administradores en la base de datos"
+      );
+      console.error(
+        '💡 SOLUCIÓN: Asegúrate de que hay usuarios con role "Administrador", "AdminMaster" o "Supervisor"'
+      );
       return;
     }
-    
-    console.log(`✅ Encontrados ${querySnapshot.docs.length} administradores en total`);
-    
+
+    console.log(
+      `✅ Encontrados ${querySnapshot.docs.length} administradores en total`
+    );
+
     // 2. Mostrar información de cada administrador
-    querySnapshot.forEach(doc => {
+    querySnapshot.forEach((doc) => {
       const userData = doc.data();
-      console.log(`👤 Admin: ${userData.fullName || 'Sin nombre'} | Email: ${userData.email || 'Sin email'} | Sede: ${userData.sede || 'Sin sede'} | Role: ${userData.role}`);
+      console.log(
+        `👤 Admin: ${userData.fullName || "Sin nombre"} | Email: ${
+          userData.email || "Sin email"
+        } | Sede: ${userData.sede || "Sin sede"} | Role: ${userData.role}`
+      );
     });
-    
+
     // 3. Filtrar por sede específica (GRUPO DISBATTERY como ejemplo)
-    const sedeTest = 'GRUPO DISBATTERY';
+    const sedeTest = "GRUPO DISBATTERY";
     console.log(`2️⃣ Filtrando administradores para sede: ${sedeTest}`);
-    
+
     const adminsParaSede = [];
-    querySnapshot.forEach(doc => {
+    querySnapshot.forEach((doc) => {
       const userData = doc.data();
-      const userSede = userData.sede || 'GRUPO DISBATTERY';
-      
-      if (userData.role === 'AdminMaster' || userSede === sedeTest) {
+      const userSede = userData.sede || "GRUPO DISBATTERY";
+
+      if (userData.role === "AdminMaster" || userSede === sedeTest) {
         if (userData.email && userData.fullName) {
           adminsParaSede.push({
             fullName: userData.fullName,
             email: userData.email,
-            sede: userSede
+            sede: userSede,
           });
         }
       }
     });
-    
-    console.log(`✅ Administradores válidos para ${sedeTest}: ${adminsParaSede.length}`);
-    adminsParaSede.forEach(admin => {
+
+    console.log(
+      `✅ Administradores válidos para ${sedeTest}: ${adminsParaSede.length}`
+    );
+    adminsParaSede.forEach((admin) => {
       console.log(`   📧 ${admin.fullName} (${admin.email})`);
     });
-    
+
     // 4. Probar envío de email
     if (adminsParaSede.length > 0) {
-      console.log('3️⃣ Probando envío de email...');
+      console.log("3️⃣ Probando envío de email...");
       const testAdmin = adminsParaSede[0];
-      
+
       const emailData = {
         admin_nombre: testAdmin.fullName,
         admin_email: testAdmin.email,
-        mercaderista_nombre: 'Test Mercaderista',
-        mercaderista_email: 'test@example.com',
-        fecha_ruta: new Date().toLocaleDateString('es-VE'),
-        hora_finalizacion: new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }),
-        sede: sedeTest
+        mercaderista_nombre: "Test Mercaderista",
+        mercaderista_email: "test@example.com",
+        fecha_ruta: new Date().toLocaleDateString("es-VE"),
+        hora_finalizacion: new Date().toLocaleTimeString("es-VE", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        sede: sedeTest,
       };
-      
+
       const result = await sendRutaCompletadaEmail(emailData);
-      
+
       if (result) {
-        console.log('✅ Email de prueba enviado correctamente');
+        console.log("✅ Email de prueba enviado correctamente");
         alert(`✅ Email de debug enviado a: ${testAdmin.email}`);
       } else {
-        console.error('❌ Error enviando email de prueba');
-        alert('❌ Error enviando email de prueba');
+        console.error("❌ Error enviando email de prueba");
+        alert("❌ Error enviando email de prueba");
       }
     } else {
-      console.error('❌ No hay administradores válidos para enviar email');
-      alert('❌ No se encontraron administradores válidos');
+      console.error("❌ No hay administradores válidos para enviar email");
+      alert("❌ No se encontraron administradores válidos");
     }
-    
   } catch (error) {
-    console.error('❌ Error en debug:', error);
-    alert('❌ Error en debug: ' + error.message);
+    console.error("❌ Error en debug:", error);
+    alert("❌ Error en debug: " + error.message);
   }
 };
 
 // Exponer funciones para pruebas en el navegador
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   (window as any).testEmailService = testEmailService;
   (window as any).testRutaCompletadaEmail = testRutaCompletadaEmail;
   (window as any).debugRutaCompletada = debugRutaCompletada;

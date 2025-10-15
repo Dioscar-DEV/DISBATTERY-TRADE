@@ -13,7 +13,7 @@ import { getCurrentUser, getUserFromStorage } from '@/services/auth';
 import { uploadMultipleImages, uploadOrganizedImages } from '@/services/images';
 import { SyncService } from '@/services/sync'; // Importar nuestro SyncService
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/firebase/clientApp';
+import { getFirestoreClient } from '@/firebase/clientApp';
 
 // 🗜️ FUNCIÓN PARA COMPRIMIR IMÁGENES BASE64
 const comprimirImagenBase64 = (base64String: string, calidad: number = 0.6): Promise<string> => {
@@ -21,26 +21,26 @@ const comprimirImagenBase64 = (base64String: string, calidad: number = 0.6): Pro
     const img = new Image();
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    
+
     img.onload = () => {
       // Calcular nuevas dimensiones (máximo 800px de ancho)
       const maxWidth = 800;
       const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
       const newWidth = img.width * ratio;
       const newHeight = img.height * ratio;
-      
+
       canvas.width = newWidth;
       canvas.height = newHeight;
-      
+
       // Dibujar imagen redimensionada
       ctx?.drawImage(img, 0, 0, newWidth, newHeight);
-      
+
       // Convertir a JPEG con calidad reducida
       const comprimida = canvas.toDataURL('image/jpeg', calidad);
-      console.log(`📸 Imagen comprimida: ${base64String.length} → ${comprimida.length} chars (${Math.round((1 - comprimida.length/base64String.length) * 100)}% reducción)`);
+      console.log(`📸 Imagen comprimida: ${base64String.length} → ${comprimida.length} chars (${Math.round((1 - comprimida.length / base64String.length) * 100)}% reducción)`);
       resolve(comprimida);
     };
-    
+
     img.src = base64String;
   });
 };
@@ -49,12 +49,12 @@ const comprimirImagenBase64 = (base64String: string, calidad: number = 0.6): Pro
 const actualizarStatusEventoEnFirestore = async (eventId: string) => {
   try {
     console.log(`🔥 Actualizando status del evento ${eventId} en Firestore...`);
-    
-    const eventoRef = doc(db, 'eventos', eventId);
+
+    const eventoRef = doc(getFirestoreClient(), 'eventos', eventId);
     await updateDoc(eventoRef, {
       status: 'completado'
     });
-    
+
     console.log(`✅ Status del evento ${eventId} actualizado a 'completado' en Firestore`);
   } catch (error) {
     console.error('❌ Error actualizando status del evento en Firestore:', error);
@@ -73,7 +73,7 @@ const marcarPuntoComoCompletado = (puntoId: string) => {
       console.log('📋 Verificando rutas regulares...');
       const todaysRoutes = JSON.parse(todaysRoutesStr);
       let puntoActualizado = false;
-      
+
       const updatedRoutes = todaysRoutes.map((route: any) => {
         if (route.points) {
           route.points = route.points.map((point: any) => {
@@ -104,18 +104,18 @@ const marcarPuntoComoCompletado = (puntoId: string) => {
       console.log('🎪 Verificando eventos independientes...');
       const todaysEvents = JSON.parse(todaysEventsStr);
       console.log(`🔍 Eventos disponibles: ${todaysEvents.length}`);
-      
+
       // Debug: Mostrar todos los IDs de eventos disponibles
       todaysEvents.forEach((evento: any, index: number) => {
         console.log(`🎯 Evento ${index}: ID="${evento.id}", Nombre="${evento.nombreEvento}"`);
       });
-      
+
       let eventoActualizado = false;
-      
+
       const updatedEvents = todaysEvents.map((evento: any) => {
         // ✅ BÚSQUEDA ROBUSTA: Comprobar el ID principal del evento y el ID de punto (evento-{id})
         console.log(`🔍 Comparando: evento.id="${evento.id}" vs puntoId="${puntoId}"`);
-        
+
         if (evento.id === puntoId || `evento-${evento.id}` === puntoId) {
           console.log(`✅ EVENTO ENCONTRADO: ${evento.nombreEvento}. Cambiando estado de "${evento.estado || 'undefined'}" a "visitado".`);
           evento.estado = 'visitado';
@@ -127,7 +127,7 @@ const marcarPuntoComoCompletado = (puntoId: string) => {
       if (eventoActualizado) {
         localStorage.setItem('todaysEventsOffline', JSON.stringify(updatedEvents));
         console.log('✅ Eventos independientes actualizados en localStorage.');
-        
+
         // Disparar evento para actualizar la UI
         window.dispatchEvent(new Event('storage'));
         console.log('📡 Evento storage disparado para actualizar UI');
@@ -147,12 +147,12 @@ const marcarPuntoComoCompletado = (puntoId: string) => {
 export default function ReportesFinalesPage() {
   const router = useRouter();
   const { toast } = useToast();
-  
+
   // Estados para los 3 reportes
   const [reporteShellFaltante, setReporteShellFaltante] = useState('');
   const [reporteQualidFaltante, setReporteQualidFaltante] = useState('');
   const [reporteComentariosAdicionales, setReporteComentariosAdicionales] = useState('');
-  
+
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Configurar URL del webhook N8N al inicializar
@@ -170,7 +170,7 @@ export default function ReportesFinalesPage() {
       try {
         setIsSyncing(true);
         console.log('🔄 Modo Offline: Guardando reporte localmente...');
-        
+
         const datosAcumulados = JSON.parse(localStorage.getItem('datosFormularioCompleto') || '{}');
         if (!datosAcumulados.clienteData) {
           toast({
@@ -185,31 +185,31 @@ export default function ReportesFinalesPage() {
         datosAcumulados.reporteShellFaltante = reporteShellFaltante;
         datosAcumulados.reporteQualidFaltante = reporteQualidFaltante;
         datosAcumulados.reporteComentariosAdicionales = reporteComentariosAdicionales;
-        
+
         // Llamar a nuestro SyncService para guardar en IndexedDB
         await SyncService.saveVisitaOffline(datosAcumulados);
 
         // ✅ MARCAR EL PUNTO COMO COMPLETADO EN LOCALSTORAGE (MODO OFFLINE)
         let puntoIdOffline = null;
-        
+
         // Para eventos, usar eventId si existe
         if (datosAcumulados.clienteData?.isEvent && datosAcumulados.clienteData?.eventId) {
           puntoIdOffline = datosAcumulados.clienteData.eventId;
           console.log(`🎯 [OFFLINE] Evento detectado - usando eventId: ${puntoIdOffline}`);
-          
+
           // ✅ ACTUALIZAR STATUS EN FIRESTORE PARA EVENTOS (si hay conexión)
           if (navigator.onLine) {
             actualizarStatusEventoEnFirestore(puntoIdOffline);
           } else {
             console.log('📱 [OFFLINE] Status del evento se actualizará cuando haya conexión');
           }
-        } 
+        }
         // Para clientes regulares, usar id o pointId
         else if (datosAcumulados.clienteData?.id) {
           puntoIdOffline = datosAcumulados.clienteData.id;
           console.log(`👤 [OFFLINE] Cliente regular detectado - usando ID: ${puntoIdOffline}`);
         }
-        
+
         if (puntoIdOffline) {
           marcarPuntoComoCompletado(puntoIdOffline);
         } else {
@@ -248,10 +248,10 @@ export default function ReportesFinalesPage() {
 
     try {
       setIsSyncing(true);
-      
+
       // Obtener datos acumulados
       const datosAcumulados = JSON.parse(localStorage.getItem('datosFormularioCompleto') || '{}');
-      
+
       if (!datosAcumulados.clienteData) {
         toast({
           variant: 'destructive',
@@ -262,19 +262,19 @@ export default function ReportesFinalesPage() {
       }
 
       const cliente = datosAcumulados.clienteData;
-      
+
       // Obtener datos del usuario logueado
       let currentUser = await getCurrentUser();
       if (!currentUser) {
         currentUser = getUserFromStorage();
       }
-      
+
       const mercaderista = datosAcumulados.mercaderista || currentUser?.fullName || 'Usuario App';
       const correoMercaderista = datosAcumulados.correoMercaderista || currentUser?.email || '';
 
       // Preparar datos de ventas para las observaciones
       const ventasData: string[] = [];
-      
+
       // Agregar ventas Shell si hubo
       if (datosAcumulados.huboVentasShell === true && datosAcumulados.ventasShellDetalladas) {
         const ventas = datosAcumulados.ventasShellDetalladas;
@@ -291,7 +291,7 @@ export default function ReportesFinalesPage() {
       } else if (datosAcumulados.huboVentasShell === false) {
         ventasData.push('No hubo ventas de productos SHELL');
       }
-      
+
       // Agregar ventas Qualid si hubo
       if (datosAcumulados.huboVentasQualid === true && datosAcumulados.ventasQualidDetalladas) {
         const ventas = datosAcumulados.ventasQualidDetalladas;
@@ -307,12 +307,12 @@ export default function ReportesFinalesPage() {
 
       // 🔄 MANEJO DE IMÁGENES COMPRIMIDAS (SEPARADAS PARA N8N)
       let fotosComprimidas: Record<string, string> = {};
-      
+
       console.log('📷 Comprimiendo imágenes para N8N...');
       console.log('🔍 DEBUG: Datos acumulados completos:', datosAcumulados);
       console.log('🔍 DEBUG: Tipo de visita:', datosAcumulados.tipoVisita);
       console.log('🔍 DEBUG: Marca seleccionada:', datosAcumulados.marca);
-      
+
       // 🔍 DEBUGGING ESPECÍFICO PARA FOTOS DE TRADE
       console.log('🔍 DEBUG: Verificando fotos de Trade...');
       console.log('  - fotoImpulso:', datosAcumulados.fotoImpulso ? 'EXISTE' : 'NO EXISTE');
@@ -321,7 +321,7 @@ export default function ReportesFinalesPage() {
       console.log('  - fotoPromotorasShell:', datosAcumulados.fotoPromotorasShell ? 'EXISTE' : 'NO EXISTE');
       console.log('  - fotoImpulsoQualid:', datosAcumulados.fotoImpulsoQualid ? 'EXISTE' : 'NO EXISTE');
       console.log('  - fotoPromotorasQualid:', datosAcumulados.fotoPromotorasQualid ? 'EXISTE' : 'NO EXISTE');
-      
+
       // 🔍 DEBUGGING ESPECÍFICO PARA FOTOS DE MERCHANDISING
       if (datosAcumulados.shellMerchandising) {
         const shell = datosAcumulados.shellMerchandising;
@@ -329,7 +329,7 @@ export default function ReportesFinalesPage() {
         console.log('  - fotoAntesShell:', shell.fotoAntesShell ? `EXISTE (${shell.fotoAntesShell.length} chars)` : 'NO EXISTE O VACÍA');
         console.log('  - fotoDespuesShell:', shell.fotoDespuesShell ? `EXISTE (${shell.fotoDespuesShell.length} chars)` : 'NO EXISTE O VACÍA');
         console.log('  - fotoStickerShell:', shell.fotoStickerShell ? `EXISTE (${shell.fotoStickerShell.length} chars)` : 'NO EXISTE O VACÍA');
-        
+
         // Verificar si son cadenas vacías
         if (shell.fotoAntesShell === '') console.log('⚠️ fotoAntesShell es cadena VACÍA');
         if (shell.fotoDespuesShell === '') console.log('⚠️ fotoDespuesShell es cadena VACÍA');
@@ -337,10 +337,10 @@ export default function ReportesFinalesPage() {
       } else {
         console.log('⚠️ NO HAY DATOS DE shellMerchandising');
       }
-      
+
       // 🗜️ COMPRIMIR TODAS LAS FOTOS DISPONIBLES EN PARALELO
       const compresiones: Promise<void>[] = [];
-      
+
       // ✅ NUEVO: Compresión de fotos de evento por marca
       if (datosAcumulados.fotosShell && Array.isArray(datosAcumulados.fotosShell)) {
         console.log(`📸 Comprimiendo ${datosAcumulados.fotosShell.length} fotos de Shell...`);
@@ -367,7 +367,7 @@ export default function ReportesFinalesPage() {
           }
         });
       }
-      
+
       // FOTOS DE TRADE (EVENTOS) - hasta 6 fotos
       if (datosAcumulados.fotosEvento && Array.isArray(datosAcumulados.fotosEvento)) {
         console.log(`📸 Comprimiendo ${datosAcumulados.fotosEvento.length} fotos de evento...`);
@@ -384,7 +384,7 @@ export default function ReportesFinalesPage() {
           }
         });
       }
-      
+
       // 🆕 FOTO DE SEÑALIZACIÓN (VISIT-CAPTURE)
       console.log('🚩🚩🚩 === DEBUGGING FOTO SEÑALIZACIÓN EN REPORTES-FINALES ===');
       console.log('🚩 datosAcumulados.signagePhoto existe:', !!datosAcumulados.signagePhoto);
@@ -393,11 +393,11 @@ export default function ReportesFinalesPage() {
       console.log('🚩 datosAcumulados.signagePhoto es base64:', datosAcumulados.signagePhoto?.startsWith('data:image/'));
       console.log('🚩 datosAcumulados.clienteData?.signagePhoto existe:', !!datosAcumulados.clienteData?.signagePhoto);
       console.log('🚩 datosAcumulados.clienteData?.signagePhoto es base64:', datosAcumulados.clienteData?.signagePhoto?.startsWith('data:image/'));
-      
+
       // ✅ INTENTAR MÚLTIPLES FUENTES PARA LA FOTO DE SEÑALIZACIÓN
       const fotoSeñalizacion = datosAcumulados.signagePhoto || datosAcumulados.clienteData?.signagePhoto;
       console.log('🚩 Foto señalización final seleccionada:', fotoSeñalizacion ? 'ENCONTRADA' : 'NO ENCONTRADA');
-      
+
       if (fotoSeñalizacion && fotoSeñalizacion.trim() !== '' && fotoSeñalizacion.startsWith('data:image/')) {
         console.log('✅ PROCESANDO FOTO DE SEÑALIZACIÓN');
         compresiones.push(
@@ -415,7 +415,7 @@ export default function ReportesFinalesPage() {
         console.log('   - Está vacía:', !fotoSeñalizacion || fotoSeñalizacion.trim() === '');
         console.log('   - Es base64:', fotoSeñalizacion?.startsWith('data:image/'));
       }
-      
+
       // FOTOS DE TRADE-IMPULSO/EVENTOS
       if (datosAcumulados.fotoImpulso && datosAcumulados.fotoImpulso.trim() !== '' && datosAcumulados.fotoImpulso.startsWith('data:image/')) {
         compresiones.push(
@@ -450,7 +450,7 @@ export default function ReportesFinalesPage() {
           );
         }
       }
-      
+
       if (datosAcumulados.fotoPromotoras && datosAcumulados.fotoPromotoras.trim() !== '' && datosAcumulados.fotoPromotoras.startsWith('data:image/')) {
         compresiones.push(
           comprimirImagenBase64(datosAcumulados.fotoPromotoras).then(comprimida => {
@@ -484,12 +484,12 @@ export default function ReportesFinalesPage() {
           );
         }
       }
-      
+
       // FOTOS DE MERCHANDISING SHELL
       if (datosAcumulados.shellMerchandising) {
         const shell = datosAcumulados.shellMerchandising;
         console.log('📸 COMPRIMIENDO FOTOS DE MERCHANDISING SHELL:');
-        
+
         // 🔧 VERIFICAR Y COMPRIMIR FOTO ANTES DEL PLANOGRAMA
         if (shell.fotoAntesShell && shell.fotoAntesShell.trim() !== '' && shell.fotoAntesShell.startsWith('data:image/')) {
           compresiones.push(
@@ -503,7 +503,7 @@ export default function ReportesFinalesPage() {
         } else {
           console.log('⚠️ FOTO ANTES DEL PLANOGRAMA está vacía o inválida');
         }
-        
+
         // 🔧 VERIFICAR Y COMPRIMIR FOTO DESPUÉS DEL PLANOGRAMA
         if (shell.fotoDespuesShell && shell.fotoDespuesShell.trim() !== '' && shell.fotoDespuesShell.startsWith('data:image/')) {
           compresiones.push(
@@ -517,7 +517,7 @@ export default function ReportesFinalesPage() {
         } else {
           console.log('⚠️ FOTO DESPUÉS DEL PLANOGRAMA está vacía o inválida');
         }
-        
+
         // 🔧 VERIFICAR Y COMPRIMIR FOTO STICKER SHELL
         if (shell.fotoStickerShell && shell.fotoStickerShell.trim() !== '' && shell.fotoStickerShell.startsWith('data:image/')) {
           compresiones.push(
@@ -532,12 +532,12 @@ export default function ReportesFinalesPage() {
           console.log('⚠️ FOTO STICKER SHELL está vacía o inválida');
         }
       }
-      
+
       // 🆕 FOTOS DE MATERIAL INTERNO SHELL
       if (datosAcumulados.shellMaterialInterno) {
         const material = datosAcumulados.shellMaterialInterno;
         console.log('📸 COMPRIMIENDO FOTOS DE MATERIAL INTERNO SHELL:');
-        
+
         if (material.fotoExhibidoresShell && material.fotoExhibidoresShell.trim() !== '' && material.fotoExhibidoresShell.startsWith('data:image/')) {
           compresiones.push(comprimirImagenBase64(material.fotoExhibidoresShell).then(c => { fotosComprimidas.foto_exhibidores_shell = c; console.log('✅ COMPRIMIDA FOTO EXHIBIDORES'); }));
         }
@@ -551,12 +551,12 @@ export default function ReportesFinalesPage() {
           compresiones.push(comprimirImagenBase64(material.fotoAvisoAcrilicoShell).then(c => { fotosComprimidas.foto_aviso_acrilico_shell = c; console.log('✅ COMPRIMIDA FOTO AVISO ACRÍLICO'); }));
         }
       }
-      
+
       // 🆕 FOTOS DE MERCHANDISING QUALID
       if (datosAcumulados.qualidMerchandising) {
         const qualid = datosAcumulados.qualidMerchandising;
         console.log('📸 COMPRIMIENDO FOTOS DE MERCHANDISING QUALID:');
-        
+
         // Fotos de planograma Qualid
         if (qualid.fotoAntesPlanogramaQualid && qualid.fotoAntesPlanogramaQualid.trim() !== '' && qualid.fotoAntesPlanogramaQualid.startsWith('data:image/')) {
           compresiones.push(comprimirImagenBase64(qualid.fotoAntesPlanogramaQualid).then(c => { fotosComprimidas.foto_antes_planograma_qualid = c; console.log('✅ COMPRIMIDA FOTO ANTES PLANOGRAMA QUALID'); }));
@@ -564,7 +564,7 @@ export default function ReportesFinalesPage() {
         if (qualid.fotoDespuesPlanogramaQualid && qualid.fotoDespuesPlanogramaQualid.trim() !== '' && qualid.fotoDespuesPlanogramaQualid.startsWith('data:image/')) {
           compresiones.push(comprimirImagenBase64(qualid.fotoDespuesPlanogramaQualid).then(c => { fotosComprimidas.foto_despues_planograma_qualid = c; console.log('✅ COMPRIMIDA FOTO DESPUÉS PLANOGRAMA QUALID'); }));
         }
-        
+
         // Fotos de afiches y exhibidores Qualid
         if (qualid.fotoAfichesQualid && qualid.fotoAfichesQualid.trim() !== '' && qualid.fotoAfichesQualid.startsWith('data:image/')) {
           compresiones.push(comprimirImagenBase64(qualid.fotoAfichesQualid).then(c => { fotosComprimidas.foto_afiches_qualid = c; console.log('✅ COMPRIMIDA FOTO AFICHES QUALID'); }));
@@ -573,10 +573,10 @@ export default function ReportesFinalesPage() {
           compresiones.push(comprimirImagenBase64(qualid.fotoExhibidoresCauchoQualid).then(c => { fotosComprimidas.foto_exhibidores_caucho_qualid = c; console.log('✅ COMPRIMIDA FOTO EXHIBIDORES CAUCHO QUALID'); }));
         }
       }
-      
+
       // 📎 ESPERAR A QUE TODAS LAS COMPRESIONES TERMINEN
       await Promise.all(compresiones);
-      
+
       console.log(`📊 TOTAL DE FOTOS COMPRIMIDAS: ${Object.keys(fotosComprimidas).length} imágenes`);
       console.log('🎯 FOTOS COMPRIMIDAS PARA N8N:', Object.keys(fotosComprimidas));
 
@@ -629,7 +629,7 @@ export default function ReportesFinalesPage() {
       if (datosAcumulados.hasSignage) {
         observacionesOrganizadas.push(`¿EL CLIENTE TIENE SEÑALIZACIÓN?: ${datosAcumulados.hasSignage === 'Yes' ? 'Sí' : 'No'}`);
       }
-      
+
       // RECURSOS UTILIZADOS
       if ((datosAcumulados.recursosUsados || []).length > 0) {
         observacionesOrganizadas.push(`RECURSOS UTILIZADOS:`);
@@ -697,7 +697,7 @@ export default function ReportesFinalesPage() {
         observacionesOrganizadas.push(`ACTIVIDADES DE MERCHANDISING (QUALID):`);
         observacionesOrganizadas.push(`  Total de Cenefas Qualid colocadas: ${qualid.totalCenefasQualid || 0}`);
         observacionesOrganizadas.push(`  Total de Bolsas Qualid para carro entregadas: ${qualid.totalBolsasQualid || 0}`);
-        
+
         if (qualid.afichesColocadosQualid && qualid.afichesColocadosQualid.length > 0) {
           observacionesOrganizadas.push(`  Afiches Qualid Colocados:`);
           qualid.afichesColocadosQualid.forEach((afiche: any) => {
@@ -720,7 +720,7 @@ export default function ReportesFinalesPage() {
       // ✅ VERIFICAR TIPO DE VISITA PARA USAR FORMATO CORRECTO
       const tipoVisita = datosAcumulados.tipoVisita || '';
       const esTradeImpulsoOEventos = tipoVisita.includes('Trade (Impulso)') || tipoVisita.includes('Trade (Eventos)');
-      
+
       console.log('🔍 TIPO DE VISITA DETECTADO:', tipoVisita);
       console.log('🔍 ¿Es Trade Impulso/Eventos?:', esTradeImpulsoOEventos);
 
@@ -834,284 +834,284 @@ export default function ReportesFinalesPage() {
         console.log('🚩 datosAcumulados.hasSignage:', datosAcumulados.hasSignage);
         console.log('🚩 datosAcumulados.clienteData?.hasSignage:', datosAcumulados.clienteData?.hasSignage);
         console.log('🚩 datosAcumulados.cliente?.hasSignage:', datosAcumulados.cliente?.hasSignage);
-        
+
         // ✅ LÓGICA MEJORADA: Priorizar datosAcumulados.hasSignage, luego clienteData.hasSignage
         const hs = (datosAcumulados.hasSignage !== undefined && datosAcumulados.hasSignage !== null && datosAcumulados.hasSignage !== '')
           ? datosAcumulados.hasSignage
           : (datosAcumulados.clienteData?.hasSignage !== undefined && datosAcumulados.clienteData?.hasSignage !== null && datosAcumulados.clienteData?.hasSignage !== '')
             ? datosAcumulados.clienteData.hasSignage
             : (datosAcumulados.cliente?.hasSignage ?? undefined);
-        
+
         console.log('🚩 Valor final de hasSignage (hs):', hs);
-        
+
         let hasSignageStr = 'No respondido';
         if (hs === 'Yes' || hs === true) hasSignageStr = 'Sí';
         else if (hs === 'No' || hs === false) hasSignageStr = 'No';
-        
+
         console.log('🚩 hasSignageStr final:', hasSignageStr);
         datosSheet["¿El cliente posee señalización?"] = hasSignageStr;
-      
-      // ✅ MAPEAR FOTOS DE FIREBASE STORAGE A CAMPOS ESPECÍFICOS
-      // (Las variables se declararán DESPUÉS de que fotosUrls esté poblado)
 
-      datosSheet["Foto de la señalización"] = 'Pendiente de mapeo'; // Se actualizará después
+        // ✅ MAPEAR FOTOS DE FIREBASE STORAGE A CAMPOS ESPECÍFICOS
+        // (Las variables se declararán DESPUÉS de que fotosUrls esté poblado)
 
-      // ✅ MERCHANDISING SHELL - PLANOGRAMA
-      if (datosAcumulados.shellMerchandising) {
-        const shell = datosAcumulados.shellMerchandising;
-        datosSheet["¿Hiciste Planograma SHELL?"] = shell.hicistePlanogramaShell ? 'Sí' : 'No';
-        datosSheet["Foto \"Antes\" del Planograma Shell"] = 'Pendiente de mapeo'; // Se actualizará después
-        datosSheet["Foto \"Después\" del Planograma Shell"] = 'Pendiente de mapeo'; // Se actualizará después
-        
-        // STICKERS PUNTO DE VENTA
-        datosSheet["¿El cliente tiene STICKER PUNTO DE VENTA AUTORIZADO SHELL?"] = shell.cantidadStickersAutorizados > 0 ? 'Sí' : 'No';
-        datosSheet["¿Colocaste STICKER PUNTO DE VENTA AUTORIZADO SHELL?"] = shell.cantidadStickersNuevos > 0 ? 'Sí' : 'No';
-        datosSheet["Foto del STICKER PUNTO DE VENTA AUTORIZADO SHELL:"] = 'Pendiente de mapeo'; // Se actualizará después
-        
-        // MATERIALES SHELL
-        datosSheet["Total de CENEFAS SHELL colocadas:"] = shell.totalCenefasShell || 0;
-        datosSheet["Total de PAPEL BOBINA SHELL colocado en metros:"] = shell.totalPapelBobinaShell || 0;
-        datosSheet["Total de STICKERS SHELL CAMBIO DE LUBRICANTE entregados:"] = shell.totalStickersShellCambio || 0;
-        datosSheet["Total de AMBIENTADORES SHELL PARA VEHÍCULO entregados:"] = shell.totalAmbientadoresShell || 0;
-        datosSheet["Total de BOLSAS SHELL PARA CARRO entregadas:"] = shell.totalBolsasShell || 0;
-      } else {
-        // Valores predeterminados si no hay datos de merchandising Shell
-        datosSheet["¿Hiciste Planograma SHELL?"] = 'No respondido';
-        datosSheet["Foto \"Antes\" del Planograma Shell"] = 'No capturada';
-        datosSheet["Foto \"Después\" del Planograma Shell"] = 'No capturada';
-        datosSheet["¿El cliente tiene STICKER PUNTO DE VENTA AUTORIZADO SHELL?"] = 'No respondido';
-        datosSheet["¿Colocaste STICKER PUNTO DE VENTA AUTORIZADO SHELL?"] = 'No respondido';
-        datosSheet["Foto del STICKER PUNTO DE VENTA AUTORIZADO SHELL:"] = 'No capturada';
-        datosSheet["Total de CENEFAS SHELL colocadas:"] = 0;
-        datosSheet["Total de PAPEL BOBINA SHELL colocado en metros:"] = 0;
-        datosSheet["Total de STICKERS SHELL CAMBIO DE LUBRICANTE entregados:"] = 0;
-        datosSheet["Total de AMBIENTADORES SHELL PARA VEHÍCULO entregados:"] = 0;
-        datosSheet["Total de BOLSAS SHELL PARA CARRO entregadas:"] = 0;
-      }
+        datosSheet["Foto de la señalización"] = 'Pendiente de mapeo'; // Se actualizará después
 
-      // ✅ MATERIAL INTERNO SHELL - EXHIBIDORES
-      if (datosAcumulados.shellMaterialInterno) {
-        const material = datosAcumulados.shellMaterialInterno;
-        datosSheet["¿El cliente tiene EXHIBIDORES SHELL?"] = material.tieneExhibidoresShell ? 'Sí' : 'No';
-        datosSheet["De tener EXHIBIDORES SHELL, adjunta aquí la foto:"] = 'Pendiente de mapeo'; // Se actualizará después
-        
-        // AFICHES SHELL ESPECÍFICOS (mapear a headers exactos)
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA FERRARI 2023]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA HX8]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA PRODUCTOS PREMIUM 2024]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL FAMILIA 2023]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL HX7 10W-40]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA TABLA DE APLICACION SHELL]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE CAMPAÑA SHELL GADUS 2021]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL HELIX]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL RIMULA]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL ADVANCE]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL 5W-30]"] = 0;
-        
-        // Mapear afiches que tengamos guardados a las categorías específicas
-        if (material.afichesColocadosShell && material.afichesColocadosShell.length > 0) {
-          material.afichesColocadosShell.forEach((afiche: any) => {
-            const tipo = afiche.tipo?.toLowerCase() || '';
-            const cantidad = afiche.cantidad || 0;
-            
-            // Mapeo inteligente basado en el tipo de afiche
-            if (tipo.includes('ferrari')) {
-              datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA FERRARI 2023]"] = cantidad;
-            } else if (tipo.includes('hx8')) {
-              datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA HX8]"] = cantidad;
-            } else if (tipo.includes('premium')) {
-              datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA PRODUCTOS PREMIUM 2024]"] = cantidad;
-            } else if (tipo.includes('familia')) {
-              datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL FAMILIA 2023]"] = cantidad;
-            } else if (tipo.includes('hx7')) {
-              datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL HX7 10W-40]"] = cantidad;
-            } else if (tipo.includes('tabla') || tipo.includes('aplicacion')) {
-              datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA TABLA DE APLICACION SHELL]"] = cantidad;
-            } else if (tipo.includes('gadus')) {
-              datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE CAMPAÑA SHELL GADUS 2021]"] = cantidad;
-            } else if (tipo.includes('helix')) {
-              datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL HELIX]"] = cantidad;
-            } else if (tipo.includes('rimula')) {
-              datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL RIMULA]"] = cantidad;
-            } else if (tipo.includes('advance')) {
-              datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL ADVANCE]"] = cantidad;
-            } else if (tipo.includes('5w-30')) {
-              datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL 5W-30]"] = cantidad;
-            }
-          });
-        }
-        
-        datosSheet["Fotos de los AFICHES SHELL colocados:"] = 'Pendiente de mapeo'; // Se actualizará después
-        
-        // BANDERINES SHELL
-        datosSheet["¿Colocaste TIRA DE BANDERINES SHELL?"] = material.colocoBanderinesShell ? 'Sí' : 'No';
-        datosSheet["Total de TIRA DE BANDERINES SHELL colocadas:"] = material.cantidadTirasBanderinesShell || 0;
-        datosSheet["Fotos de los BANDERINES SHELL colocados:"] = 'Pendiente de mapeo'; // Se actualizará después
-        
-        // AVISO ACRÍLICO SHELL
-        datosSheet["¿El cliente tiene AVISO ACRÍLICO PARA EXTERIORES SHELL?"] = material.colocoAvisoAcrilicoShell ? 'Sí' : 'No';
-        datosSheet["Foto del AVISO ACRÍLICO PARA EXTERIORES SHELL colocado:"] = 'Pendiente de mapeo'; // Se actualizará después
+        // ✅ MERCHANDISING SHELL - PLANOGRAMA
+        if (datosAcumulados.shellMerchandising) {
+          const shell = datosAcumulados.shellMerchandising;
+          datosSheet["¿Hiciste Planograma SHELL?"] = shell.hicistePlanogramaShell ? 'Sí' : 'No';
+          datosSheet["Foto \"Antes\" del Planograma Shell"] = 'Pendiente de mapeo'; // Se actualizará después
+          datosSheet["Foto \"Después\" del Planograma Shell"] = 'Pendiente de mapeo'; // Se actualizará después
+
+          // STICKERS PUNTO DE VENTA
+          datosSheet["¿El cliente tiene STICKER PUNTO DE VENTA AUTORIZADO SHELL?"] = shell.cantidadStickersAutorizados > 0 ? 'Sí' : 'No';
+          datosSheet["¿Colocaste STICKER PUNTO DE VENTA AUTORIZADO SHELL?"] = shell.cantidadStickersNuevos > 0 ? 'Sí' : 'No';
+          datosSheet["Foto del STICKER PUNTO DE VENTA AUTORIZADO SHELL:"] = 'Pendiente de mapeo'; // Se actualizará después
+
+          // MATERIALES SHELL
+          datosSheet["Total de CENEFAS SHELL colocadas:"] = shell.totalCenefasShell || 0;
+          datosSheet["Total de PAPEL BOBINA SHELL colocado en metros:"] = shell.totalPapelBobinaShell || 0;
+          datosSheet["Total de STICKERS SHELL CAMBIO DE LUBRICANTE entregados:"] = shell.totalStickersShellCambio || 0;
+          datosSheet["Total de AMBIENTADORES SHELL PARA VEHÍCULO entregados:"] = shell.totalAmbientadoresShell || 0;
+          datosSheet["Total de BOLSAS SHELL PARA CARRO entregadas:"] = shell.totalBolsasShell || 0;
         } else {
-        // Valores predeterminados para material interno Shell
-        datosSheet["¿El cliente tiene EXHIBIDORES SHELL?"] = 'No respondido';
-        datosSheet["De tener EXHIBIDORES SHELL, adjunta aquí la foto:"] = 'No capturada';
-        
-        // Todos los afiches Shell con valor 0
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA FERRARI 2023]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA HX8]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA PRODUCTOS PREMIUM 2024]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL FAMILIA 2023]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL HX7 10W-40]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA TABLA DE APLICACION SHELL]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE CAMPAÑA SHELL GADUS 2021]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL HELIX]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL RIMULA]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL ADVANCE]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL 5W-30]"] = 0;
-        datosSheet["Fotos de los AFICHES SHELL colocados:"] = 'No capturada';
-        
-        datosSheet["¿Colocaste TIRA DE BANDERINES SHELL?"] = 'No respondido';
-        datosSheet["Total de TIRA DE BANDERINES SHELL colocadas:"] = 0;
-        datosSheet["Fotos de los BANDERINES SHELL colocados:"] = 'No capturada';
-        
-        datosSheet["¿El cliente tiene AVISO ACRÍLICO PARA EXTERIORES SHELL?"] = 'No respondido';
-        datosSheet["Foto del AVISO ACRÍLICO PARA EXTERIORES SHELL colocado:"] = 'No capturada';
-      }
-
-      // ✅ MERCHANDISING QUALID
-      if (datosAcumulados.qualidMerchandising) {
-        const qualid = datosAcumulados.qualidMerchandising;
-        datosSheet["¿Colocaste Material Qualid?"] = 'Sí'; // Si hay datos de Qualid, es porque sí colocó material
-        datosSheet["¿Hiciste Planograma Qualid?"] = 'No especificado'; // No tenemos este dato específico
-        datosSheet["Foto del antes del Planograma Qualid"] = 'Pendiente de mapeo'; // Se actualizará después
-        datosSheet["Foto del después del Planograma Qualid"] = 'Pendiente de mapeo'; // Se actualizará después
-        
-        // MATERIALES QUALID
-        datosSheet["Total de CENEFAS QUALID colocadas:"] = qualid.totalCenefasQualid || 0;
-        datosSheet["Total de BOLSAS QUALID PARA CARRO ENTREGADAS:"] = qualid.totalBolsasQualid || 0;
-        
-        // AFICHES QUALID ESPECÍFICOS (mapear a headers exactos)
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA FILTROS Y FLUIDOS 2024]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2023]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2024]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CUIDADO AUTOMOTRIZ 2022]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FF 2022]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FILTROS 2022]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID MANTENIMIENTO 2022]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA CROSS REFERENCE SERVICIO PESADO 2024]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE APLICACIÓN]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE FILTRO AUTOMOTRIZ 2024]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHE QUALID FILTROS AUTOMOTRIZ]"] = 0;
-        
-        // Mapear afiches que tengamos guardados a las categorías específicas
-        if (qualid.afichesColocadosQualid && qualid.afichesColocadosQualid.length > 0) {
-          qualid.afichesColocadosQualid.forEach((afiche: any) => {
-            const tipo = afiche.tipo?.toLowerCase() || '';
-            const cantidad = afiche.cantidad || 0;
-            
-            // Mapeo inteligente basado en el tipo de afiche Qualid
-            if (tipo.includes('filtros') && tipo.includes('fluidos') && tipo.includes('2024')) {
-              datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA FILTROS Y FLUIDOS 2024]"] = cantidad;
-            } else if (tipo.includes('caucho') && tipo.includes('2023')) {
-              datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2023]"] = cantidad;
-            } else if (tipo.includes('caucho') && tipo.includes('2024')) {
-              datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2024]"] = cantidad;
-            } else if (tipo.includes('cuidado') && tipo.includes('automotriz')) {
-              datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CUIDADO AUTOMOTRIZ 2022]"] = cantidad;
-            } else if (tipo.includes('ff') && tipo.includes('2022')) {
-              datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FF 2022]"] = cantidad;
-            } else if (tipo.includes('filtros') && tipo.includes('2022')) {
-              datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FILTROS 2022]"] = cantidad;
-            } else if (tipo.includes('mantenimiento')) {
-              datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID MANTENIMIENTO 2022]"] = cantidad;
-            } else if (tipo.includes('cross') || tipo.includes('servicio pesado')) {
-              datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA CROSS REFERENCE SERVICIO PESADO 2024]"] = cantidad;
-            } else if (tipo.includes('tabla') && tipo.includes('aplicación')) {
-              datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE APLICACIÓN]"] = cantidad;
-            } else if (tipo.includes('tabla') && tipo.includes('filtro') && tipo.includes('automotriz')) {
-              datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE FILTRO AUTOMOTRIZ 2024]"] = cantidad;
-            } else if (tipo.includes('filtros automotriz')) {
-              datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHE QUALID FILTROS AUTOMOTRIZ]"] = cantidad;
-            }
-          });
+          // Valores predeterminados si no hay datos de merchandising Shell
+          datosSheet["¿Hiciste Planograma SHELL?"] = 'No respondido';
+          datosSheet["Foto \"Antes\" del Planograma Shell"] = 'No capturada';
+          datosSheet["Foto \"Después\" del Planograma Shell"] = 'No capturada';
+          datosSheet["¿El cliente tiene STICKER PUNTO DE VENTA AUTORIZADO SHELL?"] = 'No respondido';
+          datosSheet["¿Colocaste STICKER PUNTO DE VENTA AUTORIZADO SHELL?"] = 'No respondido';
+          datosSheet["Foto del STICKER PUNTO DE VENTA AUTORIZADO SHELL:"] = 'No capturada';
+          datosSheet["Total de CENEFAS SHELL colocadas:"] = 0;
+          datosSheet["Total de PAPEL BOBINA SHELL colocado en metros:"] = 0;
+          datosSheet["Total de STICKERS SHELL CAMBIO DE LUBRICANTE entregados:"] = 0;
+          datosSheet["Total de AMBIENTADORES SHELL PARA VEHÍCULO entregados:"] = 0;
+          datosSheet["Total de BOLSAS SHELL PARA CARRO entregadas:"] = 0;
         }
-        
-        datosSheet["Fotos de los AFICHES QUALID colocados:"] = 'Pendiente de mapeo'; // Se actualizará después
-        
-        // EXHIBIDORES DE CAUCHO QUALID
-        const tieneExhibidores = qualid.exhibidoresCauchoQualid && qualid.exhibidoresCauchoQualid.length > 0;
-        datosSheet["¿Colocaste EXHIBIDORES DE CAUCHOS QUALID?"] = tieneExhibidores ? 'Sí' : 'No';
-        
-        let totalPequeño = 0;
-        let totalGrande = 0;
-        
-        if (tieneExhibidores) {
-          qualid.exhibidoresCauchoQualid.forEach((exhibidor: any) => {
-            const tipo = exhibidor.tipo?.toLowerCase() || '';
-            const cantidad = exhibidor.cantidad || 0;
-            
-            if (tipo.includes('pequeño')) {
-              totalPequeño += cantidad;
-            } else if (tipo.includes('grande')) {
-              totalGrande += cantidad;
+
+        // ✅ MATERIAL INTERNO SHELL - EXHIBIDORES
+        if (datosAcumulados.shellMaterialInterno) {
+          const material = datosAcumulados.shellMaterialInterno;
+          datosSheet["¿El cliente tiene EXHIBIDORES SHELL?"] = material.tieneExhibidoresShell ? 'Sí' : 'No';
+          datosSheet["De tener EXHIBIDORES SHELL, adjunta aquí la foto:"] = 'Pendiente de mapeo'; // Se actualizará después
+
+          // AFICHES SHELL ESPECÍFICOS (mapear a headers exactos)
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA FERRARI 2023]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA HX8]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA PRODUCTOS PREMIUM 2024]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL FAMILIA 2023]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL HX7 10W-40]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA TABLA DE APLICACION SHELL]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE CAMPAÑA SHELL GADUS 2021]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL HELIX]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL RIMULA]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL ADVANCE]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL 5W-30]"] = 0;
+
+          // Mapear afiches que tengamos guardados a las categorías específicas
+          if (material.afichesColocadosShell && material.afichesColocadosShell.length > 0) {
+            material.afichesColocadosShell.forEach((afiche: any) => {
+              const tipo = afiche.tipo?.toLowerCase() || '';
+              const cantidad = afiche.cantidad || 0;
+
+              // Mapeo inteligente basado en el tipo de afiche
+              if (tipo.includes('ferrari')) {
+                datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA FERRARI 2023]"] = cantidad;
+              } else if (tipo.includes('hx8')) {
+                datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA HX8]"] = cantidad;
+              } else if (tipo.includes('premium')) {
+                datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA PRODUCTOS PREMIUM 2024]"] = cantidad;
+              } else if (tipo.includes('familia')) {
+                datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL FAMILIA 2023]"] = cantidad;
+              } else if (tipo.includes('hx7')) {
+                datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL HX7 10W-40]"] = cantidad;
+              } else if (tipo.includes('tabla') || tipo.includes('aplicacion')) {
+                datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA TABLA DE APLICACION SHELL]"] = cantidad;
+              } else if (tipo.includes('gadus')) {
+                datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE CAMPAÑA SHELL GADUS 2021]"] = cantidad;
+              } else if (tipo.includes('helix')) {
+                datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL HELIX]"] = cantidad;
+              } else if (tipo.includes('rimula')) {
+                datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL RIMULA]"] = cantidad;
+              } else if (tipo.includes('advance')) {
+                datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL ADVANCE]"] = cantidad;
+              } else if (tipo.includes('5w-30')) {
+                datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL 5W-30]"] = cantidad;
+              }
+            });
+          }
+
+          datosSheet["Fotos de los AFICHES SHELL colocados:"] = 'Pendiente de mapeo'; // Se actualizará después
+
+          // BANDERINES SHELL
+          datosSheet["¿Colocaste TIRA DE BANDERINES SHELL?"] = material.colocoBanderinesShell ? 'Sí' : 'No';
+          datosSheet["Total de TIRA DE BANDERINES SHELL colocadas:"] = material.cantidadTirasBanderinesShell || 0;
+          datosSheet["Fotos de los BANDERINES SHELL colocados:"] = 'Pendiente de mapeo'; // Se actualizará después
+
+          // AVISO ACRÍLICO SHELL
+          datosSheet["¿El cliente tiene AVISO ACRÍLICO PARA EXTERIORES SHELL?"] = material.colocoAvisoAcrilicoShell ? 'Sí' : 'No';
+          datosSheet["Foto del AVISO ACRÍLICO PARA EXTERIORES SHELL colocado:"] = 'Pendiente de mapeo'; // Se actualizará después
         } else {
-              // Si no especifica, asumimos pequeño por defecto
-              totalPequeño += cantidad;
-            }
-          });
-        }
-        
-        datosSheet["Total de EXHIBIDOR DE CAUCHO PEQUEÑO colocado:"] = totalPequeño;
-        datosSheet["Total de EXHIBIDORES DE CAUCHO GRANDE colocado:"] = totalGrande;
-        datosSheet["Foto de EXHIBIDORES DE CAUCHOS QUALID colocados:"] = 'Pendiente de mapeo'; // Se actualizará después
-      } else {
-        // Valores predeterminados para Qualid
-        datosSheet["¿Colocaste Material Qualid?"] = 'No';
-        datosSheet["¿Hiciste Planograma Qualid?"] = 'No';
-        datosSheet["Foto del antes del Planograma Qualid"] = 'No capturada';
-        datosSheet["Foto del después del Planograma Qualid"] = 'No capturada';
-        datosSheet["Total de CENEFAS QUALID colocadas:"] = 0;
-        datosSheet["Total de BOLSAS QUALID PARA CARRO ENTREGADAS:"] = 0;
-        
-        // Todos los afiches Qualid con valor 0
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA FILTROS Y FLUIDOS 2024]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2023]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2024]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CUIDADO AUTOMOTRIZ 2022]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FF 2022]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FILTROS 2022]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID MANTENIMIENTO 2022]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA CROSS REFERENCE SERVICIO PESADO 2024]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE APLICACIÓN]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE FILTRO AUTOMOTRIZ 2024]"] = 0;
-        datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHE QUALID FILTROS AUTOMOTRIZ]"] = 0;
-        datosSheet["Fotos de los AFICHES QUALID colocados:"] = 'No capturada';
-        
-        datosSheet["¿Colocaste EXHIBIDORES DE CAUCHOS QUALID?"] = 'No';
-        datosSheet["Total de EXHIBIDOR DE CAUCHO PEQUEÑO colocado:"] = 0;
-        datosSheet["Total de EXHIBIDORES DE CAUCHO GRANDE colocado:"] = 0;
-        datosSheet["Foto de EXHIBIDORES DE CAUCHOS QUALID colocados:"] = 'No capturada';
-      }
+          // Valores predeterminados para material interno Shell
+          datosSheet["¿El cliente tiene EXHIBIDORES SHELL?"] = 'No respondido';
+          datosSheet["De tener EXHIBIDORES SHELL, adjunta aquí la foto:"] = 'No capturada';
 
-      // ✅ REPORTES FINALES (headers exactos del Google Sheet)
-      datosSheet["Coloca aquí tus observaciones de producto faltante y cualquier comentario adicional para la cartera de productos SHELL:"] = reporteShellFaltante.trim() || 'Sin observaciones';
-              datosSheet["Coloca aquí tus observaciones de producto faltante y cualquier comentario adicional para la cartera de productos QUALID:"] = reporteQualidFaltante.trim() || 'Sin observaciones';
+          // Todos los afiches Shell con valor 0
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA FERRARI 2023]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA HX8]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA PRODUCTOS PREMIUM 2024]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL FAMILIA 2023]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA SHELL HX7 10W-40]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHES CAMPAÑA TABLA DE APLICACION SHELL]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE CAMPAÑA SHELL GADUS 2021]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL HELIX]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL RIMULA]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL ADVANCE]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES SHELL? [AFICHE SHELL 5W-30]"] = 0;
+          datosSheet["Fotos de los AFICHES SHELL colocados:"] = 'No capturada';
+
+          datosSheet["¿Colocaste TIRA DE BANDERINES SHELL?"] = 'No respondido';
+          datosSheet["Total de TIRA DE BANDERINES SHELL colocadas:"] = 0;
+          datosSheet["Fotos de los BANDERINES SHELL colocados:"] = 'No capturada';
+
+          datosSheet["¿El cliente tiene AVISO ACRÍLICO PARA EXTERIORES SHELL?"] = 'No respondido';
+          datosSheet["Foto del AVISO ACRÍLICO PARA EXTERIORES SHELL colocado:"] = 'No capturada';
+        }
+
+        // ✅ MERCHANDISING QUALID
+        if (datosAcumulados.qualidMerchandising) {
+          const qualid = datosAcumulados.qualidMerchandising;
+          datosSheet["¿Colocaste Material Qualid?"] = 'Sí'; // Si hay datos de Qualid, es porque sí colocó material
+          datosSheet["¿Hiciste Planograma Qualid?"] = 'No especificado'; // No tenemos este dato específico
+          datosSheet["Foto del antes del Planograma Qualid"] = 'Pendiente de mapeo'; // Se actualizará después
+          datosSheet["Foto del después del Planograma Qualid"] = 'Pendiente de mapeo'; // Se actualizará después
+
+          // MATERIALES QUALID
+          datosSheet["Total de CENEFAS QUALID colocadas:"] = qualid.totalCenefasQualid || 0;
+          datosSheet["Total de BOLSAS QUALID PARA CARRO ENTREGADAS:"] = qualid.totalBolsasQualid || 0;
+
+          // AFICHES QUALID ESPECÍFICOS (mapear a headers exactos)
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA FILTROS Y FLUIDOS 2024]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2023]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2024]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CUIDADO AUTOMOTRIZ 2022]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FF 2022]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FILTROS 2022]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID MANTENIMIENTO 2022]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA CROSS REFERENCE SERVICIO PESADO 2024]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE APLICACIÓN]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE FILTRO AUTOMOTRIZ 2024]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHE QUALID FILTROS AUTOMOTRIZ]"] = 0;
+
+          // Mapear afiches que tengamos guardados a las categorías específicas
+          if (qualid.afichesColocadosQualid && qualid.afichesColocadosQualid.length > 0) {
+            qualid.afichesColocadosQualid.forEach((afiche: any) => {
+              const tipo = afiche.tipo?.toLowerCase() || '';
+              const cantidad = afiche.cantidad || 0;
+
+              // Mapeo inteligente basado en el tipo de afiche Qualid
+              if (tipo.includes('filtros') && tipo.includes('fluidos') && tipo.includes('2024')) {
+                datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA FILTROS Y FLUIDOS 2024]"] = cantidad;
+              } else if (tipo.includes('caucho') && tipo.includes('2023')) {
+                datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2023]"] = cantidad;
+              } else if (tipo.includes('caucho') && tipo.includes('2024')) {
+                datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2024]"] = cantidad;
+              } else if (tipo.includes('cuidado') && tipo.includes('automotriz')) {
+                datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CUIDADO AUTOMOTRIZ 2022]"] = cantidad;
+              } else if (tipo.includes('ff') && tipo.includes('2022')) {
+                datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FF 2022]"] = cantidad;
+              } else if (tipo.includes('filtros') && tipo.includes('2022')) {
+                datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FILTROS 2022]"] = cantidad;
+              } else if (tipo.includes('mantenimiento')) {
+                datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID MANTENIMIENTO 2022]"] = cantidad;
+              } else if (tipo.includes('cross') || tipo.includes('servicio pesado')) {
+                datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA CROSS REFERENCE SERVICIO PESADO 2024]"] = cantidad;
+              } else if (tipo.includes('tabla') && tipo.includes('aplicación')) {
+                datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE APLICACIÓN]"] = cantidad;
+              } else if (tipo.includes('tabla') && tipo.includes('filtro') && tipo.includes('automotriz')) {
+                datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE FILTRO AUTOMOTRIZ 2024]"] = cantidad;
+              } else if (tipo.includes('filtros automotriz')) {
+                datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHE QUALID FILTROS AUTOMOTRIZ]"] = cantidad;
+              }
+            });
+          }
+
+          datosSheet["Fotos de los AFICHES QUALID colocados:"] = 'Pendiente de mapeo'; // Se actualizará después
+
+          // EXHIBIDORES DE CAUCHO QUALID
+          const tieneExhibidores = qualid.exhibidoresCauchoQualid && qualid.exhibidoresCauchoQualid.length > 0;
+          datosSheet["¿Colocaste EXHIBIDORES DE CAUCHOS QUALID?"] = tieneExhibidores ? 'Sí' : 'No';
+
+          let totalPequeño = 0;
+          let totalGrande = 0;
+
+          if (tieneExhibidores) {
+            qualid.exhibidoresCauchoQualid.forEach((exhibidor: any) => {
+              const tipo = exhibidor.tipo?.toLowerCase() || '';
+              const cantidad = exhibidor.cantidad || 0;
+
+              if (tipo.includes('pequeño')) {
+                totalPequeño += cantidad;
+              } else if (tipo.includes('grande')) {
+                totalGrande += cantidad;
+              } else {
+                // Si no especifica, asumimos pequeño por defecto
+                totalPequeño += cantidad;
+              }
+            });
+          }
+
+          datosSheet["Total de EXHIBIDOR DE CAUCHO PEQUEÑO colocado:"] = totalPequeño;
+          datosSheet["Total de EXHIBIDORES DE CAUCHO GRANDE colocado:"] = totalGrande;
+          datosSheet["Foto de EXHIBIDORES DE CAUCHOS QUALID colocados:"] = 'Pendiente de mapeo'; // Se actualizará después
+        } else {
+          // Valores predeterminados para Qualid
+          datosSheet["¿Colocaste Material Qualid?"] = 'No';
+          datosSheet["¿Hiciste Planograma Qualid?"] = 'No';
+          datosSheet["Foto del antes del Planograma Qualid"] = 'No capturada';
+          datosSheet["Foto del después del Planograma Qualid"] = 'No capturada';
+          datosSheet["Total de CENEFAS QUALID colocadas:"] = 0;
+          datosSheet["Total de BOLSAS QUALID PARA CARRO ENTREGADAS:"] = 0;
+
+          // Todos los afiches Qualid con valor 0
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA FILTROS Y FLUIDOS 2024]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2023]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CAUCHO 2024]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID CUIDADO AUTOMOTRIZ 2022]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FF 2022]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID FILTROS 2022]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID MANTENIMIENTO 2022]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA CROSS REFERENCE SERVICIO PESADO 2024]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE APLICACIÓN]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHES CAMPAÑA QUALID TABLA DE FILTRO AUTOMOTRIZ 2024]"] = 0;
+          datosSheet["¿Cuáles y cuantos AFICHES QUALID? [AFICHE QUALID FILTROS AUTOMOTRIZ]"] = 0;
+          datosSheet["Fotos de los AFICHES QUALID colocados:"] = 'No capturada';
+
+          datosSheet["¿Colocaste EXHIBIDORES DE CAUCHOS QUALID?"] = 'No';
+          datosSheet["Total de EXHIBIDOR DE CAUCHO PEQUEÑO colocado:"] = 0;
+          datosSheet["Total de EXHIBIDORES DE CAUCHO GRANDE colocado:"] = 0;
+          datosSheet["Foto de EXHIBIDORES DE CAUCHOS QUALID colocados:"] = 'No capturada';
+        }
+
+        // ✅ REPORTES FINALES (headers exactos del Google Sheet)
+        datosSheet["Coloca aquí tus observaciones de producto faltante y cualquier comentario adicional para la cartera de productos SHELL:"] = reporteShellFaltante.trim() || 'Sin observaciones';
+        datosSheet["Coloca aquí tus observaciones de producto faltante y cualquier comentario adicional para la cartera de productos QUALID:"] = reporteQualidFaltante.trim() || 'Sin observaciones';
         datosSheet["Añade aquí todos tus comentarios y observaciones adicionales"] = reporteComentariosAdicionales.trim() || 'Sin comentarios adicionales';
       } // Cierre del bloque else (merchandising)
-      
+
       console.log('📊 ESTRUCTURA FINAL datosSheet con headers exactos:');
       console.log('🎯 Total de campos mapeados:', Object.keys(datosSheet).length);
       console.log('✅ Todos los datos mapeados a headers del Google Sheet');
 
       // ✅ CORRECCIÓN: ESTRATEGIA DE ENVÍO UNIFICADA
       console.log('=== INICIANDO ENVÍO UNIFICADO CORRECTO ===');
-      
+
       // 📤 PASO 1: Subir imágenes a Firebase Storage (obtener URLs)
       let fotosUrls: string[] = [];
-      
+
       if (Object.keys(fotosComprimidas).length > 0) {
         console.log('📤 Subiendo imágenes a Firebase Storage...');
-        
+
         try {
           // ✅ USAR NUEVA FUNCIÓN ORGANIZADA
           const clienteInfo = {
@@ -1119,22 +1119,22 @@ export default function ReportesFinalesPage() {
             nombre: cliente.nombre,
             nombreEvento: datosAcumulados.nombreEvento
           };
-          
+
           // Subir todas las imágenes con estructura organizada
           fotosUrls = await uploadOrganizedImages(fotosComprimidas, datosAcumulados.tipoVisita, clienteInfo);
           console.log(`✅ ${fotosUrls.length} imágenes organizadas subidas a Firebase Storage`);
-          
+
           // ✅ AHORA MAPEAR FOTOS A datosSheet DIRECTAMENTE (después de que fotosUrls esté lleno)
           console.log('🎯 Mapeando URLs de Firebase Storage a campos específicos...');
           console.log('📊 Claves disponibles en fotosComprimidas:', Object.keys(fotosComprimidas));
           console.log('📊 Total fotosUrls recibidas:', fotosUrls.length);
           console.log('📊 URLs de Firebase:', fotosUrls);
-          
+
           // ✅ FUNCIÓN HELPER PARA MAPEO SEGURO (toma el primer match disponible)
           const mapearFoto = (claveComprimida: string, nombreCampo: string) => {
             const claves = Object.keys(fotosComprimidas);
             let indice = claves.indexOf(claveComprimida);
-            
+
             // ✅ BÚSQUEDA ROBUSTA PARA SEÑALIZACIÓN
             if (indice === -1 && (claveComprimida === 'foto_signage' || claveComprimida === 'foto_senalizacion')) {
               // Buscar ambas variantes
@@ -1143,7 +1143,7 @@ export default function ReportesFinalesPage() {
                 indice = claves.indexOf('foto_signage');
               }
             }
-            
+
             const url = fotosUrls[indice];
             console.log(`🔍 Mapeando "${nombreCampo}": clave="${claveComprimida}" índice=${indice} url=${url ? 'ENCONTRADA' : 'NO ENCONTRADA'}`);
             if (indice === -1) {
@@ -1151,16 +1151,16 @@ export default function ReportesFinalesPage() {
             }
             return url || 'No capturada';
           };
-          
+
           // ✅ ACTUALIZAR CAMPOS CON URLs REALES usando función helper
           if (esTradeImpulsoOEventos) {
             // 🎯 MAPEO ESPECÍFICO PARA TRADE IMPULSO/EVENTOS
             console.log('🎯 MAPEANDO FOTOS PARA TRADE IMPULSO/EVENTOS');
-            
+
             // Mapear fotos de Shell si existen
             datosSheet["Fotos del impulso o evento SHELL:"] = mapearFoto('foto_shell_0', 'Stand Shell');
             datosSheet["Fotos de las promotoras con los clientes en el impulso o evento SHELL:"] = mapearFoto('foto_shell_1', 'Promotoras Shell');
-            
+
             // Mapear fotos de Qualid si existen
             datosSheet["Fotos del impulso o evento QUALID:"] = mapearFoto('foto_qualid_0', 'Stand Qualid');
             datosSheet["Fotos de las promotoras con los clientes en el impulso o evento QUALID:"] = mapearFoto('foto_qualid_1', 'Promotoras Qualid');
@@ -1186,19 +1186,19 @@ export default function ReportesFinalesPage() {
             datosSheet["Fotos de los AFICHES QUALID colocados:"] = mapearFoto('foto_afiches_qualid', 'Afiches Qualid');
             datosSheet["Foto de EXHIBIDORES DE CAUCHOS QUALID colocados:"] = mapearFoto('foto_exhibidores_caucho_qualid', 'Exhibidores Qualid');
           }
-          
+
         } catch (error) {
           console.error('❌ Error subiendo imágenes a Firebase Storage:', error);
-          
+
           // 🚨 SOLUCIÓN TEMPORAL: Continuar sin imágenes pero guardar datos
           console.log('🔄 Continuando sin imágenes debido a error CORS/Firebase Storage');
-          
+
           // ✅ Marcar campos específicos como "Error de subida" para consistencia
           if (esTradeImpulsoOEventos) {
             // 🎯 CAMPOS DE ERROR PARA TRADE IMPULSO/EVENTOS
             // 🔧 CORRECCIÓN: Aplicar error según la marca seleccionada
             const marcaSeleccionada = datosAcumulados.marca;
-            
+
             if (marcaSeleccionada === 'Shell') {
               datosSheet["Fotos del impulso o evento SHELL:"] = 'Error de subida';
               datosSheet["Fotos de las promotoras con los clientes en el impulso o evento SHELL:"] = 'Error de subida';
@@ -1231,7 +1231,7 @@ export default function ReportesFinalesPage() {
             datosSheet["Fotos de los AFICHES QUALID colocados:"] = 'Error de subida';
             datosSheet["Foto de EXHIBIDORES DE CAUCHOS QUALID colocados:"] = 'Error de subida';
           }
-          
+
           toast({
             variant: 'destructive',
             title: 'Error subiendo imágenes',
@@ -1255,21 +1255,27 @@ export default function ReportesFinalesPage() {
       // 🚀 ENVIAR UN SOLO REGISTRO COMPLETO
       // ✅ UBICACIÓN: usar cliente.position válido, si no, clienteData.position
       console.log('🗺️ DEBUGGING GPS EN REPORTES-FINALES:');
-      
-      let finalPosition = { lat: 0, lng: 0 };
+
+      // Normalizar finalPosition para cumplir la interfaz esperada
+      let finalPosition: { lat: number; lng: number; direccion: string } = { lat: 0, lng: 0, direccion: '' };
       if (datosAcumulados.gpsCoordinates) {
         // Prioridad 1: Usar las coordenadas GPS capturadas en el momento
         finalPosition = {
-          lat: datosAcumulados.gpsCoordinates.latitude,
-          lng: datosAcumulados.gpsCoordinates.longitude
+          lat: Number(datosAcumulados.gpsCoordinates.latitude ?? datosAcumulados.gpsCoordinates.lat ?? 0),
+          lng: Number(datosAcumulados.gpsCoordinates.longitude ?? datosAcumulados.gpsCoordinates.lng ?? 0),
+          direccion: (datosAcumulados.gpsCoordinates as any)?.address || ''
         };
         console.log('🗺️ Usando GPS capturado en la visita:', finalPosition);
       } else if (cliente.position && !(cliente.position.lat === 0 && cliente.position.lng === 0)) {
-        // Prioridad 2: Usar la posición registrada del cliente
-        finalPosition = cliente.position;
+        // Prioridad 2: Usar la posición registrada del cliente (puede venir en distintos formatos)
+        finalPosition = {
+          lat: Number((cliente.position as any)?.lat ?? (cliente.position as any)?.latitude ?? 0),
+          lng: Number((cliente.position as any)?.lng ?? (cliente.position as any)?.longitude ?? 0),
+          direccion: String((cliente.position as any)?.direccion || (cliente.position as any)?.address || '')
+        };
         console.log('🗺️ Usando GPS registrado del cliente:', finalPosition);
       }
-      
+
       console.log('🗺️ POSICIÓN FINAL PARA GUARDAR:', finalPosition);
 
       const visitaId = await crearVisita({
@@ -1302,21 +1308,21 @@ export default function ReportesFinalesPage() {
       // ✅ CORRECCIÓN FINAL: MARCAR EL PUNTO COMO COMPLETADO EN LOCALSTORAGE
       // PRIORIDAD: eventId para eventos, luego id/pointId para clientes regulares
       let puntoIdParaMarcar = null;
-      
+
       // Para eventos, usar eventId si existe
       if (datosAcumulados.clienteData?.isEvent && datosAcumulados.clienteData?.eventId) {
         puntoIdParaMarcar = datosAcumulados.clienteData.eventId;
         console.log(`🎯 Evento detectado - usando eventId: ${puntoIdParaMarcar}`);
-        
+
         // ✅ ACTUALIZAR STATUS EN FIRESTORE PARA EVENTOS
         await actualizarStatusEventoEnFirestore(puntoIdParaMarcar);
-      } 
+      }
       // Para clientes regulares, usar id o pointId
       else {
         puntoIdParaMarcar = cliente?.id || cliente?.pointId || datosAcumulados.clienteData?.id;
         console.log(`👤 Cliente regular detectado - usando ID: ${puntoIdParaMarcar}`);
       }
-      
+
       if (puntoIdParaMarcar) {
         console.log(`✅ ID final para marcar como completado: ${puntoIdParaMarcar}`);
         marcarPuntoComoCompletado(puntoIdParaMarcar);
@@ -1342,7 +1348,7 @@ export default function ReportesFinalesPage() {
 
       // Navegar a la página de éxito
       router.push('/registro-exitoso');
-      
+
     } catch (error) {
       console.error('Error guardando trade completo:', error);
       toast({
@@ -1383,7 +1389,7 @@ export default function ReportesFinalesPage() {
             Complete los reportes finales antes de finalizar la visita.
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           {/* Sección 13: Reporte de producto faltante SHELL */}
           <div className="space-y-2">
@@ -1453,7 +1459,7 @@ export default function ReportesFinalesPage() {
             />
           </div>
         </CardContent>
-        
+
         <CardFooter>
           <Button
             onClick={handleGuardarYContinuar}

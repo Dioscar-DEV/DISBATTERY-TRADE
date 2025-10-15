@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MapPin, Plus, Edit, Trash2, Search, Filter, UserCircle, ArrowLeft, Upload, FileText, AlertCircle, CheckCircle, Menu } from 'lucide-react';
 import { Cliente, CreateClienteData, Region, Sede, SEDES_DATA, getSedesByRegion, getCitiesBySede } from '@/types/routes';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy, limit, startAfter, DocumentSnapshot } from 'firebase/firestore';
-import { db } from '@/firebase/clientApp';
+import { getFirestoreClient } from '@/firebase/clientApp';
 import { MapSelector } from '@/components/ui/map-selector';
 import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { obtenerVisitas } from '@/services/visitas';
@@ -161,7 +161,7 @@ export default function GestionClientesPage() {
   // Estados del mapa
   const [mapCenter, setMapCenter] = useState({ lat: 10.4806, lng: -66.9036 }); // Caracas
   const [selectedPosition, setSelectedPosition] = useState<{ lat: number; lng: number } | null>(null);
-  
+
   // Estado para las ciudades disponibles (para forzar re-render)
   const [availableCities, setAvailableCities] = useState<string[]>([]);
 
@@ -170,7 +170,7 @@ export default function GestionClientesPage() {
       try {
         setAuthLoading(true);
         setAuthError(null);
-        
+
         // Verificar autenticación local
         if (typeof window !== 'undefined') {
           const isAdmin = localStorage.getItem('isAdminLoggedIn');
@@ -185,23 +185,23 @@ export default function GestionClientesPage() {
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => reject(new Error('Timeout de autenticación')), 10000);
         });
-        
+
         const authPromise = getCurrentUserWithPermissions();
         const result = await Promise.race([authPromise, timeoutPromise]) as any;
-        
+
         if (result) {
           setCurrentUser(result.user);
           setUserPermissions(result.permissions);
-          
+
           console.log('✅ Usuario autenticado:', result.user?.fullName, 'Permisos:', result.permissions);
-          
+
           // Si el usuario no puede gestionar clientes, redirigir
           if (!result.permissions.canManageClients) {
             console.log('⚠️ Sin permisos para gestionar clientes, redirigiendo...');
             router.push('/admin/dashboard');
             return;
           }
-          
+
           // Solo cargar clientes si la autenticación es exitosa
           // loadClientes se llamará después de definirse
         } else {
@@ -210,7 +210,7 @@ export default function GestionClientesPage() {
       } catch (error: any) {
         console.error('❌ Error en autenticación:', error);
         setAuthError(error.message || 'Error de autenticación');
-        
+
         // Si hay error de auth, redirigir después de un delay
         setTimeout(() => {
           router.push('/');
@@ -249,9 +249,9 @@ export default function GestionClientesPage() {
     // Actualizar ciudades disponibles cuando cambie la sede
     const cities = getCitiesBySede(formData.sede);
     setAvailableCities(cities);
-    
+
     console.log('🏙️ Ciudades disponibles para', formData.sede, ':', cities.length, 'ciudades');
-    
+
     // Si la ciudad actual no está en las nuevas ciudades disponibles, resetearla
     if (formData.ciudad && !cities.includes(formData.ciudad)) {
       setFormData(prev => ({ ...prev, ciudad: '' }));
@@ -267,8 +267,8 @@ export default function GestionClientesPage() {
   }> => {
     try {
       console.log(`🔍 Buscando últimas visitas por tipo para cliente RIF: ${rifCliente}`);
-      
-      const visitasRef = collection(db, 'visitas');
+
+      const visitasRef = collection(getFirestoreClient(), 'visitas');
       const visitasQuery = query(
         visitasRef,
         where('rifCliente', '==', rifCliente)
@@ -286,13 +286,13 @@ export default function GestionClientesPage() {
 
       // Filtrar y separar visitas por tipo
       const visitas = visitasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
+
       console.log(`🔍 DEBUG VISITAS - Cliente ${rifCliente}:`, visitas.map((v: any) => ({
         id: v.id,
         tipoVisita: v.tipoVisita,
         createdAt: v.createdAt?.toDate ? v.createdAt.toDate().toISOString() : v.createdAt
       })));
-      
+
       // Visitas de merchandising
       const visitasMerchandising = visitas
         .filter((visita: any) => {
@@ -300,12 +300,12 @@ export default function GestionClientesPage() {
           const tvLower = tv.toLowerCase();
           // Aceptar tanto variantes antiguas como nuevas
           return tv === 'Merchandising' ||
-                 tvLower === 'merchandising' ||
-                 tvLower === 'qualid-merchandising' ||
-                 tvLower === 'shell-merchandising' ||
-                 tvLower === 'signage-capture' ||
-                 tv === 'Trade (Merchandising)' ||
-                 tvLower === 'trade (merchandising)';
+            tvLower === 'merchandising' ||
+            tvLower === 'qualid-merchandising' ||
+            tvLower === 'shell-merchandising' ||
+            tvLower === 'signage-capture' ||
+            tv === 'Trade (Merchandising)' ||
+            tvLower === 'trade (merchandising)';
         })
         .sort((a: any, b: any) => {
           const fechaA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt || new Date(0));
@@ -319,8 +319,8 @@ export default function GestionClientesPage() {
           const tv = (visita.tipoVisita || '').toString();
           const tvLower = tv.toLowerCase();
           return tv === 'Trade (Impulso)' ||
-                 tvLower === 'trade-impulso' ||
-                 tvLower === 'trade (impulso)';
+            tvLower === 'trade-impulso' ||
+            tvLower === 'trade (impulso)';
         })
         .sort((a: any, b: any) => {
           const fechaA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt || new Date(0));
@@ -339,7 +339,7 @@ export default function GestionClientesPage() {
       }
 
       const resultado = {
-        ultimaVisitaMerchandising: visitasMerchandising.length > 0 
+        ultimaVisitaMerchandising: visitasMerchandising.length > 0
           ? (visitasMerchandising[0] as any).createdAt?.toDate ? (visitasMerchandising[0] as any).createdAt.toDate() : (visitasMerchandising[0] as any).createdAt || null
           : null,
         ultimaVisitaTradeImpulso: visitasTradeImpulso.length > 0
@@ -369,9 +369,9 @@ export default function GestionClientesPage() {
   const obtenerInformacionSeñalizacion = async (rifCliente: string): Promise<InformacionSeñalizacion> => {
     try {
       console.log(`🔍 Buscando información de señalización para cliente RIF: ${rifCliente}`);
-      
-      const visitasRef = collection(db, 'visitas');
-      
+
+      const visitasRef = collection(getFirestoreClient(), 'visitas');
+
       // 🔄 CONSULTA SIMPLIFICADA: Solo filtramos por RIF, sin tipoVisita ni ordenamiento
       // Esto evita la necesidad de índices compuestos
       const visitasQuery = query(
@@ -391,43 +391,43 @@ export default function GestionClientesPage() {
         };
       }
 
-             // 🔄 FILTRADO EN MEMORIA: Filtrar y ordenar en JavaScript en lugar de Firestore
-       const visitas = visitasSnapshot.docs
-         .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter((visita: any) => {
-            // Solo visitas de merchandising/señalización (aceptar variantes)
-            const tv = (visita.tipoVisita || '').toString();
-            const tvLower = tv.toLowerCase();
-            return tv === 'Merchandising' ||
-                   tvLower === 'merchandising' ||
-                   tvLower === 'qualid-merchandising' ||
-                   tvLower === 'shell-merchandising' ||
-                   tvLower === 'signage-capture';
-          })
-         .sort((a: any, b: any) => {
-           // Ordenar por fecha de creación (más reciente primero)
-           const fechaA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt || new Date(0));
-           const fechaB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt || new Date(0));
-           return fechaB.getTime() - fechaA.getTime();
-         });
+      // 🔄 FILTRADO EN MEMORIA: Filtrar y ordenar en JavaScript en lugar de Firestore
+      const visitas = visitasSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((visita: any) => {
+          // Solo visitas de merchandising/señalización (aceptar variantes)
+          const tv = (visita.tipoVisita || '').toString();
+          const tvLower = tv.toLowerCase();
+          return tv === 'Merchandising' ||
+            tvLower === 'merchandising' ||
+            tvLower === 'qualid-merchandising' ||
+            tvLower === 'shell-merchandising' ||
+            tvLower === 'signage-capture';
+        })
+        .sort((a: any, b: any) => {
+          // Ordenar por fecha de creación (más reciente primero)
+          const fechaA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt || new Date(0));
+          const fechaB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt || new Date(0));
+          return fechaB.getTime() - fechaA.getTime();
+        });
 
-       if (visitas.length === 0) {
-         console.log(`⚠️ No se encontraron visitas de merchandising para el cliente ${rifCliente}`);
-         return {
-           tieneSeñalizacion: false,
-           estado: 'Sin información',
-           ultimaVisita: null,
-           detalles: 'No se encontraron visitas de merchandising'
-         };
-       }
+      if (visitas.length === 0) {
+        console.log(`⚠️ No se encontraron visitas de merchandising para el cliente ${rifCliente}`);
+        return {
+          tieneSeñalizacion: false,
+          estado: 'Sin información',
+          ultimaVisita: null,
+          detalles: 'No se encontraron visitas de merchandising'
+        };
+      }
 
-       const ultimaVisita = visitas[0] as any;
-       console.log(`📊 Última visita de merchandising encontrada:`, {
-         id: ultimaVisita.id,
-         fecha: ultimaVisita.createdAt?.toDate ? ultimaVisita.createdAt.toDate() : ultimaVisita.createdAt,
-         tipo: ultimaVisita.tipoVisita,
-         tieneDatos: !!ultimaVisita.data
-       });
+      const ultimaVisita = visitas[0] as any;
+      console.log(`📊 Última visita de merchandising encontrada:`, {
+        id: ultimaVisita.id,
+        fecha: ultimaVisita.createdAt?.toDate ? ultimaVisita.createdAt.toDate() : ultimaVisita.createdAt,
+        tipo: ultimaVisita.tipoVisita,
+        tieneDatos: !!ultimaVisita.data
+      });
 
       // 🔍 EXTRAER INFORMACIÓN DE SEÑALIZACIÓN
       let tieneSeñalizacion = false;
@@ -436,10 +436,10 @@ export default function GestionClientesPage() {
 
       if (ultimaVisita.data) {
         console.log(`🔍 Analizando datos de la visita:`, ultimaVisita.data);
-        
+
         try {
           let data = ultimaVisita.data;
-          
+
           // Si data es un string, intentar parsearlo
           if (typeof data === 'string') {
             try {
@@ -461,17 +461,17 @@ export default function GestionClientesPage() {
           if (data.señalizacion !== undefined) {
             const valorSeñalizacion = data.señalizacion;
             console.log(`🎯 Campo directo 'señalizacion' encontrado:`, valorSeñalizacion);
-            
-            if (valorSeñalizacion === true || valorSeñalizacion === 'true' || 
-                valorSeñalizacion === 'sí' || valorSeñalizacion === 'si' || 
-                valorSeñalizacion === 'yes' || valorSeñalizacion === '1' ||
-                valorSeñalizacion === 1) {
+
+            if (valorSeñalizacion === true || valorSeñalizacion === 'true' ||
+              valorSeñalizacion === 'sí' || valorSeñalizacion === 'si' ||
+              valorSeñalizacion === 'yes' || valorSeñalizacion === '1' ||
+              valorSeñalizacion === 1) {
               tieneSeñalizacion = true;
               estado = 'Con señalización';
               detalles = `Confirmado: campo 'señalizacion' = ${valorSeñalizacion}`;
             } else if (valorSeñalizacion === false || valorSeñalizacion === 'false' ||
-                       valorSeñalizacion === 'no' || valorSeñalizacion === '0' ||
-                       valorSeñalizacion === 0) {
+              valorSeñalizacion === 'no' || valorSeñalizacion === '0' ||
+              valorSeñalizacion === 0) {
               tieneSeñalizacion = false;
               estado = 'Sin señalización';
               detalles = `Confirmado: campo 'señalizacion' = ${valorSeñalizacion}`;
@@ -479,17 +479,17 @@ export default function GestionClientesPage() {
           } else if (data.signage !== undefined) {
             const valorSignage = data.signage;
             console.log(`🎯 Campo directo 'signage' encontrado:`, valorSignage);
-            
-            if (valorSignage === true || valorSignage === 'true' || 
-                valorSignage === 'sí' || valorSignage === 'si' || 
-                valorSignage === 'yes' || valorSignage === '1' ||
-                valorSignage === 1) {
+
+            if (valorSignage === true || valorSignage === 'true' ||
+              valorSignage === 'sí' || valorSignage === 'si' ||
+              valorSignage === 'yes' || valorSignage === '1' ||
+              valorSignage === 1) {
               tieneSeñalizacion = true;
               estado = 'Con señalización';
               detalles = `Confirmado: campo 'signage' = ${valorSignage}`;
             } else if (valorSignage === false || valorSignage === 'false' ||
-                       valorSignage === 'no' || valorSignage === '0' ||
-                       valorSignage === 0) {
+              valorSignage === 'no' || valorSignage === '0' ||
+              valorSignage === 0) {
               tieneSeñalizacion = false;
               estado = 'Sin señalización';
               detalles = `Confirmado: campo 'signage' = ${valorSignage}`;
@@ -513,34 +513,34 @@ export default function GestionClientesPage() {
           // 🔍 SI NO HAY CAMPOS DIRECTOS, BUSCAR EN PREGUNTAS Y RESPUESTAS
           if (estado === 'Sin información') {
             console.log(`🔍 Buscando en preguntas y respuestas...`);
-            
+
             // Buscar en estructura de preguntas/respuestas
             if (data.preguntas || data.questions || data.respuestas || data.answers) {
               const seccionPreguntas = data.preguntas || data.questions || data.respuestas || data.answers;
               console.log(`📋 Sección de preguntas encontrada:`, seccionPreguntas);
-              
+
               for (const [pregunta, respuesta] of Object.entries(seccionPreguntas)) {
                 const preguntaLower = String(pregunta).toLowerCase();
                 const respuestaLower = String(respuesta).toLowerCase();
-                
+
                 console.log(`❓ Evaluando: "${pregunta}" = "${respuesta}"`);
-                
+
                 // Si la pregunta es sobre señalización
                 if (preguntaLower.includes('señalizacion') || preguntaLower.includes('signage') ||
-                    preguntaLower.includes('letrero') || preguntaLower.includes('cartel')) {
-                  
+                  preguntaLower.includes('letrero') || preguntaLower.includes('cartel')) {
+
                   console.log(`🎯 Pregunta sobre señalización encontrada: ${pregunta} = ${respuesta}`);
-                  
-                  if (respuestaLower === 'sí' || respuestaLower === 'si' || 
-                      respuestaLower === 'yes' || respuestaLower === 'true' ||
-                      respuestaLower === '1' || respuesta === true) {
+
+                  if (respuestaLower === 'sí' || respuestaLower === 'si' ||
+                    respuestaLower === 'yes' || respuestaLower === 'true' ||
+                    respuestaLower === '1' || respuesta === true) {
                     tieneSeñalizacion = true;
                     estado = 'Con señalización';
                     detalles = `Detectado en pregunta: "${pregunta}" = "${respuesta}"`;
                     console.log(`✅ Señalización POSITIVA detectada`);
                     break;
                   } else if (respuestaLower === 'no' || respuestaLower === 'false' ||
-                             respuestaLower === '0' || respuesta === false) {
+                    respuestaLower === '0' || respuesta === false) {
                     tieneSeñalizacion = false;
                     estado = 'Sin señalización';
                     detalles = `Detectado en pregunta: "${pregunta}" = "${respuesta}"`;
@@ -555,7 +555,7 @@ export default function GestionClientesPage() {
           // 🔍 BÚSQUEDA POR PATRONES DE TEXTO (ÚLTIMO RECURSO)
           if (estado === 'Sin información') {
             console.log(`🔍 Aplicando búsqueda por patrones...`);
-            
+
             const patronesSeñalizacionPositiva = [
               /señalización.*(?:sí|si|yes|true|presente|instalada|colocada)/i,
               /signage.*(?:sí|si|yes|true|present|installed|placed)/i,
@@ -603,12 +603,12 @@ export default function GestionClientesPage() {
         }
       }
 
-             const resultado = {
-         tieneSeñalizacion,
-         estado,
-         ultimaVisita: ultimaVisita.createdAt?.toDate ? ultimaVisita.createdAt.toDate() : (ultimaVisita.createdAt || null),
-         detalles
-       };
+      const resultado = {
+        tieneSeñalizacion,
+        estado,
+        ultimaVisita: ultimaVisita.createdAt?.toDate ? ultimaVisita.createdAt.toDate() : (ultimaVisita.createdAt || null),
+        detalles
+      };
 
       console.log(`📊 Resultado final para cliente ${rifCliente}:`, resultado);
       return resultado;
@@ -634,16 +634,16 @@ export default function GestionClientesPage() {
         setLastDoc(null);
         setHasMoreClients(true);
       }
-      
+
       console.log(`📄 Cargando clientes... ${loadMore ? '(más)' : '(inicial)'} - Límite: ${CLIENTS_PER_PAGE}`);
-      
-      const clientesRef = collection(db, 'clientes');
+
+      const clientesRef = collection(getFirestoreClient(), 'clientes');
       let q = query(
-        clientesRef, 
+        clientesRef,
         orderBy('createdAt', 'desc'),
         limit(CLIENTS_PER_PAGE)
       );
-      
+
       // Si estamos cargando más, usar el último documento como punto de partida
       if (loadMore && lastDoc) {
         q = query(
@@ -653,26 +653,26 @@ export default function GestionClientesPage() {
           limit(CLIENTS_PER_PAGE)
         );
       }
-      
+
       const querySnapshot = await getDocs(q);
-      
+
       if (querySnapshot.empty) {
         console.log('⚠️ No se encontraron más clientes');
         setHasMoreClients(false);
         return;
       }
-      
+
       console.log(`✅ Obtenidos ${querySnapshot.docs.length} clientes de Firestore`);
-      
+
       // Guardar el último documento para paginación
       const newLastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
       setLastDoc(newLastDoc);
-      
+
       // Si obtuvimos menos documentos del límite, no hay más
       if (querySnapshot.docs.length < CLIENTS_PER_PAGE) {
         setHasMoreClients(false);
       }
-      
+
       const clientesData: ClienteConSeñalizacion[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -684,9 +684,9 @@ export default function GestionClientesPage() {
           lastVisitDate: data.lastVisitDate ? (typeof data.lastVisitDate === 'string' ? data.lastVisitDate : data.lastVisitDate.toDate()) : undefined,
         } as ClienteConSeñalizacion);
       });
-      
+
       console.log(`🔄 Procesando información básica para ${clientesData.length} clientes (sin señalización por ahora)...`);
-      
+
       // OPTIMIZACIÓN CRÍTICA: Cargar clientes SIN información de señalización inicialmente
       // La señalización se cargará bajo demanda o en background
       const clientesBasicos = clientesData.map(cliente => ({
@@ -704,9 +704,9 @@ export default function GestionClientesPage() {
       } else {
         setClientes(clientesBasicos);
       }
-      
+
       console.log(`✅ Carga básica completada: ${clientesBasicos.length} clientes listos`);
-      
+
     } catch (error: any) {
       console.error('❌ Error cargando clientes:', error);
       toast({
@@ -722,10 +722,10 @@ export default function GestionClientesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // ✅ CAMBIO: La ubicación GPS ya NO es obligatoria
     // Los mercaderistas pueden capturarla en campo cuando visiten al cliente
-    
+
     // Verificar permisos para la sede seleccionada
     if (currentUser && !canAccessSede(currentUser, formData.sede)) {
       alert('No tienes permisos para crear/editar clientes en esta sede');
@@ -752,14 +752,14 @@ export default function GestionClientesPage() {
 
       if (currentCliente) {
         // Actualizar cliente existente
-        const clienteRef = doc(db, 'clientes', currentCliente.id);
+        const clienteRef = doc(getFirestoreClient(), 'clientes', currentCliente.id);
         await updateDoc(clienteRef, {
           ...clienteData,
           updatedAt: new Date()
         });
       } else {
         // Crear nuevo cliente
-        await addDoc(collection(db, 'clientes'), clienteData);
+        await addDoc(collection(getFirestoreClient(), 'clientes'), clienteData);
       }
 
       setIsDialogOpen(false);
@@ -790,7 +790,7 @@ export default function GestionClientesPage() {
 
   const handleDelete = async (clienteId: string) => {
     const cliente = clientes.find(c => c.id === clienteId);
-    
+
     // Verificar permisos para eliminar este cliente
     if (currentUser && cliente && !canAccessSede(currentUser, cliente.sede)) {
       alert('No tienes permisos para eliminar clientes de esta sede');
@@ -799,7 +799,7 @@ export default function GestionClientesPage() {
 
     if (confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
       try {
-        await deleteDoc(doc(db, 'clientes', clienteId));
+        await deleteDoc(doc(getFirestoreClient(), 'clientes', clienteId));
         loadClientes();
       } catch (error) {
         console.error('Error eliminando cliente:', error);
@@ -842,11 +842,11 @@ export default function GestionClientesPage() {
       const result: string[] = [];
       let current = '';
       let inQuotes = false;
-      
+
       for (let i = 0; i < line.length; i++) {
         const char = line[i];
         const nextChar = line[i + 1];
-        
+
         if (char === '"' && !inQuotes) {
           inQuotes = true;
         } else if (char === '"' && inQuotes && nextChar === '"') {
@@ -867,26 +867,26 @@ export default function GestionClientesPage() {
 
     // Reconstruir el CSV limpiando saltos de línea problemáticos
     let cleanedCSV = csvText;
-    
+
     // Limpiar el header problemático
     cleanedCSV = cleanedCSV.replace('"nombreVendedor\n"', 'nombreVendedor');
-    
+
     // Unir líneas que fueron cortadas incorrectamente
     const lines = cleanedCSV.split('\n');
     const cleanedLines: string[] = [];
     let currentLine = '';
     let inQuotedField = false;
-    
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
-      
+
       currentLine += (currentLine ? ' ' : '') + line;
-      
+
       // Contar comillas para determinar si estamos dentro de un campo quoted
       const quoteCount = (currentLine.match(/"/g) || []).length;
       inQuotedField = quoteCount % 2 !== 0;
-      
+
       // Si no estamos en un campo quoted y la línea tiene el número esperado de comas
       if (!inQuotedField) {
         // Verificar que tenga al menos 8 comas (9 campos)
@@ -897,7 +897,7 @@ export default function GestionClientesPage() {
         }
       }
     }
-    
+
     // Agregar la última línea si quedó algo
     if (currentLine.trim()) {
       cleanedLines.push(currentLine);
@@ -913,11 +913,11 @@ export default function GestionClientesPage() {
     for (let i = 1; i < cleanedLines.length; i++) {
       const values = parseCSVLine(cleanedLines[i]).map(v => v.replace(/"/g, '').trim());
       const row: CSVRow = {};
-      
+
       headers.forEach((header, index) => {
         row[header] = values[index] || '';
       });
-      
+
       rows.push(row);
     }
 
@@ -927,7 +927,7 @@ export default function GestionClientesPage() {
   // Función para generar mapeos automáticos de columnas
   const generateAutoMapping = (csvHeaders: string[]): ColumnMapping[] => {
     const mappings: ColumnMapping[] = [];
-    
+
     // Mapeos automáticos basados en nombres comunes - MÁS ESPECÍFICOS
     const autoMappings: { [key: string]: keyof CreateClienteData } = {
       // RIF - variaciones comunes
@@ -937,7 +937,7 @@ export default function GestionClientesPage() {
       'documento': 'rif',
       'cedula': 'rif',
       'cedulajuridica': 'rif',
-      
+
       // NOMBRE - variaciones comunes
       'nombre': 'nombre',
       'nombrecliente': 'nombre',
@@ -946,7 +946,7 @@ export default function GestionClientesPage() {
       'razonsocial': 'nombre',
       'company': 'nombre',
       'empresa': 'nombre',
-      
+
       // DIRECCION - variaciones comunes
       'direccion': 'direccion',
       'dirección': 'direccion',
@@ -954,54 +954,54 @@ export default function GestionClientesPage() {
       'ubicacion': 'direccion',
       'ubicación': 'direccion',
       'domicilio': 'direccion',
-      
+
       // ESTADO GEOGRAFICO - NUEVO CAMPO
       'estado': 'estadoGeografico',
       'state': 'estadoGeografico',
       'provincia': 'estadoGeografico',
-      
+
       // TELEFONO
       'telefono': 'telefono',
       'teléfono': 'telefono',
       'phone': 'telefono',
       'celular': 'telefono',
       'movil': 'telefono',
-      
+
       // EMAIL
       'email': 'email',
       'correo': 'email',
       'mail': 'email',
       'correoelectronico': 'email',
-      
+
       // CONTACTO
       'contacto': 'contacto',
       'persona_contacto': 'contacto',
       'personacontacto': 'contacto',
       'representante': 'contacto',
-      
+
       // REGION
       'region': 'region',
       'región': 'region',
       'zone': 'region',
       'zona': 'region',
-      
+
       // SEDE
       'sede': 'sede',
       'sucursal': 'sede',
       'branch': 'sede',
       'oficina': 'sede',
-      
+
       // CIUDAD
       'ciudad': 'ciudad',
       'city': 'ciudad',
       'municipio': 'ciudad',
-      
+
       // TIPO
       'tipo': 'tipo',
       'type': 'tipo',
       'categoria': 'tipo',
       'category': 'tipo',
-      
+
       // OBSERVACIONES
       'observaciones': 'observaciones',
       'notas': 'observaciones',
@@ -1014,11 +1014,11 @@ export default function GestionClientesPage() {
     csvHeaders.forEach((header, index) => {
       const normalizedHeader = header.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
       let matchedField = autoMappings[normalizedHeader];
-      
+
       // LÓGICA ESPECIAL PARA TUS COLUMNAS ESPECÍFICAS DE DISBATTERY
       // Mapeo exacto para los headers del CSV de Disbattery
       const originalExact = header.trim();
-      
+
       if (!matchedField) {
         // Mapeo específico para el CSV exacto de Disbattery
         switch (originalExact) {
@@ -1066,7 +1066,7 @@ export default function GestionClientesPage() {
             break;
         }
       }
-      
+
       mappings.push({
         csvColumn: header,
         clienteField: matchedField || 'skip',
@@ -1140,7 +1140,7 @@ export default function GestionClientesPage() {
                 'distrito capital': 'GRUPO DISBATTERY',
                 'miranda': 'GRUPO DISBATTERY',
                 'vargas': 'GRUPO DISBATTERY',
-                
+
                 // DISBATTERY - Estados de cobertura oriental
                 'aragua': 'DISBATTERY',
                 'anzoategui': 'DISBATTERY',
@@ -1150,7 +1150,7 @@ export default function GestionClientesPage() {
                 'monagas': 'DISBATTERY',
                 'sucre': 'DISBATTERY',
                 'nueva esparta': 'DISBATTERY',
-                
+
                 // BLITZ 2000 - Estados centro-occidentales Y CENTRO-SUR (CORREGIDO)
                 'carabobo': 'BLITZ 2000',  // ✅ CORREGIDO: Carabobo es BLITZ 2000
                 'guarico': 'BLITZ 2000',   // ✅ CORREGIDO: Guárico es BLITZ 2000
@@ -1165,7 +1165,7 @@ export default function GestionClientesPage() {
                 'merida': 'BLITZ 2000',
                 'mérida': 'BLITZ 2000',
                 'trujillo': 'BLITZ 2000',
-                
+
                 // GRUPO VICTORIA - Estados llaneros restantes
                 'cojedes': 'GRUPO VICTORIA',
                 'portuguesa': 'GRUPO VICTORIA',
@@ -1174,24 +1174,24 @@ export default function GestionClientesPage() {
                 'amazonas': 'GRUPO VICTORIA',
                 'delta amacuro': 'GRUPO VICTORIA'
               };
-              
+
               const estadoLower = clienteData.estadoGeografico.toLowerCase();
               const sedeBasadaEnEstado = sedesPorEstado[estadoLower];
-              
+
               console.log(`🏢 Mapeo de sede para estado "${clienteData.estadoGeografico}":`, {
                 estadoOriginal: clienteData.estadoGeografico,
                 estadoNormalizado: estadoLower,
                 sedeEncontrada: sedeBasadaEnEstado,
                 nombreSucursalOriginal: value
               });
-              
+
               if (sedeBasadaEnEstado) {
                 clienteData.sede = sedeBasadaEnEstado;
                 console.log(`✅ Sede asignada por estado: ${sedeBasadaEnEstado}`);
                 break;
               }
             }
-            
+
             // Si no hay estado o no se encuentra, usar mapeo de nombres como fallback
             const sedeMap: { [key: string]: Sede } = {
               // Mapeos generales
@@ -1212,7 +1212,7 @@ export default function GestionClientesPage() {
             const normalizedSede = value.toLowerCase().trim();
             const sedeEncontrada = sedeMap[normalizedSede] || 'GRUPO DISBATTERY';
             clienteData.sede = sedeEncontrada;
-            
+
             console.log(`🔄 Sede asignada por nombre (fallback):`, {
               nombreOriginal: value,
               nombreNormalizado: normalizedSede,
@@ -1277,7 +1277,7 @@ export default function GestionClientesPage() {
         // PASO FINAL: Asegurar que la región esté asignada basándose en la sede
         const sede = clienteData.sede || 'GRUPO DISBATTERY';
         let region = clienteData.region;
-        
+
         if (!region) {
           const regionPorSede: { [sede: string]: Region } = {
             'GRUPO DISBATTERY': 'Centro-capital',
@@ -1329,7 +1329,7 @@ export default function GestionClientesPage() {
       try {
         const csvText = e.target?.result as string;
         const csvData = parseCSV(csvText);
-        
+
         if (csvData.length === 0) {
           toast({
             title: 'Error',
@@ -1372,7 +1372,7 @@ export default function GestionClientesPage() {
   const updateColumnMapping = (index: number, field: keyof CreateClienteData | 'skip') => {
     setBulkUpload(prev => ({
       ...prev,
-      columnMappings: prev.columnMappings.map((mapping, i) => 
+      columnMappings: prev.columnMappings.map((mapping, i) =>
         i === index ? { ...mapping, clienteField: field } : mapping
       )
     }));
@@ -1381,7 +1381,7 @@ export default function GestionClientesPage() {
   // Función para procesar preview de datos
   const handlePreviewData = () => {
     const processedData = processCSVData(bulkUpload.csvData, bulkUpload.columnMappings);
-    
+
     if (processedData.length === 0) {
       toast({
         title: 'Error',
@@ -1455,7 +1455,7 @@ export default function GestionClientesPage() {
             };
 
             // Insertar en Firestore
-            await addDoc(collection(db, 'clientes'), firestoreData);
+            await addDoc(collection(getFirestoreClient(), 'clientes'), firestoreData);
             successCount++;
 
           } catch (error) {
@@ -1513,7 +1513,7 @@ export default function GestionClientesPage() {
         ...prev,
         processing: false
       }));
-      
+
       toast({
         title: 'Error',
         description: 'Error durante la carga masiva',
@@ -1563,7 +1563,7 @@ export default function GestionClientesPage() {
     }
 
     try {
-      const clienteRef = doc(db, 'clientes', selectedClienteForVisitType.id);
+      const clienteRef = doc(getFirestoreClient(), 'clientes', selectedClienteForVisitType.id);
       await updateDoc(clienteRef, {
         tipoVisitaPredeterminado: selectedVisitType,
         updatedAt: new Date()
@@ -1587,22 +1587,22 @@ export default function GestionClientesPage() {
   // Función para calcular días desde la última visita
   const getDiasSinVisita = (cliente: Cliente): number | null => {
     if (!cliente.lastVisitDate) return null;
-    
-    const fechaVisita = typeof cliente.lastVisitDate === 'string' 
+
+    const fechaVisita = typeof cliente.lastVisitDate === 'string'
       ? new Date(cliente.lastVisitDate)
       : cliente.lastVisitDate;
-    
+
     const hoy = new Date();
     const diferenciaTiempo = hoy.getTime() - fechaVisita.getTime();
     const diferenciaDias = Math.floor(diferenciaTiempo / (1000 * 3600 * 24));
-    
+
     return diferenciaDias;
   };
 
   // Función para formatear tiempo sin visita
   const formatTiempoSinVisita = (cliente: Cliente): string => {
     const dias = getDiasSinVisita(cliente);
-    
+
     if (dias === null) return 'Nunca visitado';
     if (dias === 0) return 'Visitado hoy';
     if (dias === 1) return 'Hace 1 día';
@@ -1611,7 +1611,7 @@ export default function GestionClientesPage() {
       const meses = Math.floor(dias / 30);
       return `Hace ${meses} ${meses === 1 ? 'mes' : 'meses'}`;
     }
-    
+
     const años = Math.floor(dias / 365);
     return `Hace ${años} ${años === 1 ? 'año' : 'años'}`;
   };
@@ -1619,11 +1619,11 @@ export default function GestionClientesPage() {
   // Función para formatear fecha específica de visita
   const formatearFechaVisita = (fecha: Date | null): string => {
     if (!fecha) return 'Sin visitas';
-    
+
     const hoy = new Date();
     const diferenciaTiempo = hoy.getTime() - fecha.getTime();
     const diferenciaDias = Math.floor(diferenciaTiempo / (1000 * 3600 * 24));
-    
+
     if (diferenciaDias === 0) return 'Hoy';
     if (diferenciaDias === 1) return 'Ayer';
     if (diferenciaDias < 30) return `Hace ${diferenciaDias} días`;
@@ -1631,7 +1631,7 @@ export default function GestionClientesPage() {
       const meses = Math.floor(diferenciaDias / 30);
       return `Hace ${meses} ${meses === 1 ? 'mes' : 'meses'}`;
     }
-    
+
     const años = Math.floor(diferenciaDias / 365);
     return `Hace ${años} ${años === 1 ? 'año' : 'años'}`;
   };
@@ -1639,11 +1639,11 @@ export default function GestionClientesPage() {
   // Función para obtener color basado en días sin visita específica
   const getColorVisitaEspecifica = (fecha: Date | null): string => {
     if (!fecha) return 'text-gray-500';
-    
+
     const hoy = new Date();
     const diferenciaTiempo = hoy.getTime() - fecha.getTime();
     const diferenciaDias = Math.floor(diferenciaTiempo / (1000 * 3600 * 24));
-    
+
     if (diferenciaDias <= 7) return 'text-green-600 font-medium';
     if (diferenciaDias <= 30) return 'text-yellow-600 font-medium';
     if (diferenciaDias <= 60) return 'text-orange-600 font-medium';
@@ -1665,34 +1665,34 @@ export default function GestionClientesPage() {
   // Función para cargar coordenadas GPS reales (solo cuando se necesite el mapa)
   const loadClientesWithGPS = useCallback(async () => {
     console.log('🗺️ Cargando coordenadas GPS para el mapa...');
-    
+
     try {
-      const clientesRef = collection(db, 'clientes');
+      const clientesRef = collection(getFirestoreClient(), 'clientes');
       let q = query(clientesRef, orderBy('createdAt', 'desc'));
-      
+
       // Filtrar por sede si no es AdminMaster
       if (currentUser && !userPermissions?.isAdminMaster) {
         console.log(`🔒 Filtrando clientes por sede: ${currentUser.sede}`);
         // No podemos filtrar por sede en Firestore porque no tenemos índice, 
         // filtraremos en memoria después
       }
-      
+
       const querySnapshot = await getDocs(q);
       console.log(`📊 Clientes obtenidos de Firestore: ${querySnapshot.docs.length}`);
-      
+
       const clientesConGPS: ClienteConSeñalizacion[] = [];
-      
+
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        
+
         // Filtrar por permisos en memoria
         if (currentUser && !canAccessSede(currentUser, data.sede)) {
           return; // Saltar este cliente
         }
-        
+
         // Solo incluir clientes con GPS válido
-        if (data.position?.lat && data.position?.lng && 
-            data.position.lat !== 0 && data.position.lng !== 0) {
+        if (data.position?.lat && data.position?.lng &&
+          data.position.lat !== 0 && data.position.lng !== 0) {
           clientesConGPS.push({
             id: doc.id,
             rif: data.rif || '',
@@ -1724,13 +1724,13 @@ export default function GestionClientesPage() {
           });
         }
       });
-      
+
       console.log(`📍 Clientes con GPS válido encontrados: ${clientesConGPS.length}`);
       console.log(`🏢 Distribución por sede:`, clientesConGPS.reduce((acc, cliente) => {
         acc[cliente.sede] = (acc[cliente.sede] || 0) + 1;
         return acc;
       }, {} as Record<string, number>));
-      
+
       // Actualizar solo los clientes que ya tenemos, agregando las coordenadas GPS
       setClientes(prevClientes => {
         return prevClientes.map(cliente => {
@@ -1741,12 +1741,12 @@ export default function GestionClientesPage() {
           return cliente;
         });
       });
-      
+
       toast({
         title: 'Coordenadas GPS cargadas',
         description: `Se cargaron coordenadas para ${clientesConGPS.length} clientes`,
       });
-      
+
     } catch (error: any) {
       console.error('❌ Error cargando coordenadas GPS:', error);
       toast({
@@ -1763,13 +1763,13 @@ export default function GestionClientesPage() {
       loadClientes(true);
     }
   }, [loadClientes, loadingMore, hasMoreClients]);
-  
+
   // Filtrar clientes basado en permisos y filtros actuales (Ciudad y RIF/Nombre) - MEMOIZADO
   const filteredClientes = useMemo(() => {
     console.log('🔍 Filtrando clientes...');
     console.log(`📊 Total clientes cargados: ${clientes.length}`);
     console.log(`👤 Usuario actual: ${currentUser?.fullName} - Sede: ${currentUser?.sede}`);
-    
+
     const filtered = clientes.filter(cliente => {
       // Permisos por sede
       if (currentUser && !canAccessSede(currentUser, cliente.sede)) {
@@ -1777,45 +1777,45 @@ export default function GestionClientesPage() {
         return false;
       }
 
-    const term = searchTerm.trim().toLowerCase();
-    const matchesSearch = term === '' ||
-      (cliente.rif || '').toLowerCase().includes(term) ||
-      cliente.nombre.toLowerCase().includes(term);
+      const term = searchTerm.trim().toLowerCase();
+      const matchesSearch = term === '' ||
+        (cliente.rif || '').toLowerCase().includes(term) ||
+        cliente.nombre.toLowerCase().includes(term);
 
-    const matchesCity = filterCity === 'todas' || cliente.ciudad === filterCity;
-    const matchesTipo = filterTipo === 'todos' || cliente.tipo === filterTipo;
-    
-    // Filtro por tiempo sin visita
-    let matchesSinVisita = true;
-    if (filterSinVisita !== 'todos') {
-      const dias = getDiasSinVisita(cliente);
-      const filtroNumero = parseInt(filterSinVisita);
-      
-      if (dias === null) {
-        matchesSinVisita = true; // Incluir los que nunca han sido visitados
-      } else {
-        matchesSinVisita = dias >= filtroNumero;
-      }
-    }
+      const matchesCity = filterCity === 'todas' || cliente.ciudad === filterCity;
+      const matchesTipo = filterTipo === 'todos' || cliente.tipo === filterTipo;
 
-    // Filtro por señalización
-    let matchesSeñalizacion = true;
-    if (filterSeñalizacion !== 'todos') {
-      if (filterSeñalizacion === 'con_señalizacion') {
-        matchesSeñalizacion = cliente.tieneSeñalizacion === true;
-      } else if (filterSeñalizacion === 'sin_señalizacion') {
-        matchesSeñalizacion = cliente.tieneSeñalizacion === false;
-      } else if (filterSeñalizacion === 'sin_informacion') {
-        matchesSeñalizacion = cliente.tieneSeñalizacion === null;
+      // Filtro por tiempo sin visita
+      let matchesSinVisita = true;
+      if (filterSinVisita !== 'todos') {
+        const dias = getDiasSinVisita(cliente);
+        const filtroNumero = parseInt(filterSinVisita);
+
+        if (dias === null) {
+          matchesSinVisita = true; // Incluir los que nunca han sido visitados
+        } else {
+          matchesSinVisita = dias >= filtroNumero;
+        }
       }
-    }
+
+      // Filtro por señalización
+      let matchesSeñalizacion = true;
+      if (filterSeñalizacion !== 'todos') {
+        if (filterSeñalizacion === 'con_señalizacion') {
+          matchesSeñalizacion = cliente.tieneSeñalizacion === true;
+        } else if (filterSeñalizacion === 'sin_señalizacion') {
+          matchesSeñalizacion = cliente.tieneSeñalizacion === false;
+        } else if (filterSeñalizacion === 'sin_informacion') {
+          matchesSeñalizacion = cliente.tieneSeñalizacion === null;
+        }
+      }
 
       return matchesSearch && matchesCity && matchesTipo && matchesSinVisita && matchesSeñalizacion;
     });
-    
+
     console.log(`✅ Clientes después del filtrado: ${filtered.length}`);
     console.log(`📍 Clientes con GPS válido en filtrados: ${filtered.filter(c => c.position?.lat && c.position?.lng && c.position.lat !== 0 && c.position.lng !== 0).length}`);
-    
+
     return filtered;
   }, [clientes, currentUser, searchTerm, filterCity, filterTipo, filterSinVisita, filterSeñalizacion]);
 
@@ -1841,23 +1841,23 @@ export default function GestionClientesPage() {
   const prepareHeatmapData = () => {
     console.log('🗺️ Preparando datos para heatmap...');
     console.log(`📊 Total clientes filtrados: ${filteredClientes.length}`);
-    
+
     const clientesConGPS = filteredClientes.filter(cliente => {
-      const hasValidGPS = cliente.position?.lat && 
-                         cliente.position?.lng && 
-                         cliente.position.lat !== 0 && 
-                         cliente.position.lng !== 0;
-      
+      const hasValidGPS = cliente.position?.lat &&
+        cliente.position?.lng &&
+        cliente.position.lat !== 0 &&
+        cliente.position.lng !== 0;
+
       if (!hasValidGPS) {
         console.log(`📍 Cliente sin GPS válido: ${cliente.nombre} - Coordenadas: (${cliente.position?.lat}, ${cliente.position?.lng})`);
       }
-      
+
       return hasValidGPS;
     });
-    
+
     console.log(`📍 Clientes con GPS válido: ${clientesConGPS.length} de ${filteredClientes.length}`);
     console.log(`🎯 Sede del usuario actual: ${currentUser?.sede}`);
-    
+
     if (clientesConGPS.length === 0) {
       console.log('⚠️ PROBLEMA: No hay clientes con coordenadas GPS válidas para mostrar en el mapa');
       console.log('💡 POSIBLES CAUSAS:');
@@ -1866,7 +1866,7 @@ export default function GestionClientesPage() {
       console.log('   3. Filtros de permisos están excluyendo clientes');
       console.log('   4. No hay clientes en la sede del usuario');
     }
-    
+
     return clientesConGPS.map(cliente => ({
       position: {
         lat: cliente.position.lat,
@@ -1879,13 +1879,13 @@ export default function GestionClientesPage() {
   // Calcular centro del mapa basado en los clientes filtrados
   const calculateMapCenter = () => {
     if (filteredClientes.length === 0) return { lat: 10.4806, lng: -66.9036 };
-    
+
     const validClientes = filteredClientes.filter(cliente => cliente.position?.lat && cliente.position?.lng);
     if (validClientes.length === 0) return { lat: 10.4806, lng: -66.9036 };
-    
+
     const sumLat = validClientes.reduce((sum, cliente) => sum + cliente.position.lat, 0);
     const sumLng = validClientes.reduce((sum, cliente) => sum + cliente.position.lng, 0);
-    
+
     return {
       lat: sumLat / validClientes.length,
       lng: sumLng / validClientes.length
@@ -1946,10 +1946,10 @@ export default function GestionClientesPage() {
           </div>
           {/* Mobile Hamburger Button */}
           <div className="sm:hidden">
-            <Button 
-              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
+              variant="ghost"
+              size="sm"
               className="text-white hover:bg-red-700/50 p-2 rounded-md"
             >
               <Menu className="w-6 h-6" />
@@ -1965,10 +1965,10 @@ export default function GestionClientesPage() {
           />
         </div>
       </header>
-      
+
       {/* Collapsible Mobile Menu */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
           onClick={() => setMobileMenuOpen(false)}
         >
@@ -2070,7 +2070,7 @@ export default function GestionClientesPage() {
                         />
                       </div>
                     </div>
-                    
+
                     <div>
                       <Label htmlFor="ciudad">Ciudad</Label>
                       <Select value={filterCity} onValueChange={(value: string) => setFilterCity(value)}>
@@ -2256,7 +2256,7 @@ export default function GestionClientesPage() {
                       </TableBody>
                     </Table>
                   </div>
-                  
+
                   {/* Botón para cargar más clientes */}
                   {hasMoreClients && (
                     <div className="flex justify-center mt-4">
@@ -2277,7 +2277,7 @@ export default function GestionClientesPage() {
                       </Button>
                     </div>
                   )}
-                  
+
                   {/* Información de paginación */}
                   <div className="text-center text-sm text-gray-500 mt-2">
                     {filteredClientes.length > 0 && (
@@ -2324,7 +2324,7 @@ export default function GestionClientesPage() {
                           <span className="font-medium">Interpretación del mapa de calor:</span>
                           <div className="flex items-center gap-4 mt-1">
                             <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 rounded" style={{background: 'linear-gradient(90deg, #00ffff 0%, #0000ff 50%, #ff0000 100%)'}}></div>
+                              <div className="w-4 h-4 rounded" style={{ background: 'linear-gradient(90deg, #00ffff 0%, #0000ff 50%, #ff0000 100%)' }}></div>
                               <span>Azul (menos concentración) → Rojo (mayor concentración)</span>
                             </div>
                           </div>
@@ -2347,7 +2347,7 @@ export default function GestionClientesPage() {
           <img
             src="https://storage.googleapis.com/iandai/imagenes/shelllogo.png"
             alt="Shell Logo"
-            className="max-h-14" 
+            className="max-h-14"
             data-ai-hint="shell pecten"
           />
         </div>
@@ -2447,24 +2447,24 @@ export default function GestionClientesPage() {
 
               <div>
                 <Label htmlFor="region">Región *</Label>
-                <Select 
+                <Select
                   key={`region-${currentCliente?.id || 'new'}-${formData.region}`}
-                  value={formData.region} 
+                  value={formData.region}
                   onValueChange={(value: Region) => {
                     const sedesDisponibles = getSedesByRegion(value);
                     const firstSede = sedesDisponibles[0]?.name || 'GRUPO DISBATTERY';
                     const cities = getCitiesBySede(firstSede);
-                    
+
                     console.log('Cambiando región a:', value);
                     console.log('Sedes disponibles:', sedesDisponibles.map(s => s.name));
                     console.log('Primera sede seleccionada:', firstSede);
                     console.log('Ciudades para la nueva sede:', cities.length, 'ciudades');
-                    
-                    setFormData({ 
-                      ...formData, 
-                      region: value, 
-                      sede: firstSede, 
-                      ciudad: '' 
+
+                    setFormData({
+                      ...formData,
+                      region: value,
+                      sede: firstSede,
+                      ciudad: ''
                     });
                     setAvailableCities(cities);
                   }}
@@ -2483,16 +2483,16 @@ export default function GestionClientesPage() {
 
               <div>
                 <Label htmlFor="sede">Sede *</Label>
-                <Select 
+                <Select
                   key={`sede-${currentCliente?.id || 'new'}-${formData.region}-${formData.sede}`}
-                  value={formData.sede} 
+                  value={formData.sede}
                   onValueChange={(value: Sede) => {
                     const cities = getCitiesBySede(value);
-                    
+
                     console.log('Cambiando sede a:', value);
                     console.log('Ciudades disponibles para la sede:', cities.length, 'ciudades');
                     console.log('Primeras ciudades:', cities.slice(0, 5));
-                    
+
                     setFormData({ ...formData, sede: value, ciudad: '' });
                     setAvailableCities(cities);
                   }}
@@ -2544,44 +2544,44 @@ export default function GestionClientesPage() {
               </div>
             </div>
 
-                          <div>
-                <Label htmlFor="tipoVisitaPredeterminado">Tipo de Visita Predeterminado</Label>
-                <Select 
-                  value={formData.tipoVisitaPredeterminado || 'sin_configurar'} 
-                  onValueChange={(value: 'Merchandising' | 'Trade (Eventos)' | 'Trade (Impulso)' | 'sin_configurar') => 
-                    setFormData({ ...formData, tipoVisitaPredeterminado: value === 'sin_configurar' ? undefined : value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar tipo de visita (opcional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sin_configurar">Sin configurar</SelectItem>
-                    <SelectItem value="Merchandising">Merchandising</SelectItem>
-                    <SelectItem value="Trade (Eventos)">Trade (Eventos)</SelectItem>
-                    <SelectItem value="Trade (Impulso)">Trade (Impulso)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Si se configura, los mercaderistas no tendrán que seleccionar el tipo de visita manualmente
-                </p>
-              </div>
+            <div>
+              <Label htmlFor="tipoVisitaPredeterminado">Tipo de Visita Predeterminado</Label>
+              <Select
+                value={formData.tipoVisitaPredeterminado || 'sin_configurar'}
+                onValueChange={(value: 'Merchandising' | 'Trade (Eventos)' | 'Trade (Impulso)' | 'sin_configurar') =>
+                  setFormData({ ...formData, tipoVisitaPredeterminado: value === 'sin_configurar' ? undefined : value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar tipo de visita (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sin_configurar">Sin configurar</SelectItem>
+                  <SelectItem value="Merchandising">Merchandising</SelectItem>
+                  <SelectItem value="Trade (Eventos)">Trade (Eventos)</SelectItem>
+                  <SelectItem value="Trade (Impulso)">Trade (Impulso)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                Si se configura, los mercaderistas no tendrán que seleccionar el tipo de visita manualmente
+              </p>
+            </div>
 
-              <div>
-                <Label htmlFor="observaciones">Observaciones</Label>
-                <Textarea
-                  id="observaciones"
-                  value={formData.observaciones}
-                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                  rows={3}
-                />
-              </div>
+            <div>
+              <Label htmlFor="observaciones">Observaciones</Label>
+              <Textarea
+                id="observaciones"
+                value={formData.observaciones}
+                onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+                rows={3}
+              />
+            </div>
 
             {/* Selector de mapa - OPCIONAL */}
             <div>
               <Label htmlFor="ubicacion">Ubicación GPS (Opcional)</Label>
               <p className="text-xs text-gray-500 mb-3">
-                📍 <strong>¡Nuevo!</strong> Si no tienes las coordenadas exactas, puedes dejar esto vacío. 
+                📍 <strong>¡Nuevo!</strong> Si no tienes las coordenadas exactas, puedes dejar esto vacío.
                 Los mercaderistas podrán capturar la ubicación GPS directamente cuando visiten al cliente en campo.
               </p>
               <MapSelector
@@ -2596,7 +2596,7 @@ export default function GestionClientesPage() {
                     <span className="font-medium text-sm">Tip: Sin coordenadas GPS</span>
                   </div>
                   <p className="text-xs text-blue-700 mt-1">
-                    Este cliente aparecerá marcado como "📍 Sin GPS" y los mercaderistas podrán agregar 
+                    Este cliente aparecerá marcado como "📍 Sin GPS" y los mercaderistas podrán agregar
                     la ubicación cuando lo visiten por primera vez.
                   </p>
                 </div>
@@ -2634,8 +2634,8 @@ export default function GestionClientesPage() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="visit-type">Tipo de Visita *</Label>
-              <Select 
-                value={selectedVisitType} 
+              <Select
+                value={selectedVisitType}
                 onValueChange={(value: 'Merchandising' | 'Trade (Eventos)' | 'Trade (Impulso)' | 'sin_configurar') => setSelectedVisitType(value)}
               >
                 <SelectTrigger>
@@ -2653,7 +2653,7 @@ export default function GestionClientesPage() {
             <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
               <p className="font-medium mb-1">ℹ️ Información:</p>
               <p>
-                Al configurar un tipo de visita predeterminado, los mercaderistas no tendrán que seleccionarlo 
+                Al configurar un tipo de visita predeterminado, los mercaderistas no tendrán que seleccionarlo
                 manualmente cuando visiten este cliente. El sistema automáticamente usará este tipo de visita.
               </p>
             </div>
@@ -2670,7 +2670,7 @@ export default function GestionClientesPage() {
               >
                 Cancelar
               </Button>
-              <Button 
+              <Button
                 type="button"
                 onClick={handleSaveVisitType}
                 className="bg-red-600 hover:bg-red-700"
@@ -2856,7 +2856,7 @@ export default function GestionClientesPage() {
                         </TableBody>
                       </Table>
                     </div>
-                    
+
                     {bulkUpload.previewData.length > 10 && (
                       <p className="text-sm text-gray-500 text-center">
                         ... y {bulkUpload.previewData.length - 10} clientes más
@@ -2866,7 +2866,7 @@ export default function GestionClientesPage() {
                     <Alert>
                       <CheckCircle className="h-4 w-4" />
                       <AlertDescription>
-                        Los datos se ven correctos. Los clientes se crearán con GPS en (0,0) y los mercaderistas 
+                        Los datos se ven correctos. Los clientes se crearán con GPS en (0,0) y los mercaderistas
                         podrán actualizar las coordenadas cuando visiten cada punto.
                       </AlertDescription>
                     </Alert>

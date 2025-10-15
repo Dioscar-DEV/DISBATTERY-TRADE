@@ -1,7 +1,7 @@
 'use client';
 
 import { db as newDB, initializeOfflineDB } from '@/lib/indexedDB';
-import { UserData } from '@/types/visitas';
+import { UserData } from '@/services/auth';
 
 // Servicio unificado para manejar datos offline del mercaderista
 class OfflineDataManager {

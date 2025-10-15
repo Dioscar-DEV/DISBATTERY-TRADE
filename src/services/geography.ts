@@ -44,14 +44,16 @@ export interface Address {
  * @param coordinate The coordinate to retrieve the address for.
  * @returns A promise that resolves to an Address object.
  */
-export async function getAddressForCoordinate(coordinate: Coordinate): Promise<Address> {
-  // TODO: Implement this by calling an API.
-
+export async function getAddressForCoordinate(
+  coordinate: Coordinate
+): Promise<Address> {
+  // Placeholder implementation until a real geocoding API is integrated.
+  // Ensures function is usable by callers expecting a Promise<Address>.
   return {
-    street: '1600 Amphitheatre Parkway',
-    city: 'Mountain View',
-    state: 'CA',
-    postalCode: '94043',
-    country: 'USA',
+    street: "Unknown street",
+    city: "Unknown city",
+    state: "Unknown",
+    postalCode: "",
+    country: "",
   };
 }

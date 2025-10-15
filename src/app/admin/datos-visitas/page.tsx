@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UserCircle, ArrowLeft, TrendingUp, MapPinned, Activity, Menu } from 'lucide-react';
 import { collection, onSnapshot, orderBy, limit, query, Timestamp, getDocs } from 'firebase/firestore';
-import { db } from '@/firebase/clientApp';
+import { getFirestoreClient } from '@/firebase/clientApp';
 import { getCurrentUserWithPermissions, UserData, UserPermissions, canAccessSede } from '@/services/auth';
 
 type VisitaDoc = {
@@ -64,7 +64,7 @@ export default function DatosVisitasPage() {
   // Suscripción a visitas (en tiempo real). Ordenamos por createdAt desc y limitamos; filtramos por sede y rango en memoria para evitar índices compuestos.
   useEffect(() => {
     if (!userPermissions) return;
-    const q = query(collection(db, 'visitas'), orderBy('createdAt', 'desc'), limit(1000));
+    const q = query(collection(getFirestoreClient(), 'visitas'), orderBy('createdAt', 'desc'), limit(1000));
     const unsubscribe = onSnapshot(q, (snap) => {
       const rows: VisitaDoc[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
       setVisitas(rows);
@@ -75,7 +75,7 @@ export default function DatosVisitasPage() {
   // Suscripción a rutas
   useEffect(() => {
     if (!userPermissions) return;
-    const q = query(collection(db, 'routes'), orderBy('date', 'desc'), limit(300));
+    const q = query(collection(getFirestoreClient(), 'routes'), orderBy('date', 'desc'), limit(300));
     const unsubscribe = onSnapshot(q, (snap) => {
       const rows: RouteDoc[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
       setRoutes(rows);
@@ -191,18 +191,18 @@ export default function DatosVisitasPage() {
     const padding = { top: 20, right: 30, bottom: 60, left: 50 };
     const chartW = w - padding.left - padding.right;
     const chartH = h - padding.top - padding.bottom;
-    
+
     const maxY = Math.max(1, ...data.map(d => d.y));
     const stepX = data.length > 1 ? chartW / (data.length - 1) : chartW;
-    
+
     const points = data.map((d, i) => {
       const x = padding.left + i * stepX;
       const y = padding.top + chartH - (d.y / maxY) * chartH;
       return { x, y, value: d.y, date: d.x };
     });
-    
+
     const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-    
+
     return (
       <div className="bg-white p-4 rounded-lg border overflow-x-auto">
         <h3 className="text-lg font-semibold mb-4 text-gray-900">{title}</h3>
@@ -210,27 +210,27 @@ export default function DatosVisitasPage() {
           {/* Grid lines */}
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f0f0f0" strokeWidth="1" />
             </pattern>
           </defs>
           <rect width={chartW} height={chartH} x={padding.left} y={padding.top} fill="url(#grid)" />
-          
+
           {/* Y-axis labels */}
           {[0, Math.floor(maxY * 0.25), Math.floor(maxY * 0.5), Math.floor(maxY * 0.75), maxY].map((val, i) => (
             <g key={i}>
-              <text x={padding.left - 10} y={padding.top + chartH - (val / maxY) * chartH + 5} 
-                    textAnchor="end" fontSize="12" fill="#666">
+              <text x={padding.left - 10} y={padding.top + chartH - (val / maxY) * chartH + 5}
+                textAnchor="end" fontSize="12" fill="#666">
                 {val}
               </text>
-              <line x1={padding.left} y1={padding.top + chartH - (val / maxY) * chartH} 
-                    x2={padding.left + chartW} y2={padding.top + chartH - (val / maxY) * chartH} 
-                    stroke="#e0e0e0" strokeWidth="1" />
+              <line x1={padding.left} y1={padding.top + chartH - (val / maxY) * chartH}
+                x2={padding.left + chartW} y2={padding.top + chartH - (val / maxY) * chartH}
+                stroke="#e0e0e0" strokeWidth="1" />
             </g>
           ))}
-          
+
           {/* Line */}
           <path d={pathData} fill="none" stroke="#b61817" strokeWidth="3" />
-          
+
           {/* Points */}
           {points.map((p, i) => (
             <g key={i}>
@@ -238,7 +238,7 @@ export default function DatosVisitasPage() {
               <title>{`${new Date(p.date).toLocaleDateString()}: ${p.value} visitas`}</title>
             </g>
           ))}
-          
+
           {/* X-axis labels */}
           {points.map((p, i) => {
             if (i % Math.ceil(points.length / 8) === 0) {
@@ -263,11 +263,11 @@ export default function DatosVisitasPage() {
     const padding = { top: 20, right: 30, bottom: 80, left: 50 };
     const chartW = w - padding.left - padding.right;
     const chartH = h - padding.top - padding.bottom;
-    
+
     const maxY = Math.max(1, ...data.map(d => d.value));
     const barWidth = chartW / data.length * 0.7;
     const barSpacing = chartW / data.length;
-    
+
     return (
       <div className="bg-white p-4 rounded-lg border overflow-x-auto">
         <h3 className="text-lg font-semibold mb-4 text-gray-900">{title}</h3>
@@ -275,31 +275,31 @@ export default function DatosVisitasPage() {
           {/* Y-axis labels */}
           {[0, Math.floor(maxY * 0.5), maxY].map((val, i) => (
             <g key={i}>
-              <text x={padding.left - 10} y={padding.top + chartH - (val / maxY) * chartH + 5} 
-                    textAnchor="end" fontSize="12" fill="#666">
+              <text x={padding.left - 10} y={padding.top + chartH - (val / maxY) * chartH + 5}
+                textAnchor="end" fontSize="12" fill="#666">
                 {val}
               </text>
-              <line x1={padding.left} y1={padding.top + chartH - (val / maxY) * chartH} 
-                    x2={padding.left + chartW} y2={padding.top + chartH - (val / maxY) * chartH} 
-                    stroke="#e0e0e0" strokeWidth="1" />
+              <line x1={padding.left} y1={padding.top + chartH - (val / maxY) * chartH}
+                x2={padding.left + chartW} y2={padding.top + chartH - (val / maxY) * chartH}
+                stroke="#e0e0e0" strokeWidth="1" />
             </g>
           ))}
-          
+
           {/* Bars */}
           {data.map((d, i) => {
             const barHeight = (d.value / maxY) * chartH;
             const x = padding.left + i * barSpacing + (barSpacing - barWidth) / 2;
             const y = padding.top + chartH - barHeight;
-            
+
             return (
               <g key={i}>
-                <rect x={x} y={y} width={barWidth} height={barHeight} 
-                      fill={d.color || '#ffee26'} stroke="#b61817" strokeWidth="1" />
+                <rect x={x} y={y} width={barWidth} height={barHeight}
+                  fill={d.color || '#ffee26'} stroke="#b61817" strokeWidth="1" />
                 <text x={x + barWidth / 2} y={y - 5} textAnchor="middle" fontSize="12" fill="#333" fontWeight="bold">
                   {d.value}
                 </text>
                 <text x={x + barWidth / 2} y={h - 10} textAnchor="middle" fontSize="10" fill="#666"
-                      transform={`rotate(-45, ${x + barWidth / 2}, ${h - 10})`}>
+                  transform={`rotate(-45, ${x + barWidth / 2}, ${h - 10})`}>
                   {d.label}
                 </text>
               </g>
@@ -363,12 +363,14 @@ export default function DatosVisitasPage() {
       { label: 'Merchandising', value: (porTipo['Merchandising'] || 0) + (porTipo['merchandising'] || 0), color: '#ffee26' },
       { label: 'Trade (Impulso)', value: (porTipo['Trade (Impulso)'] || 0) + (porTipo['trade (impulso)'] || 0) + (porTipo['trade-impulso'] || 0), color: '#fbce04' },
       { label: 'Trade (Eventos)', value: (porTipo['Trade (Eventos)'] || 0) + (porTipo['trade (eventos)'] || 0), color: '#f4a261' },
-      { label: 'Otros', value: Object.entries(porTipo).reduce((sum, [tipo, count]) => {
-        if (!['Merchandising', 'merchandising', 'Trade (Impulso)', 'trade (impulso)', 'trade-impulso', 'Trade (Eventos)', 'trade (eventos)'].includes(tipo)) {
-          return sum + count;
-        }
-        return sum;
-      }, 0), color: '#e76f51' }
+      {
+        label: 'Otros', value: Object.entries(porTipo).reduce((sum, [tipo, count]) => {
+          if (!['Merchandising', 'merchandising', 'Trade (Impulso)', 'trade (impulso)', 'trade-impulso', 'Trade (Eventos)', 'trade (eventos)'].includes(tipo)) {
+            return sum + count;
+          }
+          return sum;
+        }, 0), color: '#e76f51'
+      }
     ].filter(item => item.value > 0);
   }, [visitasFiltradas]);
 
@@ -396,7 +398,7 @@ export default function DatosVisitasPage() {
 
   // Rutas finalizadas
   const rutasFinalizadas = useMemo(() => routesFiltradas.filter((r) => r.status === 'completada'), [routesFiltradas]);
-  
+
   // Rutas en progreso y no finalizadas (de días anteriores)
   const rutasEnProgreso = useMemo(() => routesFiltradas.filter((r) => r.status === 'en_progreso'), [routesFiltradas]);
   const rutasNoFinalizadas = useMemo(() => {
@@ -440,15 +442,15 @@ export default function DatosVisitasPage() {
                 </div>
               </div>
             </div>
-             {/* Mobile Title */}
-             <h1 className="sm:hidden text-xl font-semibold text-white">Datos de Visitas</h1>
+            {/* Mobile Title */}
+            <h1 className="sm:hidden text-xl font-semibold text-white">Datos de Visitas</h1>
           </div>
           {/* Mobile Hamburger Button */}
           <div className="sm:hidden">
-            <Button 
-              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
+              variant="ghost"
+              size="sm"
               className="text-white hover:bg-red-700/50 p-2 rounded-md"
             >
               <Menu className="w-6 h-6" />
@@ -459,10 +461,10 @@ export default function DatosVisitasPage() {
           <img src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png" alt="Disbattery Lubricantes Logo" className="max-h-8" />
         </div>
       </header>
-      
+
       {/* Collapsible Mobile Menu */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
           onClick={() => setMobileMenuOpen(false)}
         >

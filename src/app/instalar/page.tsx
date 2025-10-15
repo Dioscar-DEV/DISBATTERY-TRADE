@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Smartphone, Download, Share2, CheckCircle, Star, Clock, Wifi, Menu, Plus } from 'lucide-react';
+import { Smartphone, Download, Share2, CheckCircle, Star, Clock, Wifi, Menu } from 'lucide-react';
 import { PermissionChecker } from '@/components/PermissionChecker';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
