@@ -37,14 +37,14 @@ function VisitCaptureContent() {
   const [pointId, setPointId] = useState<string | null>(null);
   const [pointName, setPointName] = useState<string | null>(null);
   const [pointType, setPointType] = useState<string | null>(null);
-  
+
   const [selectedVisitType, setSelectedVisitType] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [gpsCoordinates, setGpsCoordinates] = useState<GPSCoordinates | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const [isCheckingClientVisitType, setIsCheckingClientVisitType] = useState(true);
   const [showVisitTypeSelector, setShowVisitTypeSelector] = useState(false);
 
@@ -60,7 +60,7 @@ function VisitCaptureContent() {
     }
     setIsLoading(false);
   }, [searchParams]);
-  
+
   // Efecto para verificar si la visita tiene un tipo predefinido
   useEffect(() => {
     const checkClientVisitType = async () => {
@@ -74,13 +74,13 @@ function VisitCaptureContent() {
         }
 
         const clienteData = JSON.parse(clienteDataString);
-        
+
         if (clienteData.tipoVisita) {
           toast({
             title: 'Tipo de visita definido',
             description: `Procesando visita: ${clienteData.tipoVisita}`,
           });
-          
+
           // Capturar GPS y redirigir
           await handleRedirection(clienteData.tipoVisita);
         } else {
@@ -156,14 +156,14 @@ function VisitCaptureContent() {
           <path d="M0,0 L0,700 Q150,800 500,600 V0 Z" fill="#D90429" />
         </svg>
       </div>
-      
+
       {/* Header Area */}
       <header className="relative z-20 h-20 flex items-center justify-between px-4 sm:px-6 bg-gradient-to-r from-gray-200 to-gray-400 shadow-md">
         <Button
           variant="ghost"
           className="flex items-center text-gray-700 hover:bg-gray-300/50 p-2 rounded-md text-lg font-semibold"
         >
-          <UserCircle className="w-7 h-7 mr-2 text-black" /> 
+          <UserCircle className="w-7 h-7 mr-2 text-black" />
           <span className="text-black">Usuario</span>
         </Button>
         <img
@@ -179,59 +179,59 @@ function VisitCaptureContent() {
         <Card className="w-full max-w-md bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.1)] border border-gray-100 rounded-2xl">
           <CardHeader className="text-center pt-6 pb-4 px-6">
             <CardTitle className="text-xl font-bold text-[#0A4B8B]">
-                Ejecucion de Visita o Accion
+              Ejecucion de Visita o Accion
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-gray-700">
               {pointName ? `Cliente: ${pointName}` : 'Favor ingresa los datos del cliente a ejecutar'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 p-6">
-           <div className="relative">
-             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-             <Input
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Input
                 id="location"
                 value={address || (gpsCoordinates ? `Lat: ${gpsCoordinates.latitude.toFixed(4)}...` : 'Capturando ubicación...')}
                 readOnly
                 type="text"
                 className="pl-10 placeholder:italic"
               />
-           </div>
-          
-          {isCheckingClientVisitType || isLoading ? (
-            <div className="text-center py-4">
-              <Loader2 className="animate-spin h-8 w-8 text-blue-500 mx-auto mb-2" />
-              <p className="text-sm text-gray-600">Verificando configuración del cliente...</p>
             </div>
-          ) : showVisitTypeSelector ? (
-            <div>
-              <Label htmlFor="visit-type" className="text-gray-700">Tipo de visita</Label>
-              <Select onValueChange={setSelectedVisitType} value={selectedVisitType || ''}>
-                <SelectTrigger className="w-full mt-1" id="visit-type">
-                  <SelectValue placeholder="Seleccionar tipo de visita" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Merchandising (Externo)">Merchandising (Externo)</SelectItem>
-                  <SelectItem value="Merchandising (Material Interno)">Merchandising (Material Interno)</SelectItem>
-                  <SelectItem value="Trade (Impulso)">Trade (Impulso)</SelectItem>
-                  {/* Eventos no se selecciona manualmente */}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <Loader2 className="animate-spin h-8 w-8 text-green-500 mx-auto mb-2" />
-              <p className="text-sm text-gray-600">Configurando visita...</p>
-            </div>
-          )}
+
+            {isCheckingClientVisitType || isLoading ? (
+              <div className="text-center py-4">
+                <Loader2 className="animate-spin h-8 w-8 text-blue-500 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">Verificando configuración del cliente...</p>
+              </div>
+            ) : showVisitTypeSelector ? (
+              <div>
+                <Label htmlFor="visit-type" className="text-gray-700">Tipo de visita</Label>
+                <Select onValueChange={setSelectedVisitType} value={selectedVisitType || ''}>
+                  <SelectTrigger className="w-full mt-1" id="visit-type">
+                    <SelectValue placeholder="Seleccionar tipo de visita" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Merchandising (Externo)">Merchandising (Externo)</SelectItem>
+                    <SelectItem value="Merchandising (Material Interno)">Merchandising (Material Interno)</SelectItem>
+                    <SelectItem value="Trade (Impulso)">Trade (Impulso)</SelectItem>
+                    {/* Eventos no se selecciona manualmente */}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <Loader2 className="animate-spin h-8 w-8 text-green-500 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">Configurando visita...</p>
+              </div>
+            )}
           </CardContent>
           {showVisitTypeSelector && (
             <CardFooter className="px-6 pb-6">
-              <Button 
-                onClick={() => selectedVisitType && handleRedirection(selectedVisitType)} 
+              <Button
+                onClick={() => selectedVisitType && handleRedirection(selectedVisitType)}
                 className={cn(
                   "w-full text-white font-semibold py-3 rounded-full",
                   isFormValid && !isSubmitting
-                    ? "bg-gradient-to-r from-[#007BFF] to-[#0056b3]" 
+                    ? "bg-gradient-to-r from-[#007BFF] to-[#0056b3]"
                     : "bg-gray-400 cursor-not-allowed"
                 )}
                 disabled={!isFormValid || isSubmitting}

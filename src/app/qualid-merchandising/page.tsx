@@ -1,8 +1,8 @@
 'use client';
 
-import {useRouter} from 'next/navigation';
-import {useEffect, useState, useRef } from 'react';
-import {Button} from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -11,9 +11,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {Input} from '@/components/ui/input';
-import {Label} from '@/components/ui/label';
-import {useToast} from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Camera, Trash } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -52,10 +52,10 @@ export default function QualidMerchandising() {
   const [hicistePlanogramaQualid, setHicistePlanogramaQualid] = useState<string>('');
   const [fotoAntesPlanogramaQualid, setFotoAntesPlanogramaQualid] = useState<string | null>(null);
   const [fotoDespuesPlanogramaQualid, setFotoDespuesPlanogramaQualid] = useState<string | null>(null);
-  
+
   const [totalCenefasQualid, setTotalCenefasQualid] = useState<number | null>(null);
   const [bolsasQualidCarro, setBolsasQualidCarro] = useState<number | null>(null);
-  
+
   const [afichesQualidAgregados, setAfichesQualidAgregados] = useState<AficheColocado[]>([]);
   const [currentTipoAficheQualid, setCurrentTipoAficheQualid] = useState<string>('');
   const [currentCantidadAficheQualid, setCurrentCantidadAficheQualid] = useState<string>('');
@@ -71,49 +71,49 @@ export default function QualidMerchandising() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [capturingType, setCapturingType] = useState<string | null>(null);
 
-  const {toast} = useToast();
+  const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
     const getCameraPermission = async () => {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-             toast({
-                variant: 'destructive',
-                title: 'Cámara no Soportada',
-                description: 'Su navegador no soporta el acceso a la cámara.',
-            });
-            setHasCameraPermission(false);
-            return;
-        }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: "environment"
-                },
-            });
-            setHasCameraPermission(true);
-            stream.getTracks().forEach(track => track.stop());
-        } catch (error) {
-            console.error('Error accessing camera:', error);
-            setHasCameraPermission(false);
-            toast({
-                variant: 'destructive',
-                title: 'Acceso a la Cámara Denegado',
-                description: 'Por favor, active los permisos de la cámara en la configuración de su navegador para usar esta aplicación.',
-            });
-        }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast({
+          variant: 'destructive',
+          title: 'Cámara no Soportada',
+          description: 'Su navegador no soporta el acceso a la cámara.',
+        });
+        setHasCameraPermission(false);
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment"
+          },
+        });
+        setHasCameraPermission(true);
+        stream.getTracks().forEach(track => track.stop());
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Acceso a la Cámara Denegado',
+          description: 'Por favor, active los permisos de la cámara en la configuración de su navegador para usar esta aplicación.',
+        });
+      }
     };
     getCameraPermission();
   }, [toast]);
 
   const takePhoto = async (setter: React.Dispatch<React.SetStateAction<string | null>>, photoType: string) => {
     if (!videoRef.current || !hasCameraPermission) {
-        toast({
-            variant: 'destructive',
-            title: 'Cámara no lista',
-            description: 'Permiso de cámara no concedido o cámara no disponible.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cámara no lista',
+        description: 'Permiso de cámara no concedido o cámara no disponible.',
+      });
+      return;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -121,7 +121,7 @@ export default function QualidMerchandising() {
       await videoRef.current.play();
 
       videoRef.current.classList.remove('hidden');
-      setCapturingType(photoType); 
+      setCapturingType(photoType);
 
       await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -129,7 +129,7 @@ export default function QualidMerchandising() {
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       const context = canvas.getContext('2d');
-       if (context) {
+      if (context) {
         context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         const photoURL = canvas.toDataURL('image/png');
         setter(photoURL);
@@ -155,7 +155,7 @@ export default function QualidMerchandising() {
       if (currentStream instanceof MediaStream) {
         currentStream.getTracks().forEach(track => track.stop());
       }
-      if(videoRef.current) videoRef.current.srcObject = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
     }
   };
 
@@ -186,12 +186,12 @@ export default function QualidMerchandising() {
       return;
     }
     if (currentCantidadAficheQualid === '' || currentCantidadAficheQualid === null) {
-        toast({
-            variant: 'destructive',
-            title: 'Cantidad Requerida',
-            description: 'Por favor, ingrese la cantidad de afiches Qualid.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cantidad Requerida',
+        description: 'Por favor, ingrese la cantidad de afiches Qualid.',
+      });
+      return;
     }
     const cantidadNum = parseInt(currentCantidadAficheQualid);
     if (isNaN(cantidadNum) || cantidadNum < 0) {
@@ -213,8 +213,8 @@ export default function QualidMerchandising() {
       return;
     }
 
-    setAfichesQualidAgregados([...afichesQualidAgregados, { 
-      tipo: currentTipoAficheQualid, 
+    setAfichesQualidAgregados([...afichesQualidAgregados, {
+      tipo: currentTipoAficheQualid,
       cantidad: cantidadNum,
       foto: cantidadNum > 0 ? currentFotoAficheQualid : undefined
     }]);
@@ -237,12 +237,12 @@ export default function QualidMerchandising() {
       return;
     }
     if (currentCantidadExhibidorCauchoQualid === '' || currentCantidadExhibidorCauchoQualid === null) {
-        toast({
-            variant: 'destructive',
-            title: 'Cantidad Requerida',
-            description: 'Por favor, ingrese la cantidad de exhibidores de caucho.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cantidad Requerida',
+        description: 'Por favor, ingrese la cantidad de exhibidores de caucho.',
+      });
+      return;
     }
     const cantidadNum = parseInt(currentCantidadExhibidorCauchoQualid);
     if (isNaN(cantidadNum) || cantidadNum < 0) {
@@ -309,21 +309,21 @@ export default function QualidMerchandising() {
 
     try {
       setIsSyncing(true);
-      
+
       console.log('🔄 [QUALID] Iniciando guardado de datos...');
       console.log('🔄 [QUALID] Datos a guardar:', datosQualid);
-      
+
       // ✅ VERIFICAR QUE LOCALSTORAGE ESTÉ DISPONIBLE
       if (typeof window === 'undefined' || !window.localStorage) {
         throw new Error('LocalStorage no está disponible');
       }
-      
+
       // ✅ OBTENER DATOS ACUMULADOS CON VALIDACIÓN ROBUSTA
       let datosAcumulados: any = {};
       try {
         const datosExistentes = localStorage.getItem('datosFormularioCompleto');
         console.log('📦 [QUALID] Datos existentes en localStorage:', datosExistentes ? 'Sí existen' : 'No existen');
-        
+
         if (datosExistentes) {
           datosAcumulados = JSON.parse(datosExistentes);
           console.log('✅ [QUALID] Datos existentes parseados correctamente');
@@ -358,7 +358,7 @@ export default function QualidMerchandising() {
         title: 'Datos de Qualid Guardados',
         description: 'Progreso guardado. Continuando con el formulario...',
       });
-      
+
       // ✅ NAVEGACIÓN CON DELAY PARA ASEGURAR QUE EL GUARDADO SE COMPLETE
       console.log('🔄 [QUALID] Navegando a ventas-productos...');
       router.push('/ventas-productos');
@@ -368,7 +368,7 @@ export default function QualidMerchandising() {
       console.error('❌ [QUALID] Stack trace:', error?.stack);
       console.error('❌ [QUALID] Tipo de error:', error?.name);
       console.error('❌ [QUALID] Mensaje de error:', error?.message);
-      
+
       toast({
         variant: 'destructive',
         title: 'Error al Guardar',
@@ -421,12 +421,12 @@ export default function QualidMerchandising() {
       syncData();
     }
 
-    if(typeof window !== 'undefined') {
+    if (typeof window !== 'undefined') {
       window.addEventListener('online', syncData);
     }
 
     return () => {
-      if(typeof window !== 'undefined') {
+      if (typeof window !== 'undefined') {
         window.removeEventListener('online', syncData);
       }
     };
@@ -469,11 +469,11 @@ export default function QualidMerchandising() {
         <CardContent className="space-y-6">
           <video ref={videoRef} className="hidden w-full aspect-video rounded-md" autoPlay muted playsInline />
 
-          { !(hasCameraPermission) && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertTitle>Acceso a la Cámara Requerido</AlertTitle>
-                <AlertDescription>Por favor, permita el acceso a la cámara para usar esta función.</AlertDescription>
-              </Alert>
+          {!(hasCameraPermission) && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertTitle>Acceso a la Cámara Requerido</AlertTitle>
+              <AlertDescription>Por favor, permita el acceso a la cámara para usar esta función.</AlertDescription>
+            </Alert>
           )}
 
           {/* Planograma Qualid */}
@@ -489,7 +489,7 @@ export default function QualidMerchandising() {
               </SelectContent>
             </Select>
           </div>
-          
+
           {hicistePlanogramaQualid === 'Yes' && (
             <>
               <div>
@@ -503,7 +503,7 @@ export default function QualidMerchandising() {
                 </Button>
                 {fotoAntesPlanogramaQualid && <img src={fotoAntesPlanogramaQualid} alt="Foto Antes Planograma Qualid" className="mt-2 rounded-md" />}
               </div>
-              
+
               <div>
                 <Label htmlFor="foto-despues-planograma-qualid">Foto "Después" del Planograma Qualid</Label>
                 <Button
@@ -517,7 +517,7 @@ export default function QualidMerchandising() {
               </div>
             </>
           )}
-          
+
           {/* Cenefas y Bolsas */}
           <div>
             <Label htmlFor="total-cenefas-qualid">Total de Cenefas Qualid colocadas</Label>
@@ -614,8 +614,8 @@ export default function QualidMerchandising() {
                 </div>
               )}
 
-              <Button 
-                onClick={handleAddAficheQualid} 
+              <Button
+                onClick={handleAddAficheQualid}
                 disabled={!currentTipoAficheQualid || currentCantidadAficheQualid === '' || availableAficheQualidTypes.length === 0 || isSyncing || !!capturingType || (parseInt(currentCantidadAficheQualid || '0') > 0 && !currentFotoAficheQualid)}
                 className="w-full"
               >
@@ -651,8 +651,8 @@ export default function QualidMerchandising() {
                 </div>
               </div>
             )}
-             {availableAficheQualidTypes.length === 0 && AFICHES_QUALID_TYPES.length > 0 && afichesQualidAgregados.length === AFICHES_QUALID_TYPES.length && (
-                <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de afiches Qualid disponibles han sido agregados.</p>
+            {availableAficheQualidTypes.length === 0 && AFICHES_QUALID_TYPES.length > 0 && afichesQualidAgregados.length === AFICHES_QUALID_TYPES.length && (
+              <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de afiches Qualid disponibles han sido agregados.</p>
             )}
           </div>
 
@@ -691,8 +691,8 @@ export default function QualidMerchandising() {
                   disabled={isSyncing || !!capturingType}
                 />
               </div>
-              <Button 
-                onClick={handleAddExhibidorCauchoQualid} 
+              <Button
+                onClick={handleAddExhibidorCauchoQualid}
                 disabled={!currentTipoExhibidorCauchoQualid || currentCantidadExhibidorCauchoQualid === '' || availableExhibidorCauchoQualidTypes.length === 0 || isSyncing || !!capturingType}
                 className="shrink-0"
               >
@@ -716,7 +716,7 @@ export default function QualidMerchandising() {
               </div>
             )}
             {availableExhibidorCauchoQualidTypes.length === 0 && EXHIBIDORES_CAUCHO_QUALID_TYPES.length > 0 && exhibidoresCauchoQualidAgregados.length === EXHIBIDORES_CAUCHO_QUALID_TYPES.length && (
-                <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de exhibidores de caucho Qualid disponibles han sido agregados.</p>
+              <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de exhibidores de caucho Qualid disponibles han sido agregados.</p>
             )}
           </div>
 
@@ -749,9 +749,9 @@ export default function QualidMerchandising() {
           )}
         </CardContent>
         <CardFooter>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={isSyncing || !!capturingType} 
+          <Button
+            onClick={handleSubmit}
+            disabled={isSyncing || !!capturingType}
             className="w-full"
           >
             {isSyncing ? 'Sincronizando...' : 'Guardar y Continuar a Observaciones'}

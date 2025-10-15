@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -30,8 +29,10 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --primary-gradient-start: 343 100% 45%;  /* #e60026 */
-    --primary-gradient-end: 343 88% 35%;    /* #c3001f */
+    --primary-gradient-start: 343 100% 45%;
+    /* #e60026 */
+    --primary-gradient-end: 343 88% 35%;
+    /* #c3001f */
   }
 
   .dark {
@@ -66,15 +67,18 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
 }
 
 /* Estilos globales para mejorar el scroll */
-html, body {
+html,
+body {
   height: 100%;
-  overflow-x: hidden; /* Evitar scroll horizontal */
+  overflow-x: hidden;
+  /* Evitar scroll horizontal */
 }
 
 /* Asegurar que los contenedores principales permitan scroll */
@@ -129,7 +133,7 @@ html, body {
   .mobile-scroll {
     -webkit-overflow-scrolling: touch;
   }
-  
+
   /* Asegurar que el contenido no se corte en móviles */
   .mobile-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -179,8 +183,11 @@ html, body {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
-
-

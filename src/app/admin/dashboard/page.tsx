@@ -35,7 +35,7 @@ export default function AdminDashboardPage() {
         try {
           const result = await getCurrentUserWithPermissions();
           console.log('Dashboard: Resultado de getCurrentUserWithPermissions:', result);
-          
+
           if (result) {
             setCurrentUser(result.user);
             setUserPermissions(result.permissions);
@@ -61,50 +61,50 @@ export default function AdminDashboardPage() {
   const getAvailableFeatures = () => {
     console.log('Dashboard: getAvailableFeatures llamada');
     console.log('Dashboard: userPermissions:', userPermissions);
-    
+
     if (!userPermissions) {
       console.log('Dashboard: No hay permisos cargados aún');
       return [];
     }
 
     const features = [];
-    
+
     if (userPermissions.canManageUsers) {
       console.log('Dashboard: Agregando gestión de usuarios');
-      features.push({ 
-        name: 'Gestión de Usuarios', 
-        href: '/admin/users', 
-        icon: Users, 
+      features.push({
+        name: 'Gestión de Usuarios',
+        href: '/admin/users',
+        icon: Users,
         description: 'Crear, editar y asignar roles a mercaderistas y administradores.'
       });
     }
 
     if (userPermissions.canManageRoutes) {
       console.log('Dashboard: Agregando gestión de rutas');
-      features.push({ 
-        name: 'Gestión de Rutas', 
-        href: '/admin/rutas', 
-        icon: MapPinned, 
+      features.push({
+        name: 'Gestión de Rutas',
+        href: '/admin/rutas',
+        icon: MapPinned,
         description: 'Planificar y visualizar rutas de mercaderistas con integración Google Maps.'
       });
     }
 
     if (userPermissions.canManageClients) {
       console.log('Dashboard: Agregando gestión de clientes');
-      features.push({ 
-        name: 'Gestión de Clientes', 
-        href: '/admin/clientes', 
-        icon: ListChecks, 
+      features.push({
+        name: 'Gestión de Clientes',
+        href: '/admin/clientes',
+        icon: ListChecks,
         description: 'Administrar la información de los clientes visitados.'
       });
     }
 
     if (userPermissions.canViewReports) {
       console.log('Dashboard: Agregando datos de visitas');
-      features.push({ 
-        name: 'Datos de Visitas', 
-        href: '/admin/datos-visitas', 
-        icon: BarChart3, 
+      features.push({
+        name: 'Datos de Visitas',
+        href: '/admin/datos-visitas',
+        icon: BarChart3,
         description: 'Visualizar y analizar los datos recolectados en las visitas.'
       });
     }
@@ -152,21 +152,21 @@ export default function AdminDashboardPage() {
                 <div className="text-xl font-semibold">{currentUser?.fullName || 'Cargando...'}</div>
                 <div className="text-sm opacity-75">
                   {loading ? 'Cargando...' :
-                   userPermissions?.isAdminMaster ? 'Admin Master' : 
-                   `${currentUser?.role || 'N/A'} - ${currentUser?.sede || 'N/A'}`}
+                    userPermissions?.isAdminMaster ? 'Admin Master' :
+                      `${currentUser?.role || 'N/A'} - ${currentUser?.sede || 'N/A'}`}
                 </div>
               </div>
               <LogoutButton className="ml-3 bg-red-800 hover:bg-red-900 text-white border-0 px-3 py-1 text-sm" />
             </div>
-             {/* Mobile Title */}
-             <h1 className="sm:hidden text-xl font-semibold text-white">Dashboard</h1>
+            {/* Mobile Title */}
+            <h1 className="sm:hidden text-xl font-semibold text-white">Dashboard</h1>
           </div>
-           {/* Mobile Hamburger Button */}
-           <div className="sm:hidden">
-            <Button 
-              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} 
-              variant="ghost" 
-              size="sm" 
+          {/* Mobile Hamburger Button */}
+          <div className="sm:hidden">
+            <Button
+              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
+              variant="ghost"
+              size="sm"
               className="text-white hover:bg-red-700/50 p-2 rounded-md"
             >
               <Menu className="w-6 h-6" />
@@ -185,7 +185,7 @@ export default function AdminDashboardPage() {
 
       {/* Collapsible Mobile Menu */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
           onClick={() => setMobileMenuOpen(false)}
         >
@@ -195,8 +195,8 @@ export default function AdminDashboardPage() {
               <div className="text-xl font-semibold truncate">{currentUser?.fullName || 'Cargando...'}</div>
               <div className="text-sm opacity-75 truncate">
                 {loading ? 'Cargando...' :
-                 userPermissions?.isAdminMaster ? 'Admin Master' : 
-                 `${currentUser?.role || 'N/A'} - ${currentUser?.sede || 'N/A'}`}
+                  userPermissions?.isAdminMaster ? 'Admin Master' :
+                    `${currentUser?.role || 'N/A'} - ${currentUser?.sede || 'N/A'}`}
               </div>
             </div>
           </div>
@@ -213,7 +213,7 @@ export default function AdminDashboardPage() {
                 Panel de Administración
               </CardTitle>
               <CardDescription className="text-gray-600">
-                {userPermissions?.isAdminMaster 
+                {userPermissions?.isAdminMaster
                   ? 'Acceso completo a todas las funcionalidades del sistema'
                   : `Gestión de ${currentUser?.sede} - Permisos de ${currentUser?.role}`
                 }
@@ -307,7 +307,7 @@ export default function AdminDashboardPage() {
           <img
             src="https://storage.googleapis.com/iandai/imagenes/shelllogo.png"
             alt="Shell Logo"
-            className="max-h-14" 
+            className="max-h-14"
             data-ai-hint="shell pecten"
           />
         </div>

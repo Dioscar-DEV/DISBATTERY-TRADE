@@ -8,13 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Wifi, 
-  WifiOff, 
-  RefreshCw, 
-  Database, 
-  Clock, 
-  CheckCircle, 
+import {
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  Database,
+  Clock,
+  CheckCircle,
   AlertTriangle,
   Download,
   Upload,
@@ -31,9 +31,9 @@ interface OfflineStatusManagerProps {
   compact?: boolean;
 }
 
-export default function OfflineStatusManager({ 
+export default function OfflineStatusManager({
   className = '',
-  compact = false 
+  compact = false
 }: OfflineStatusManagerProps) {
   const {
     isOnline,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect} from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -44,16 +44,16 @@ export default function ObservacionesPage() {
 
   const handleSubmit = async () => {
     console.log('🎯 ========== BOTÓN FINAL PRESIONADO - GUARDANDO FORMULARIO COMPLETO ==========');
-    
+
     try {
       setIsSyncing(true);
-      
+
       console.log('🔍 INICIANDO DEPURACIÓN DE DATOS...');
-      
+
       // ✅ VERIFICACIÓN CRÍTICA DEL POINTID ANTES DE PROCESAR
       const clienteDataRaw = localStorage.getItem('clienteData');
       console.log('🆔 [CRÍTICO ANÁLISIS] ClienteData RAW desde localStorage:', clienteDataRaw);
-      
+
       if (clienteDataRaw) {
         try {
           const clienteDataFromStorage = JSON.parse(clienteDataRaw);
@@ -63,7 +63,7 @@ export default function ObservacionesPage() {
           console.log('🆔 [CRÍTICO ANÁLISIS] PointId vacío?:', !clienteDataFromStorage.pointId);
           console.log('🆔 [CRÍTICO ANÁLISIS] RIF del cliente:', clienteDataFromStorage.rif);
           console.log('🆔 [CRÍTICO ANÁLISIS] Nombre del cliente:', clienteDataFromStorage.nombre);
-          
+
           if (!clienteDataFromStorage.pointId) {
             console.error('❌ [PROBLEMA CONFIRMADO] PointId está vacío al momento de enviar el formulario');
             console.error('❌ [CAUSA RAÍZ] Esto explica por qué se usa solo RIF como fallback');
@@ -76,14 +76,14 @@ export default function ObservacionesPage() {
       } else {
         console.error('❌ [PROBLEMA CRÍTICO] No hay clienteData en localStorage');
       }
-      
+
       // Verificar todo el localStorage
       console.log('📦 TODO el localStorage:', Object.keys(localStorage));
-      
+
       // Recolectar todos los datos acumulados del formulario
       const datosFormularioCompleto = localStorage.getItem('datosFormularioCompleto');
       console.log('📄 datosFormularioCompleto RAW:', datosFormularioCompleto);
-      
+
       const datosAcumulados = JSON.parse(datosFormularioCompleto || '{}');
       console.log('📊 datosAcumulados PARSED:', datosAcumulados);
 
@@ -99,12 +99,12 @@ export default function ObservacionesPage() {
       console.log('🎯 Cliente desde datosAcumulados:', cliente);
       console.log('🔍 RIF en datosAcumulados.cliente:', cliente?.rif);
       console.log('🔍 Nombre en datosAcumulados.cliente:', cliente?.nombre);
-      
+
       // ✅ SIEMPRE combinar con clienteDataFromStorage para GPS actualizados
       if (clienteDataFromStorage) {
         console.log('🗺️ COMBINANDO CON DATOS GPS DE clienteDataFromStorage');
         console.log('🗺️ GPS desde clienteData:', clienteDataFromStorage.position);
-        
+
         if (!cliente) {
           // Si no hay cliente en datosAcumulados, usar clienteData completo
           cliente = clienteDataFromStorage;
@@ -199,7 +199,7 @@ export default function ObservacionesPage() {
       console.log('🔧 CORRECCIÓN: Datos de signage desde clienteData:', signageData);
       console.log('🔧 hasSignage:', cliente.hasSignage);
       console.log('🔧 signagePhoto:', cliente.signagePhoto ? 'SÍ CAPTURADA' : 'NO CAPTURADA');
-      
+
       // 🔧 CORRECCIÓN CRÍTICA: Agregar datos de señalización a datosAcumulados para reportes-finales
       datosAcumulados.hasSignage = signageData.hasSignage;
       datosAcumulados.signagePhoto = signageData.signagePhoto;
@@ -207,30 +207,30 @@ export default function ObservacionesPage() {
         hasSignage: datosAcumulados.hasSignage,
         signagePhoto: datosAcumulados.signagePhoto ? 'SÍ CAPTURADA' : 'NO CAPTURADA'
       });
-      
+
       // ✅ CORRECCIÓN GPS: Actualizar clienteData con GPS combinado en datosAcumulados
       datosAcumulados.clienteData = cliente;
       console.log('🗺️ CLIENTE CON GPS ACTUALIZADO EN datosAcumulados.clienteData:', cliente.position);
-      
+
       // 🔧 GUARDAR datosAcumulados ACTUALIZADOS con señalización Y GPS
       localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosAcumulados));
       console.log('💾 DATOS ACUMULADOS GUARDADOS CON SEÑALIZACIÓN');
-      
+
       console.log('Datos de ventas encontrados:', ventasData);
       console.log('Datos de reportes finales encontrados:', reportesFinalesData);
 
       // 🔄 CORRECCIÓN: Subir imágenes a Firebase Storage y obtener URLs
       console.log('🔄 Procesando imágenes...');
-      
+
       // Preparar imágenes para subir a Firebase Storage
       const imagesToUpload = [];
-      
+
       // 🔍 DEBUGGING ESPECÍFICO PARA FOTO DE SEÑALIZACIÓN
       console.log('🔍 VERIFICANDO FOTO DE SEÑALIZACIÓN ANTES DE SUBIR:');
       console.log('  - signageData.signagePhoto existe:', !!signageData.signagePhoto);
       console.log('  - Longitud de la imagen:', signageData.signagePhoto ? signageData.signagePhoto.length : 0);
       console.log('  - Es base64 válido:', signageData.signagePhoto ? signageData.signagePhoto.startsWith('data:image/') : false);
-      
+
       if (signageData.signagePhoto && signageData.signagePhoto.startsWith('data:image/')) {
         console.log('✅ AGREGANDO FOTO DE SEÑALIZACIÓN A LISTA DE SUBIDA');
         imagesToUpload.push({
@@ -241,7 +241,7 @@ export default function ObservacionesPage() {
       } else {
         console.log('❌ FOTO DE SEÑALIZACIÓN NO VÁLIDA O VACÍA');
       }
-      
+
       if (shellData.fotoAntesShell) {
         imagesToUpload.push({
           base64: shellData.fotoAntesShell,
@@ -249,7 +249,7 @@ export default function ObservacionesPage() {
           prefix: 'planograma_antes'
         });
       }
-      
+
       if (shellData.fotoDespuesShell) {
         imagesToUpload.push({
           base64: shellData.fotoDespuesShell,
@@ -257,7 +257,7 @@ export default function ObservacionesPage() {
           prefix: 'planograma_despues'
         });
       }
-      
+
       if (shellData.fotoStickerShell) {
         imagesToUpload.push({
           base64: shellData.fotoStickerShell,
@@ -336,7 +336,7 @@ export default function ObservacionesPage() {
       // ✅ Incluir fotos de Qualid si existen
       if (datosAcumulados.qualidMerchandising) {
         const qualidData = datosAcumulados.qualidMerchandising;
-        
+
         if (qualidData.fotoAntesPlanogramaQualid) {
           imagesToUpload.push({
             base64: qualidData.fotoAntesPlanogramaQualid,
@@ -425,7 +425,7 @@ export default function ObservacionesPage() {
 
       // Subir imágenes a Firebase Storage y obtener URLs
       let fotosUrls: string[] = [];
-      
+
       if (imagesToUpload.length > 0) {
         try {
           console.log(`📤 Subiendo ${imagesToUpload.length} imágenes a Firebase Storage...`);
@@ -433,10 +433,10 @@ export default function ObservacionesPage() {
           console.log(`✅ ${fotosUrls.length} imágenes subidas exitosamente`);
         } catch (error) {
           console.error('❌ Error subiendo imágenes:', error);
-          
+
           // 🚨 SOLUCIÓN TEMPORAL: Continuar sin imágenes pero guardar datos
           console.log('🔄 Continuando sin imágenes debido a error CORS/Firebase Storage');
-          
+
           toast({
             variant: 'destructive',
             title: 'Error subiendo imágenes',
@@ -459,7 +459,7 @@ export default function ObservacionesPage() {
       let fotoDespuesPlanogramaQualidUrl = '';
       let fotosAfichesQualidUrls: string[] = [];
       let fotoExhibidoresCauchoQualidUrl = '';
-      
+
       // 🆕 URLs para fotos de Trade (impulso y eventos)
       let fotoImpulsoShellUrl = '';
       let fotoPromotorasShellUrl = '';
@@ -468,11 +468,11 @@ export default function ObservacionesPage() {
 
       // Mapear URLs en el orden correcto basado en cómo se agregaron a imagesToUpload
       let urlIndex = 0;
-      
+
       console.log('🔍 MAPEANDO URLs DE FIREBASE:');
       console.log('  - Total URLs recibidas de Firebase:', fotosUrls.length);
       console.log('  - URLs completas:', fotosUrls);
-      
+
       if (signageData.signagePhoto && signageData.signagePhoto.startsWith('data:image/')) {
         fotoSeñalizacionUrl = fotosUrls[urlIndex] || '';
         console.log(`🚩 FOTO SEÑALIZACIÓN - URL mapeada [${urlIndex}]:`, fotoSeñalizacionUrl);
@@ -484,17 +484,17 @@ export default function ObservacionesPage() {
         console.log(`🚩 FOTO SEÑALIZACIÓN - signageData.signagePhoto:`, signageData.signagePhoto ? 'EXISTE PERO NO ES BASE64' : 'NO EXISTE');
         console.log(`🚩 FOTO SEÑALIZACIÓN - hasSignage:`, signageData.hasSignage);
       }
-      
+
       if (shellData.fotoAntesShell) {
         fotoAntesShellUrl = fotosUrls[urlIndex] || '';
         urlIndex++;
       }
-      
+
       if (shellData.fotoDespuesShell) {
         fotoDespuesShellUrl = fotosUrls[urlIndex] || '';
         urlIndex++;
       }
-      
+
       if (shellData.fotoStickerShell) {
         fotoStickerShellUrl = fotosUrls[urlIndex] || '';
         urlIndex++;
@@ -502,10 +502,10 @@ export default function ObservacionesPage() {
 
       // Mapear URLs de afiches individuales de Shell
       if (shellData.afichesColocadosShell && Array.isArray(shellData.afichesColocadosShell)) {
-        const afichesConFoto = shellData.afichesColocadosShell.filter((afiche: any) => 
+        const afichesConFoto = shellData.afichesColocadosShell.filter((afiche: any) =>
           afiche.foto && afiche.foto.startsWith('data:image/')
         );
-        
+
         for (let i = 0; i < afichesConFoto.length; i++) {
           if (fotosUrls[urlIndex]) {
             fotosAfichesShellUrls.push(fotosUrls[urlIndex]);
@@ -538,10 +538,10 @@ export default function ObservacionesPage() {
 
         // ✅ Mapear URLs de afiches individuales de Shell Material Interno
         if (materialData.afichesColocadosShell && Array.isArray(materialData.afichesColocadosShell)) {
-          const afichesConFoto = materialData.afichesColocadosShell.filter((afiche: any) => 
+          const afichesConFoto = materialData.afichesColocadosShell.filter((afiche: any) =>
             afiche.foto && afiche.foto.startsWith('data:image/')
           );
-          
+
           for (let i = 0; i < afichesConFoto.length; i++) {
             if (fotosUrls[urlIndex]) {
               fotosAfichesShellMaterialUrls.push(fotosUrls[urlIndex]);
@@ -555,7 +555,7 @@ export default function ObservacionesPage() {
       // Mapear URLs de Qualid si existen
       if (datosAcumulados.qualidMerchandising) {
         const qualidData = datosAcumulados.qualidMerchandising;
-        
+
         if (qualidData.fotoAntesPlanogramaQualid) {
           fotoAntesPlanogramaQualidUrl = fotosUrls[urlIndex] || '';
           urlIndex++;
@@ -568,10 +568,10 @@ export default function ObservacionesPage() {
 
         // Mapear URLs de afiches individuales de Qualid
         if (qualidData.afichesColocadosQualid && Array.isArray(qualidData.afichesColocadosQualid)) {
-          const afichesConFoto = qualidData.afichesColocadosQualid.filter((afiche: any) => 
+          const afichesConFoto = qualidData.afichesColocadosQualid.filter((afiche: any) =>
             afiche.foto && afiche.foto.startsWith('data:image/')
           );
-          
+
           for (let i = 0; i < afichesConFoto.length; i++) {
             if (fotosUrls[urlIndex]) {
               fotosAfichesQualidUrls.push(fotosUrls[urlIndex]);
@@ -711,7 +711,7 @@ export default function ObservacionesPage() {
         // Observaciones específicas (de esta página y de reportes finales)
         observacionesShell: reportesFinalesData?.reporteShellFaltante || observacionShellFaltante,
         observacionesQualid: reportesFinalesData?.reporteQualidFaltante || observacionQualidFaltante,
-        
+
         // Observaciones como array para N8N
         observaciones: [
           "Merchandising",
@@ -736,7 +736,7 @@ export default function ObservacionesPage() {
 
       // Construir observaciones adicionales combinadas
       const observacionesCombinadasArray = [];
-      
+
       // Agregar observaciones de esta página
       if (observacionesAdicionales.trim()) {
         observacionesCombinadasArray.push(`Comentarios adicionales: ${observacionesAdicionales.trim()}`);
@@ -744,12 +744,12 @@ export default function ObservacionesPage() {
       if (observacionesCompetencia.trim()) {
         observacionesCombinadasArray.push(`Observaciones competencia: ${observacionesCompetencia.trim()}`);
       }
-      
+
       // Agregar comentarios adicionales de reportes finales si existen
       if (reportesFinalesData?.reporteComentariosAdicionales?.trim()) {
         observacionesCombinadasArray.push(`Reporte final: ${reportesFinalesData.reporteComentariosAdicionales.trim()}`);
       }
-      
+
       // Agregar resumen de ventas simplificado si existen
       if (ventasData) {
         const resumenVentas = [];
@@ -763,7 +763,7 @@ export default function ObservacionesPage() {
           observacionesCombinadasArray.push(`Resumen ventas: ${resumenVentas.join(' | ')}`);
         }
       }
-      
+
       const observacionesCombinadas = observacionesCombinadasArray.join(' | ');
 
       // Obtener datos del usuario logueado
@@ -772,7 +772,7 @@ export default function ObservacionesPage() {
         // Fallback: intentar desde localStorage
         currentUser = getUserFromStorage();
       }
-      
+
       const mercaderista = currentUser?.fullName || 'Usuario App';
       const correoMercaderista = currentUser?.email || '';
 
@@ -782,7 +782,7 @@ export default function ObservacionesPage() {
         tipoVisita: 'Merchandising',
         mercaderista: mercaderista,
         correoMercaderista: correoMercaderista,
-        
+
         // Cliente
         cliente: {
           rif: cliente.rif,
@@ -790,13 +790,13 @@ export default function ObservacionesPage() {
           sucursal: cliente.sede || 'GRUPO DISBATTERY', // Fallback
           ubicacion: cliente.position || { lat: 0, lng: 0 } // Fallback
         },
-        
+
         // Señalización como objeto
         senalizacion: {
           poseeSeñalizacion: signageData.hasSignage === 'Yes',
           fotoUrl: fotoSeñalizacionUrl || null
         },
-        
+
         // Shell Merchandising estructurado
         shellMerchandising: {
           planograma: {
@@ -817,20 +817,20 @@ export default function ObservacionesPage() {
             bolsas: shellData.totalBolsasShell || 0
           }
         },
-        
+
         // Ventas estructuradas si existen
         ventas: ventasData ? {
           shell: ventasData.shell || null,
           qualid: ventasData.qualid || null
         } : null,
-        
+
         // Reportes finales estructurados
         reportesFinales: reportesFinalesData ? {
           reporteShellFaltante: reportesFinalesData.reporteShellFaltante || null,
           reporteQualidFaltante: reportesFinalesData.reporteQualidFaltante || null,
           comentariosAdicionales: reportesFinalesData.reporteComentariosAdicionales || null
         } : null,
-        
+
         // Observaciones de esta página
         observacionesFinales: {
           observacionesShell: observacionShellFaltante.trim() || null,
@@ -838,10 +838,10 @@ export default function ObservacionesPage() {
           comentariosAdicionales: observacionesAdicionales.trim() || null,
           observacionesCompetencia: observacionesCompetencia.trim() || null
         },
-        
+
         // Fotos como array de URLs de Firebase Storage
         fotos: fotosUrls,
-        
+
         // Observaciones como array de strings para N8N
         observaciones: [
           "Merchandising",
@@ -862,7 +862,7 @@ export default function ObservacionesPage() {
           observacionesAdicionales.trim() || "Sin comentarios",
           observacionesCompetencia.trim() || "Sin observaciones"
         ],
-        
+
         // Metadata
         metadata: {
           timestamp: new Date().toISOString(),
@@ -873,7 +873,7 @@ export default function ObservacionesPage() {
       };
 
       console.log('📊 ESTRUCTURA DETALLADA PARA N8N - MERCHANDISING:', datosDetalladosN8N);
-      
+
       console.log('=== ENVIANDO VISITA COMPLETA A FIREBASE Y N8N ===');
       console.log('Cliente:', cliente);
       console.log('Usuario logueado:', currentUser);
@@ -968,7 +968,7 @@ export default function ObservacionesPage() {
       console.log('🎉 [ÉXITO] Visita guardada con ID:', visitaId);
       console.log('🎉 [ÉXITO] Revisa los logs anteriores para confirmar que pointId se procesó correctamente');
       console.log('🎉 [REDIRECCIÓN] Navegando a página de éxito en 3 segundos...');
-      
+
       setTimeout(() => {
         console.log('🔄 [REDIRECCIÓN] Ejecutando router.push a /registro-exitoso');
         router.push('/registro-exitoso');
@@ -977,7 +977,7 @@ export default function ObservacionesPage() {
     } catch (error) {
       console.log('=== ERROR GUARDANDO VISITA COMPLETA ===');
       console.error('Error completo:', error);
-      
+
       // Fallback: guardar observaciones localmente si falla todo
       const dataFallback = {
         observacionShellFaltante,
@@ -1003,12 +1003,12 @@ export default function ObservacionesPage() {
       console.log('❌ [ERROR] Error completo capturado:', error);
       console.log('❌ [ERROR] Revisa los logs anteriores para identificar el problema con pointId');
       console.log('❌ [REDIRECCIÓN] Navegando a página de éxito en 3 segundos a pesar del error...');
-      
+
       setTimeout(() => {
         console.log('🔄 [REDIRECCIÓN ERROR] Ejecutando router.push a /registro-exitoso');
         router.push('/registro-exitoso');
       }, 3000); // 3 segundos de delay
-      
+
     } finally {
       setIsSyncing(false);
     }
@@ -1039,7 +1039,7 @@ export default function ObservacionesPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle>
-             <span
+            <span
               style={{
                 backgroundImage: 'linear-gradient(to right, #fcce05, #ff0000)',
                 WebkitBackgroundClip: 'text',
@@ -1047,14 +1047,14 @@ export default function ObservacionesPage() {
                 color: 'transparent',
               }}
             >
-            Observaciones Finales
+              Observaciones Finales
             </span>
           </CardTitle>
           <CardDescription>Complete sus observaciones para finalizar la visita.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          
-                    {/* Mostrar resumen de datos registrados */}
+
+          {/* Mostrar resumen de datos registrados */}
           {datosParaMostrar && (
             <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
               <Label className="text-sm font-semibold text-blue-800">📊 Resumen de Datos Registrados:</Label>
@@ -1140,9 +1140,9 @@ export default function ObservacionesPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={isSyncing} 
+          <Button
+            onClick={handleSubmit}
+            disabled={isSyncing}
             className="w-full"
             style={{
               background: 'linear-gradient(to right, #fcce05, #ff0000)',

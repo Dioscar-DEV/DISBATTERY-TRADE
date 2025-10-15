@@ -3,8 +3,8 @@
  * Implementa almacenamiento local con IndexedDB para funcionamiento offline-first
  */
 
-import { Route, RoutePoint, Cliente } from '@/types/routes';
-import { UserData } from './auth';
+import { Route, RoutePoint, Cliente } from "@/types/routes";
+import { UserData } from "./auth";
 
 // Interfaces para el almacenamiento offline
 export interface OfflineVisita {
@@ -17,9 +17,9 @@ export interface OfflineVisita {
   gpsLocation: { lat: number; lng: number };
   formData: any; // Datos del formulario específico
   photos: File[]; // Archivos de fotos capturadas
-  tipoVisita: 'Merchandising' | 'Trade (Eventos)' | 'Trade (Impulso)';
-  marcaTrabajada?: 'Shell' | 'Qualid';
-  status: 'pending' | 'syncing' | 'synced' | 'error';
+  tipoVisita: "Merchandising" | "Trade (Eventos)" | "Trade (Impulso)";
+  marcaTrabajada?: "Shell" | "Qualid";
+  status: "pending" | "syncing" | "synced" | "error";
   syncAttempts: number;
   lastSyncAttempt?: number;
   errorMessage?: string;
@@ -45,7 +45,7 @@ export interface SyncStatus {
 
 class OfflineService {
   // Usar el mismo nombre que Dexie para evitar colisiones y trabajar sobre una base limpia
-  private dbName = 'DisbatteryOfflineDB_v3';
+  private dbName = "DisbatteryOfflineDB_v3";
   // La versión previa llegó a valores muy altos en algunos clientes.
   // Para evitar VersionError, abrimos sin especificar versión y solo
   // hacemos upgrade si detectamos stores faltantes.
@@ -54,11 +54,11 @@ class OfflineService {
 
   // ObjectStore names
   private readonly STORES = {
-    ROUTES: 'routes',
-    CLIENTES: 'clientes',
-    VISITAS_PENDIENTES: 'visitas_pendientes',
-    SYNC_STATUS: 'sync_status',
-    USER_DATA: 'user_data'
+    ROUTES: "routes",
+    CLIENTES: "clientes",
+    VISITAS_PENDIENTES: "visitas_pendientes",
+    SYNC_STATUS: "sync_status",
+    USER_DATA: "user_data",
   };
 
   /**
@@ -70,21 +70,22 @@ class OfflineService {
         const request = indexedDB.open(this.dbName);
 
         request.onerror = () => {
-          console.error('❌ Error abriendo IndexedDB:', request.error);
+          console.error("❌ Error abriendo IndexedDB:", request.error);
           reject(request.error);
         };
 
         request.onsuccess = () => {
           this.db = request.result;
           const db = this.db as IDBDatabase;
-          const needsUpgrade = !db.objectStoreNames.contains(this.STORES.ROUTES)
-            || !db.objectStoreNames.contains(this.STORES.CLIENTES)
-            || !db.objectStoreNames.contains(this.STORES.VISITAS_PENDIENTES)
-            || !db.objectStoreNames.contains(this.STORES.SYNC_STATUS)
-            || !db.objectStoreNames.contains(this.STORES.USER_DATA);
+          const needsUpgrade =
+            !db.objectStoreNames.contains(this.STORES.ROUTES) ||
+            !db.objectStoreNames.contains(this.STORES.CLIENTES) ||
+            !db.objectStoreNames.contains(this.STORES.VISITAS_PENDIENTES) ||
+            !db.objectStoreNames.contains(this.STORES.SYNC_STATUS) ||
+            !db.objectStoreNames.contains(this.STORES.USER_DATA);
 
           if (!needsUpgrade) {
-            console.log('✅ IndexedDB inicializada correctamente');
+            console.log("✅ IndexedDB inicializada correctamente");
             resolve();
             return;
           }
@@ -93,43 +94,67 @@ class OfflineService {
           const currentVersion = db.version || 1;
           db.close();
 
-          const upgradeRequest = indexedDB.open(this.dbName, currentVersion + 1);
+          const upgradeRequest = indexedDB.open(
+            this.dbName,
+            currentVersion + 1
+          );
           upgradeRequest.onerror = () => {
-            console.error('❌ Error abriendo IndexedDB para upgrade:', upgradeRequest.error);
+            console.error(
+              "❌ Error abriendo IndexedDB para upgrade:",
+              upgradeRequest.error
+            );
             reject(upgradeRequest.error);
           };
           upgradeRequest.onupgradeneeded = (event) => {
             const udb = (event.target as IDBOpenDBRequest).result;
-            console.log('🔄 Actualizando esquema de IndexedDB (upgrade controlado)...');
+            console.log(
+              "🔄 Actualizando esquema de IndexedDB (upgrade controlado)..."
+            );
 
             if (!udb.objectStoreNames.contains(this.STORES.ROUTES)) {
-              const routesStore = udb.createObjectStore(this.STORES.ROUTES, { keyPath: 'id' });
-              routesStore.createIndex('mercaderistoId', 'mercaderistoId', { unique: false });
-              routesStore.createIndex('date', 'date', { unique: false });
-              routesStore.createIndex('status', 'status', { unique: false });
+              const routesStore = udb.createObjectStore(this.STORES.ROUTES, {
+                keyPath: "id",
+              });
+              routesStore.createIndex("mercaderistoId", "mercaderistoId", {
+                unique: false,
+              });
+              routesStore.createIndex("date", "date", { unique: false });
+              routesStore.createIndex("status", "status", { unique: false });
             }
             if (!udb.objectStoreNames.contains(this.STORES.CLIENTES)) {
-              const clientesStore = udb.createObjectStore(this.STORES.CLIENTES, { keyPath: 'id' });
-              clientesStore.createIndex('sede', 'sede', { unique: false });
-              clientesStore.createIndex('region', 'region', { unique: false });
-              clientesStore.createIndex('tipo', 'tipo', { unique: false });
+              const clientesStore = udb.createObjectStore(
+                this.STORES.CLIENTES,
+                { keyPath: "id" }
+              );
+              clientesStore.createIndex("sede", "sede", { unique: false });
+              clientesStore.createIndex("region", "region", { unique: false });
+              clientesStore.createIndex("tipo", "tipo", { unique: false });
             }
-            if (!udb.objectStoreNames.contains(this.STORES.VISITAS_PENDIENTES)) {
-              const visitasStore = udb.createObjectStore(this.STORES.VISITAS_PENDIENTES, { keyPath: 'id' });
-              visitasStore.createIndex('mercaderistoId', 'mercaderistoId', { unique: false });
-              visitasStore.createIndex('status', 'status', { unique: false });
-              visitasStore.createIndex('timestamp', 'timestamp', { unique: false });
+            if (
+              !udb.objectStoreNames.contains(this.STORES.VISITAS_PENDIENTES)
+            ) {
+              const visitasStore = udb.createObjectStore(
+                this.STORES.VISITAS_PENDIENTES,
+                { keyPath: "id" }
+              );
+              visitasStore.createIndex("mercaderistoId", "mercaderistoId", {
+                unique: false,
+              });
+              visitasStore.createIndex("status", "status", { unique: false });
+              visitasStore.createIndex("timestamp", "timestamp", {
+                unique: false,
+              });
             }
             if (!udb.objectStoreNames.contains(this.STORES.SYNC_STATUS)) {
-              udb.createObjectStore(this.STORES.SYNC_STATUS, { keyPath: 'id' });
+              udb.createObjectStore(this.STORES.SYNC_STATUS, { keyPath: "id" });
             }
             if (!udb.objectStoreNames.contains(this.STORES.USER_DATA)) {
-              udb.createObjectStore(this.STORES.USER_DATA, { keyPath: 'uid' });
+              udb.createObjectStore(this.STORES.USER_DATA, { keyPath: "uid" });
             }
           };
           upgradeRequest.onsuccess = () => {
             this.db = upgradeRequest.result;
-            console.log('✅ IndexedDB inicializada y esquema verificado');
+            console.log("✅ IndexedDB inicializada y esquema verificado");
             resolve();
           };
         };
@@ -144,7 +169,7 @@ class OfflineService {
    * Verifica si el usuario debe usar modo offline-first
    */
   shouldUseOfflineMode(user: UserData): boolean {
-    return user.role === 'Mercaderista';
+    return user.role === "Mercaderista";
   }
 
   /**
@@ -158,7 +183,7 @@ class OfflineService {
     routeDetails: Array<{
       id: string;
       date: string;
-      status: Route['status'];
+      status: Route["status"];
       pointsCount: number;
       downloadedAt: string;
       lastSyncedAt: string;
@@ -173,33 +198,38 @@ class OfflineService {
       routeDetails: [] as Array<{
         id: string;
         date: string;
-        status: Route['status'];
+        status: Route["status"];
         pointsCount: number;
         downloadedAt: string;
         lastSyncedAt: string;
       }>,
-      indexedDBError: undefined as string | undefined
+      indexedDBError: undefined as string | undefined,
     };
 
     try {
-      console.log(`🔧 [DEBUG] Iniciando debugging para mercaderista: ${mercaderistoId}`);
-      
+      console.log(
+        `🔧 [DEBUG] Iniciando debugging para mercaderista: ${mercaderistoId}`
+      );
+
       // Verificar si IndexedDB está inicializada
       if (!this.db) {
-        console.log('🔧 [DEBUG] Inicializando IndexedDB...');
+        console.log("🔧 [DEBUG] Inicializando IndexedDB...");
         await this.initDB();
       }
-      
+
       debug.dbInitialized = !!this.db;
-      
+
       if (!this.db) {
-        debug.indexedDBError = 'No se pudo inicializar IndexedDB';
+        debug.indexedDBError = "No se pudo inicializar IndexedDB";
         return debug;
       }
 
       // Contar todas las rutas
       const allRoutes = await new Promise<OfflineRoute[]>((resolve, reject) => {
-        const transaction = this.db!.transaction([this.STORES.ROUTES], 'readonly');
+        const transaction = this.db!.transaction(
+          [this.STORES.ROUTES],
+          "readonly"
+        );
         const store = transaction.objectStore(this.STORES.ROUTES);
         const request = store.getAll();
 
@@ -208,35 +238,45 @@ class OfflineService {
       });
 
       debug.totalRoutes = allRoutes.length;
-      console.log(`🔧 [DEBUG] Total de rutas en IndexedDB: ${debug.totalRoutes}`);
+      console.log(
+        `🔧 [DEBUG] Total de rutas en IndexedDB: ${debug.totalRoutes}`
+      );
 
       // Filtrar rutas del mercaderista
-      const mercaderistaRoutes = allRoutes.filter(route => route.mercaderistoId === mercaderistoId);
+      const mercaderistaRoutes = allRoutes.filter(
+        (route) => route.mercaderistoId === mercaderistoId
+      );
       debug.mercaderistaRoutes = mercaderistaRoutes.length;
-      console.log(`🔧 [DEBUG] Rutas del mercaderista ${mercaderistoId}: ${debug.mercaderistaRoutes}`);
+      console.log(
+        `🔧 [DEBUG] Rutas del mercaderista ${mercaderistoId}: ${debug.mercaderistaRoutes}`
+      );
 
       // Filtrar rutas de hoy
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      const todayRoutes = mercaderistaRoutes.filter(route => route.date === today);
+      const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      const todayRoutes = mercaderistaRoutes.filter(
+        (route) => route.date === today
+      );
       debug.todayRoutes = todayRoutes.length;
       console.log(`🔧 [DEBUG] Rutas de hoy (${today}): ${debug.todayRoutes}`);
 
       // Detalles de rutas
-      debug.routeDetails = mercaderistaRoutes.map(route => ({
+      debug.routeDetails = mercaderistaRoutes.map((route) => ({
         id: route.id,
         date: route.date,
         status: route.status,
         pointsCount: route.points?.length || 0,
         downloadedAt: new Date(route.downloadedAt).toLocaleString(),
-        lastSyncedAt: route.lastSyncedAt ? new Date(route.lastSyncedAt).toLocaleString() : 'N/A'
+        lastSyncedAt: route.lastSyncedAt
+          ? new Date(route.lastSyncedAt).toLocaleString()
+          : "N/A",
       }));
 
-      console.log('🔧 [DEBUG] Detalles de rutas:', debug.routeDetails);
+      console.log("🔧 [DEBUG] Detalles de rutas:", debug.routeDetails);
       return debug;
-
     } catch (error) {
-      debug.indexedDBError = error instanceof Error ? error.message : 'Error desconocido';
-      console.error('❌ [DEBUG] Error en debugging:', error);
+      debug.indexedDBError =
+        error instanceof Error ? error.message : "Error desconocido";
+      console.error("❌ [DEBUG] Error en debugging:", error);
       return debug;
     }
   }
@@ -246,62 +286,82 @@ class OfflineService {
    */
   async storeRoutes(routes: Route[]): Promise<void> {
     try {
-      console.log(`💾 [OfflineService] Iniciando almacenamiento de ${routes.length} rutas...`);
-      
+      console.log(
+        `💾 [OfflineService] Iniciando almacenamiento de ${routes.length} rutas...`
+      );
+
       if (!this.db) {
-        console.log('🔄 [OfflineService] Inicializando IndexedDB...');
+        console.log("🔄 [OfflineService] Inicializando IndexedDB...");
         await this.initDB();
       }
 
       if (!this.db) {
-        throw new Error('No se pudo inicializar IndexedDB');
+        throw new Error("No se pudo inicializar IndexedDB");
       }
 
       // ✅ VALIDAR QUE HAY RUTAS PARA ALMACENAR
       if (routes.length === 0) {
-        console.log('ℹ️ [OfflineService] No hay rutas para almacenar (array vacío)');
+        console.log(
+          "ℹ️ [OfflineService] No hay rutas para almacenar (array vacío)"
+        );
         return;
       }
 
-      const transaction = this.db.transaction([this.STORES.ROUTES], 'readwrite');
+      const transaction = this.db.transaction(
+        [this.STORES.ROUTES],
+        "readwrite"
+      );
       const store = transaction.objectStore(this.STORES.ROUTES);
 
-      const offlineRoutes: OfflineRoute[] = routes.map(route => ({
+      const offlineRoutes: OfflineRoute[] = routes.map((route) => ({
         ...route,
         downloadedAt: Date.now(),
-        lastSyncedAt: Date.now()
+        lastSyncedAt: Date.now(),
       }));
 
       // ✅ ALMACENAR CON MEJOR LOGGING
       for (const [index, route] of offlineRoutes.entries()) {
         await new Promise<void>((resolve, reject) => {
           const request = store.put(route);
-          
+
           request.onsuccess = () => {
-            console.log(`✅ [OfflineService] Ruta ${index + 1}/${routes.length} almacenada: ${route.id} (${route.date})`);
+            console.log(
+              `✅ [OfflineService] Ruta ${index + 1}/${
+                routes.length
+              } almacenada: ${route.id} (${route.date})`
+            );
             resolve();
           };
 
           request.onerror = () => {
-            console.error(`❌ [OfflineService] Error almacenando ruta ${route.id}:`, request.error);
+            console.error(
+              `❌ [OfflineService] Error almacenando ruta ${route.id}:`,
+              request.error
+            );
             reject(request.error);
           };
         });
       }
 
-      console.log(`✅ [OfflineService] ${routes.length} rutas almacenadas exitosamente en IndexedDB`);
+      console.log(
+        `✅ [OfflineService] ${routes.length} rutas almacenadas exitosamente en IndexedDB`
+      );
 
       // ✅ VERIFICAR QUE SE ALMACENARON CORRECTAMENTE
       if (routes.length > 0) {
         const mercaderistoId = routes[0].mercaderistoId;
         if (mercaderistoId) {
           const storedRoutes = await this.getOfflineRoutes(mercaderistoId);
-          console.log(`🔍 [OfflineService] Verificación: ${storedRoutes.length} rutas totales disponibles para mercaderista ${mercaderistoId}`);
+          console.log(
+            `🔍 [OfflineService] Verificación: ${storedRoutes.length} rutas totales disponibles para mercaderista ${mercaderistoId}`
+          );
         }
       }
-
     } catch (error) {
-      console.error('❌ [OfflineService] Error crítico almacenando rutas:', error);
+      console.error(
+        "❌ [OfflineService] Error crítico almacenando rutas:",
+        error
+      );
       throw error;
     }
   }
@@ -309,7 +369,10 @@ class OfflineService {
   /**
    * Actualiza el status de una ruta en IndexedDB (best-effort)
    */
-  async updateOfflineRouteStatus(routeId: string, newStatus: Route['status']): Promise<void> {
+  async updateOfflineRouteStatus(
+    routeId: string,
+    newStatus: Route["status"]
+  ): Promise<void> {
     try {
       if (!this.db) {
         await this.initDB();
@@ -317,7 +380,10 @@ class OfflineService {
       if (!this.db) return;
 
       await new Promise<void>((resolve, reject) => {
-        const transaction = this.db!.transaction([this.STORES.ROUTES], 'readwrite');
+        const transaction = this.db!.transaction(
+          [this.STORES.ROUTES],
+          "readwrite"
+        );
         const store = transaction.objectStore(this.STORES.ROUTES);
         const getReq = store.get(routeId);
         getReq.onsuccess = () => {
@@ -332,8 +398,12 @@ class OfflineService {
             status: newStatus,
             lastSyncedAt: now,
             // Anotar timestamps de estado si el objeto los maneja
-            ...(newStatus === 'en_progreso' ? { en_progresoAt: new Date(now) as unknown as Date } : {}),
-            ...(newStatus === 'completada' ? { completadaAt: new Date(now) as unknown as Date } : {}),
+            ...(newStatus === "en_progreso"
+              ? { en_progresoAt: new Date(now) as unknown as Date }
+              : {}),
+            ...(newStatus === "completada"
+              ? { completadaAt: new Date(now) as unknown as Date }
+              : {}),
           } as any;
           const putReq = store.put(updated);
           putReq.onsuccess = () => resolve();
@@ -342,7 +412,10 @@ class OfflineService {
         getReq.onerror = () => reject(getReq.error);
       });
     } catch (error) {
-      console.warn('[OfflineService] No se pudo actualizar status offline de la ruta:', error);
+      console.warn(
+        "[OfflineService] No se pudo actualizar status offline de la ruta:",
+        error
+      );
     }
   }
 
@@ -352,13 +425,16 @@ class OfflineService {
   async storeClientes(clientes: Cliente[]): Promise<void> {
     if (!this.db) await this.initDB();
 
-    const transaction = this.db!.transaction([this.STORES.CLIENTES], 'readwrite');
+    const transaction = this.db!.transaction(
+      [this.STORES.CLIENTES],
+      "readwrite"
+    );
     const store = transaction.objectStore(this.STORES.CLIENTES);
 
-    const offlineClientes: OfflineCliente[] = clientes.map(cliente => ({
+    const offlineClientes: OfflineCliente[] = clientes.map((cliente) => ({
       ...cliente,
       downloadedAt: Date.now(),
-      lastSyncedAt: Date.now()
+      lastSyncedAt: Date.now(),
     }));
 
     for (const cliente of offlineClientes) {
@@ -377,50 +453,69 @@ class OfflineService {
    */
   async getOfflineRoutes(mercaderistoId: string): Promise<OfflineRoute[]> {
     try {
-      console.log(`📱 [OfflineService] Buscando rutas offline para mercaderista: ${mercaderistoId}`);
-      
+      console.log(
+        `📱 [OfflineService] Buscando rutas offline para mercaderista: ${mercaderistoId}`
+      );
+
       if (!this.db) {
-        console.log('🔄 [OfflineService] Inicializando IndexedDB para lectura...');
+        console.log(
+          "🔄 [OfflineService] Inicializando IndexedDB para lectura..."
+        );
         await this.initDB();
       }
 
       return new Promise((resolve, reject) => {
         if (!this.db) {
-          reject(new Error('IndexedDB no disponible'));
+          reject(new Error("IndexedDB no disponible"));
           return;
         }
 
-        const transaction = this.db.transaction([this.STORES.ROUTES], 'readonly');
+        const transaction = this.db.transaction(
+          [this.STORES.ROUTES],
+          "readonly"
+        );
         const store = transaction.objectStore(this.STORES.ROUTES);
-        const index = store.index('mercaderistoId');
+        const index = store.index("mercaderistoId");
         const request = index.getAll(mercaderistoId);
 
         request.onsuccess = () => {
           const routes = request.result as OfflineRoute[];
-          console.log(`📱 [OfflineService] ${routes.length} rutas encontradas en IndexedDB para mercaderista ${mercaderistoId}`);
-          
+          console.log(
+            `📱 [OfflineService] ${routes.length} rutas encontradas en IndexedDB para mercaderista ${mercaderistoId}`
+          );
+
           if (routes.length > 0) {
-            console.log('📋 [OfflineService] Rutas encontradas:', routes.map(r => ({
-              id: r.id,
-              date: r.date,
-              status: r.status,
-              pointsCount: r.points?.length || 0
-            })));
+            console.log(
+              "📋 [OfflineService] Rutas encontradas:",
+              routes.map((r) => ({
+                id: r.id,
+                date: r.date,
+                status: r.status,
+                pointsCount: r.points?.length || 0,
+              }))
+            );
           } else {
-            console.warn('⚠️ [OfflineService] No se encontraron rutas offline - IndexedDB vacío o mercaderistoId incorrecto');
+            console.warn(
+              "⚠️ [OfflineService] No se encontraron rutas offline - IndexedDB vacío o mercaderistoId incorrecto"
+            );
           }
-          
+
           resolve(routes);
         };
 
         request.onerror = () => {
-          console.error('❌ [OfflineService] Error leyendo rutas desde IndexedDB:', request.error);
+          console.error(
+            "❌ [OfflineService] Error leyendo rutas desde IndexedDB:",
+            request.error
+          );
           reject(request.error);
         };
       });
-
     } catch (error) {
-      console.error('❌ [OfflineService] Error crítico obteniendo rutas offline:', error);
+      console.error(
+        "❌ [OfflineService] Error crítico obteniendo rutas offline:",
+        error
+      );
       return [];
     }
   }
@@ -432,7 +527,10 @@ class OfflineService {
     if (!this.db) await this.initDB();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.CLIENTES], 'readonly');
+      const transaction = this.db!.transaction(
+        [this.STORES.CLIENTES],
+        "readonly"
+      );
       const store = transaction.objectStore(this.STORES.CLIENTES);
       const request = store.get(clienteId);
 
@@ -447,23 +545,30 @@ class OfflineService {
   /**
    * Guarda una visita en la cola de sincronización
    */
-  async queueVisitaForSync(visita: Omit<OfflineVisita, 'id' | 'status' | 'syncAttempts'>): Promise<string> {
+  async queueVisitaForSync(
+    visita: Omit<OfflineVisita, "id" | "status" | "syncAttempts">
+  ): Promise<string> {
     if (!this.db) await this.initDB();
 
     const visitaCompleta: OfflineVisita = {
       ...visita,
       id: `visita_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      status: 'pending',
-      syncAttempts: 0
+      status: "pending",
+      syncAttempts: 0,
     };
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.VISITAS_PENDIENTES], 'readwrite');
+      const transaction = this.db!.transaction(
+        [this.STORES.VISITAS_PENDIENTES],
+        "readwrite"
+      );
       const store = transaction.objectStore(this.STORES.VISITAS_PENDIENTES);
       const request = store.add(visitaCompleta);
 
       request.onsuccess = () => {
-        console.log(`✅ Visita ${visitaCompleta.id} añadida a cola de sincronización`);
+        console.log(
+          `✅ Visita ${visitaCompleta.id} añadida a cola de sincronización`
+        );
         this.updateSyncStatus();
         resolve(visitaCompleta.id);
       };
@@ -479,10 +584,13 @@ class OfflineService {
     if (!this.db) await this.initDB();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.VISITAS_PENDIENTES], 'readonly');
+      const transaction = this.db!.transaction(
+        [this.STORES.VISITAS_PENDIENTES],
+        "readonly"
+      );
       const store = transaction.objectStore(this.STORES.VISITAS_PENDIENTES);
-      const index = store.index('status');
-      const request = index.getAll('pending');
+      const index = store.index("status");
+      const request = index.getAll("pending");
 
       request.onsuccess = () => {
         resolve(request.result as OfflineVisita[]);
@@ -496,16 +604,19 @@ class OfflineService {
    * Actualiza el estado de una visita en la cola de sincronización
    */
   async updateVisitaSyncStatus(
-    visitaId: string, 
-    status: OfflineVisita['status'], 
+    visitaId: string,
+    status: OfflineVisita["status"],
     errorMessage?: string
   ): Promise<void> {
     if (!this.db) await this.initDB();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.VISITAS_PENDIENTES], 'readwrite');
+      const transaction = this.db!.transaction(
+        [this.STORES.VISITAS_PENDIENTES],
+        "readwrite"
+      );
       const store = transaction.objectStore(this.STORES.VISITAS_PENDIENTES);
-      
+
       const getRequest = store.get(visitaId);
       getRequest.onsuccess = () => {
         const visita = getRequest.result as OfflineVisita;
@@ -522,7 +633,7 @@ class OfflineService {
           };
           putRequest.onerror = () => reject(putRequest.error);
         } else {
-          reject(new Error('Visita no encontrada'));
+          reject(new Error("Visita no encontrada"));
         }
       };
 
@@ -537,12 +648,17 @@ class OfflineService {
     if (!this.db) await this.initDB();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.VISITAS_PENDIENTES], 'readwrite');
+      const transaction = this.db!.transaction(
+        [this.STORES.VISITAS_PENDIENTES],
+        "readwrite"
+      );
       const store = transaction.objectStore(this.STORES.VISITAS_PENDIENTES);
       const request = store.delete(visitaId);
 
       request.onsuccess = () => {
-        console.log(`✅ Visita ${visitaId} eliminada tras sincronización exitosa`);
+        console.log(
+          `✅ Visita ${visitaId} eliminada tras sincronización exitosa`
+        );
         this.updateSyncStatus();
         resolve();
       };
@@ -564,13 +680,16 @@ class OfflineService {
       lastPartialSync: Date.now(),
       pendingVisitas: pendingVisitas.length,
       isOnline,
-      isSyncing: false
+      isSyncing: false,
     };
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.SYNC_STATUS], 'readwrite');
+      const transaction = this.db!.transaction(
+        [this.STORES.SYNC_STATUS],
+        "readwrite"
+      );
       const store = transaction.objectStore(this.STORES.SYNC_STATUS);
-      const request = store.put({ id: 'main', ...syncStatus });
+      const request = store.put({ id: "main", ...syncStatus });
 
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
@@ -584,17 +703,22 @@ class OfflineService {
     if (!this.db) await this.initDB();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.SYNC_STATUS], 'readonly');
+      const transaction = this.db!.transaction(
+        [this.STORES.SYNC_STATUS],
+        "readonly"
+      );
       const store = transaction.objectStore(this.STORES.SYNC_STATUS);
-      const request = store.get('main');
+      const request = store.get("main");
 
       request.onsuccess = () => {
         const status = request.result;
-        resolve(status || {
-          pendingVisitas: 0,
-          isOnline: navigator.onLine,
-          isSyncing: false
-        });
+        resolve(
+          status || {
+            pendingVisitas: 0,
+            isOnline: navigator.onLine,
+            isSyncing: false,
+          }
+        );
       };
 
       request.onerror = () => reject(request.error);
@@ -612,14 +736,14 @@ class OfflineService {
   ): Promise<{ isValid: boolean; distance?: number; point?: RoutePoint }> {
     try {
       // Obtener la ruta desde almacenamiento local
-      const routes = await this.getOfflineRoutes(''); // Buscar en todas las rutas
-      const route = routes.find(r => r.id === routeId);
-      
+      const routes = await this.getOfflineRoutes(""); // Buscar en todas las rutas
+      const route = routes.find((r) => r.id === routeId);
+
       if (!route) {
         return { isValid: false };
       }
 
-      const point = route.points.find(p => p.id === pointId);
+      const point = route.points.find((p) => p.id === pointId);
       if (!point) {
         return { isValid: false };
       }
@@ -634,15 +758,19 @@ class OfflineService {
 
       const isValid = distance <= toleranceMeters;
 
-      console.log(`📍 Validación GPS offline: ${isValid ? '✅' : '❌'} (${distance.toFixed(0)}m)`);
+      console.log(
+        `📍 Validación GPS offline: ${
+          isValid ? "✅" : "❌"
+        } (${distance.toFixed(0)}m)`
+      );
 
       return {
         isValid,
         distance,
-        point
+        point,
       };
     } catch (error) {
-      console.error('❌ Error en validación GPS offline:', error);
+      console.error("❌ Error en validación GPS offline:", error);
       return { isValid: false };
     }
   }
@@ -650,17 +778,22 @@ class OfflineService {
   /**
    * Calcula la distancia entre dos puntos GPS usando la fórmula de Haversine
    */
-  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
     const R = 6371e3; // Radio de la Tierra en metros
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distancia en metros
   }
@@ -672,7 +805,7 @@ class OfflineService {
     if (!this.db) await this.initDB();
 
     const stores = Object.values(this.STORES);
-    const transaction = this.db!.transaction(stores, 'readwrite');
+    const transaction = this.db!.transaction(stores, "readwrite");
 
     for (const storeName of stores) {
       const store = transaction.objectStore(storeName);
@@ -683,7 +816,7 @@ class OfflineService {
       });
     }
 
-    console.log('🧹 Datos offline limpiados completamente');
+    console.log("🧹 Datos offline limpiados completamente");
   }
 }
 

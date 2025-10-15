@@ -1,4 +1,4 @@
-import type {Metadata, Viewport} from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Montserrat } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster'; // Added Toaster import
@@ -107,18 +107,18 @@ export default function RootLayout({
 
         {/* Disable automatic phone number detection */}
         <meta name="format-detection" content="telephone=no" />
-        
+
         {/* Viewport for mobile */}
         <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />
       </head>
       <body className={`${montserrat.variable} font-sans antialiased`}>
-      <PostHogProvider>
-        <ChunkErrorHandler /> {/* Maneja errores de chunks automáticamente */}
-        <PWAInstallBanner /> {/* Banner de instalación PWA persistente */}
-        <AnalyticsInitializer /> {/* Inicializador de Google Analytics */}
-        <UserStatusChecker /> {/* Verificador de status de usuario en tiempo real */}
-        {children}
-        <Toaster /> {/* Added Toaster component here */}
+        <PostHogProvider>
+          <ChunkErrorHandler /> {/* Maneja errores de chunks automáticamente */}
+          <PWAInstallBanner /> {/* Banner de instalación PWA persistente */}
+          <AnalyticsInitializer /> {/* Inicializador de Google Analytics */}
+          <UserStatusChecker /> {/* Verificador de status de usuario en tiempo real */}
+          {children}
+          <Toaster /> {/* Added Toaster component here */}
         </PostHogProvider>
       </body>
     </html>

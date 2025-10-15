@@ -50,7 +50,7 @@ export default function InstalarPage() {
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as any);
-      window.removeEventListener('appinstalled', () => {});
+      window.removeEventListener('appinstalled', () => { });
     };
   }, []);
 
@@ -63,7 +63,7 @@ export default function InstalarPage() {
 
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
+
     if (outcome === 'accepted') {
       setCanInstall(false);
       setDeferredPrompt(null);
@@ -152,7 +152,7 @@ export default function InstalarPage() {
               >
                 ← Volver
               </Button>
-              
+
               <Button
                 onClick={() => router.push('/')}
                 className="w-full"
@@ -184,13 +184,13 @@ export default function InstalarPage() {
               Activa los permisos necesarios para usar todas las funciones
             </p>
           </div>
-          
-          <PermissionChecker 
-            onPermissionsReady={() => {}}
+
+          <PermissionChecker
+            onPermissionsReady={() => { }}
             showCameraCheck={true}
             showLocationCheck={true}
           />
-          
+
           <div className="mt-6 text-center">
             <Button
               onClick={() => router.push('/')}
@@ -222,7 +222,7 @@ export default function InstalarPage() {
           <CardDescription className="text-center">
             Aplicación oficial para mercaderistas Disbattery
           </CardDescription>
-          
+
           <div className="flex flex-wrap gap-2 justify-center mt-3">
             <Badge variant="secondary" className="text-xs">
               <Wifi className="w-3 h-3 mr-1" />

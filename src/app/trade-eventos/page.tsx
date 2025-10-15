@@ -100,16 +100,16 @@ export default function TradeEventosPage() {
   const getMarcasFromRoute = () => {
     try {
       console.log('🔍 === INICIANDO BÚSQUEDA DE MARCA ===');
-      
+
       const clienteDataString = localStorage.getItem('clienteData');
       if (!clienteDataString) {
         console.log('❌ No hay clienteData en localStorage');
         return null;
       }
-      
+
       const clienteData = JSON.parse(clienteDataString);
       console.log('🎯 Cliente actual:', clienteData.nombre, 'RIF:', clienteData.rif);
-      
+
       // 1. BUSCAR EN EVENTOS INDEPENDIENTES PRIMERO
       console.log('🔍 Buscando en eventos independientes...');
       const eventosString = localStorage.getItem('todaysEventsOffline');
@@ -117,16 +117,16 @@ export default function TradeEventosPage() {
         try {
           const eventos = JSON.parse(eventosString);
           console.log('📋 Eventos encontrados:', eventos.length);
-          
+
           for (const evento of eventos) {
             console.log('🔍 Revisando evento:', evento.nombreEvento, 'Marcas:', evento.marcasTrabajadas || evento.marcaTrabajada);
-            
+
             // Priorizar el nuevo formato con múltiples marcas
             if (evento.marcasTrabajadas && evento.marcasTrabajadas.length > 0) {
               console.log('✅ MARCAS ENCONTRADAS EN EVENTO (NUEVO):', evento.marcasTrabajadas);
               return evento.marcasTrabajadas;
             }
-            
+
             // Compatibilidad con formato anterior (una sola marca)
             if (evento.marcaTrabajada) {
               console.log('✅ MARCA ENCONTRADA EN EVENTO (LEGADO):', evento.marcaTrabajada);
@@ -139,7 +139,7 @@ export default function TradeEventosPage() {
       } else {
         console.log('ℹ️ No hay eventos en localStorage');
       }
-      
+
       // 2. BUSCAR EN RUTAS REGULARES
       console.log('🔍 Buscando en rutas regulares...');
       const todaysRoutesString = localStorage.getItem('todaysRoutesOffline');
@@ -147,21 +147,21 @@ export default function TradeEventosPage() {
         try {
           const todaysRoutes = JSON.parse(todaysRoutesString);
           console.log('📋 Rutas encontradas:', todaysRoutes.length);
-          
-          const currentRoute = todaysRoutes.find((route: any) => 
-            route.points && route.points.some((point: any) => 
+
+          const currentRoute = todaysRoutes.find((route: any) =>
+            route.points && route.points.some((point: any) =>
               point.rif === clienteData.rif && point.tipoVisita === 'Trade (Eventos)'
             )
           );
-          
+
           if (currentRoute) {
             console.log('🎯 Ruta encontrada para el cliente:', currentRoute.mercaderista);
-            
+
             // Buscar el punto específico que coincida con el cliente
-            const matchingPoint = currentRoute.points.find((point: any) => 
+            const matchingPoint = currentRoute.points.find((point: any) =>
               point.rif === clienteData.rif && point.tipoVisita === 'Trade (Eventos)'
             );
-            
+
             if (matchingPoint) {
               // Priorizar formato nuevo con múltiples marcas en el punto
               if (matchingPoint.marcasTrabajadas && matchingPoint.marcasTrabajadas.length > 0) {
@@ -174,7 +174,7 @@ export default function TradeEventosPage() {
                 return [matchingPoint.marcaTrabajada];
               }
             }
-            
+
             // Fallback a la marca de la ruta si no hay marca específica en el punto
             if (currentRoute.marcasTrabajadas && currentRoute.marcasTrabajadas.length > 0) {
               console.log('✅ MARCAS ENCONTRADAS EN RUTA (NUEVO):', currentRoute.marcasTrabajadas);
@@ -184,7 +184,7 @@ export default function TradeEventosPage() {
               console.log('✅ MARCA ENCONTRADA EN RUTA (LEGADO):', currentRoute.marcaTrabajada);
               return [currentRoute.marcaTrabajada];
             }
-            
+
             console.log('⚠️ Ruta encontrada pero sin marca asignada');
           } else {
             console.log('❌ No se encontró ruta para este cliente con Trade (Eventos)');
@@ -195,7 +195,7 @@ export default function TradeEventosPage() {
       } else {
         console.log('ℹ️ No hay rutas en localStorage');
       }
-      
+
       // 3. BUSCAR DIRECTAMENTE EN VISIT DATA
       console.log('🔍 Buscando en visit data...');
       const visitDataString = localStorage.getItem('currentVisitData');
@@ -214,7 +214,7 @@ export default function TradeEventosPage() {
           console.error('❌ Error parseando visit data:', error);
         }
       }
-      
+
       console.log('❌ === NO SE ENCONTRÓ MARCA ASIGNADA ===');
       return null;
     } catch (error) {
@@ -227,7 +227,7 @@ export default function TradeEventosPage() {
   const [recursosAgregados, setRecursosAgregados] = useState<RecursoUsado[]>([]);
   const [currentTipoRecurso, setCurrentTipoRecurso] = useState<string>('');
   const [currentCantidadRecurso, setCurrentCantidadRecurso] = useState<string>('');
-  
+
   const [entregablesShellAgregados, setEntregablesShellAgregados] = useState<EntregableUsado[]>([]);
   const [currentTipoEntregableShell, setCurrentTipoEntregableShell] = useState<string>('');
   const [currentCantidadEntregableShell, setCurrentCantidadEntregableShell] = useState<string>('');
@@ -238,14 +238,14 @@ export default function TradeEventosPage() {
 
   // Estados para las 6 fotos del evento
   const [fotosEvento, setFotosEvento] = useState<(string | null)[]>(Array(6).fill(null));
-  
+
   // ✅ NUEVO: Estados de fotos separados por marca
   const [fotosShell, setFotosShell] = useState<(string | null)[]>(Array(3).fill(null));
   const [fotosQualid, setFotosQualid] = useState<(string | null)[]>(Array(3).fill(null));
 
   // Estados para videos del evento
   const [videosEvento, setVideosEvento] = useState<string[]>([]);
-  
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [gpsCoordinates, setGpsCoordinates] = useState<GPSCoordinates | null>(null);
 
@@ -254,7 +254,7 @@ export default function TradeEventosPage() {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      
+
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0];
         if (file) {
@@ -270,7 +270,7 @@ export default function TradeEventosPage() {
           reader.readAsDataURL(file);
         }
       };
-      
+
       input.click();
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -287,7 +287,7 @@ export default function TradeEventosPage() {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      
+
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0];
         if (file) {
@@ -305,7 +305,7 @@ export default function TradeEventosPage() {
           reader.readAsDataURL(file);
         }
       };
-      
+
       input.click();
     } catch (error) {
       console.error("Error uploading event photo:", error);
@@ -323,7 +323,7 @@ export default function TradeEventosPage() {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      
+
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0];
         if (file) {
@@ -347,7 +347,7 @@ export default function TradeEventosPage() {
           reader.readAsDataURL(file);
         }
       };
-      
+
       input.click();
     } catch (error) {
       console.error(`Error uploading ${brand} photo:`, error);
@@ -380,7 +380,7 @@ export default function TradeEventosPage() {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'video/*';
-      
+
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0];
         if (file) {
@@ -396,7 +396,7 @@ export default function TradeEventosPage() {
           reader.readAsDataURL(file);
         }
       };
-      
+
       input.click();
     } catch (error) {
       console.error("Error uploading video:", error);
@@ -427,12 +427,12 @@ export default function TradeEventosPage() {
       return;
     }
     if (currentCantidadRecurso === '' || currentCantidadRecurso === null) {
-        toast({
-            variant: 'destructive',
-            title: 'Cantidad Requerida',
-            description: 'Por favor, ingrese la cantidad del recurso.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cantidad Requerida',
+        description: 'Por favor, ingrese la cantidad del recurso.',
+      });
+      return;
     }
     const cantidadNum = parseInt(currentCantidadRecurso);
     if (isNaN(cantidadNum) || cantidadNum <= 0) { // Quantity must be greater than 0
@@ -463,12 +463,12 @@ export default function TradeEventosPage() {
       return;
     }
     if (currentCantidadEntregableShell === '' || currentCantidadEntregableShell === null) {
-        toast({
-            variant: 'destructive',
-            title: 'Cantidad Requerida',
-            description: 'Por favor, ingrese la cantidad del entregable.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cantidad Requerida',
+        description: 'Por favor, ingrese la cantidad del entregable.',
+      });
+      return;
     }
     const cantidadNum = parseInt(currentCantidadEntregableShell);
     if (isNaN(cantidadNum) || cantidadNum <= 0) { // Quantity must be greater than 0
@@ -499,15 +499,15 @@ export default function TradeEventosPage() {
       return;
     }
     if (currentCantidadEntregableQualid === '' || currentCantidadEntregableQualid === null) {
-        toast({
-            variant: 'destructive',
-            title: 'Cantidad Requerida',
-            description: 'Por favor, ingrese la cantidad del entregable Qualid.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cantidad Requerida',
+        description: 'Por favor, ingrese la cantidad del entregable Qualid.',
+      });
+      return;
     }
     const cantidadNum = parseInt(currentCantidadEntregableQualid);
-    if (isNaN(cantidadNum) || cantidadNum <= 0) { 
+    if (isNaN(cantidadNum) || cantidadNum <= 0) {
       toast({
         variant: 'destructive',
         title: 'Cantidad Inválida',
@@ -536,14 +536,14 @@ export default function TradeEventosPage() {
 
   const handleSubmit = async () => {
     console.log('=== GUARDANDO DATOS TRADE EVENTO PARCIAL ===');
-    
+
     // 🔍 DEBUGGING DE FOTOS Y DATOS DEL EVENTO
     console.log('🔍 ====== DEBUG DE TRADE EVENTOS ======');
     console.log('🔍 selectedBrands:', selectedBrands);
     console.log('🔍 Fotos del evento:', fotosEvento.filter(f => f).length);
     console.log('🔍 Videos del evento:', videosEvento.length);
     console.log('🔍 ====== FIN DEBUG ======');
-    
+
     if (selectedBrands.length === 0) {
       toast({
         variant: 'destructive',
@@ -578,7 +578,7 @@ export default function TradeEventosPage() {
         setIsSyncing(false);
         return;
       }
-      
+
       const cliente = JSON.parse(clienteDataString);
       const location = cliente.gpsCoordinates; // Usar la ubicación ya guardada
 
@@ -590,7 +590,7 @@ export default function TradeEventosPage() {
       if (!currentUser) {
         currentUser = getUserFromStorage();
       }
-      
+
       const mercaderista = currentUser?.fullName || 'Usuario App';
       const correoMercaderista = currentUser?.email || '';
 
@@ -635,18 +635,18 @@ export default function TradeEventosPage() {
       });
 
       // Ir directamente a reportes finales (sin ventas)
-        router.push('/reportes-finales');
+      router.push('/reportes-finales');
 
     } catch (error) {
       console.log('=== ERROR GUARDANDO DATOS TRADE EVENTO ===');
       console.error('Error completo:', error);
-      
+
       toast({
         variant: 'destructive',
         title: 'Error al Guardar',
         description: 'Hubo un problema guardando los datos. Intente nuevamente.',
       });
-      
+
     } finally {
       setIsSyncing(false);
     }
@@ -725,13 +725,13 @@ export default function TradeEventosPage() {
   const availableEntregableQualidTypes = ENTREGABLES_IMPULSO_QUALID_TYPES.filter(
     tipo => !entregablesQualidAgregados.find(e => e.tipo === tipo)
   );
-  
+
   const fotosSubidas = fotosShell.filter(f => f).length + fotosQualid.filter(f => f).length;
 
   // Función para determinar si se puede continuar
   const canProceed = () => {
     const fotosSubidas = fotosShell.filter(f => f).length + fotosQualid.filter(f => f).length;
-    
+
     return selectedBrands.length > 0 && fotosSubidas >= 3;
   };
 
@@ -773,7 +773,7 @@ export default function TradeEventosPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>
-             <span
+            <span
               style={{
                 backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)',
                 WebkitBackgroundClip: 'text',
@@ -787,7 +787,7 @@ export default function TradeEventosPage() {
           <CardDescription>Ingrese los detalles del evento realizado.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          
+
 
           <div>
             <Label className="font-medium">Marcas Trabajadas</Label>
@@ -841,21 +841,21 @@ export default function TradeEventosPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                                  <div className="w-1/3 space-y-1">
-                    <Label htmlFor="cantidad-recurso-input">Cantidad</Label>
-                    <Input
-                      id="cantidad-recurso-input"
-                      type="number"
-                      placeholder="Ingresar cantidad (0, 1, 2, 3, ...)"
-                      value={currentCantidadRecurso}
-                      onChange={(e) => setCurrentCantidadRecurso(e.target.value)}
-                      inputMode="numeric"
-                      min="1" 
-                      disabled={isSyncing}
-                    />
-                  </div>
-                <Button 
-                  onClick={handleAddRecurso} 
+                <div className="w-1/3 space-y-1">
+                  <Label htmlFor="cantidad-recurso-input">Cantidad</Label>
+                  <Input
+                    id="cantidad-recurso-input"
+                    type="number"
+                    placeholder="Ingresar cantidad (0, 1, 2, 3, ...)"
+                    value={currentCantidadRecurso}
+                    onChange={(e) => setCurrentCantidadRecurso(e.target.value)}
+                    inputMode="numeric"
+                    min="1"
+                    disabled={isSyncing}
+                  />
+                </div>
+                <Button
+                  onClick={handleAddRecurso}
                   disabled={!currentTipoRecurso || currentCantidadRecurso === '' || parseInt(currentCantidadRecurso) <= 0 || availableRecursoTypes.length === 0 || isSyncing}
                   className="shrink-0"
                 >
@@ -879,7 +879,7 @@ export default function TradeEventosPage() {
                 </div>
               )}
               {availableRecursoTypes.length === 0 && getCurrentResourceList().length > 0 && recursosAgregados.length === getCurrentResourceList().length && (
-                  <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de recursos {selectedBrands.join(' y ')} disponibles han sido agregados.</p>
+                <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de recursos {selectedBrands.join(' y ')} disponibles han sido agregados.</p>
               )}
             </div>
           )}
@@ -889,63 +889,63 @@ export default function TradeEventosPage() {
               <Label className="font-medium">Entregables Shell</Label>
               <div className="flex items-end space-x-2">
                 <div className="flex-grow space-y-1">
-                    <Label htmlFor="tipo-entregable-shell-select">Tipo de Entregable</Label>
-                    <Select
-                      value={currentTipoEntregableShell}
-                      onValueChange={setCurrentTipoEntregableShell}
-                      disabled={availableEntregableShellTypes.length === 0 || isSyncing}
-                    >
-                      <SelectTrigger id="tipo-entregable-shell-select">
-                        <SelectValue placeholder={availableEntregableShellTypes.length > 0 ? "Seleccionar entregable" : "Todos agregados"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableEntregableShellTypes.map(tipo => (
-                          <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="w-1/3 space-y-1">
-                    <Label htmlFor="cantidad-entregable-shell-input">Cantidad</Label>
-                    <Input
-                      id="cantidad-entregable-shell-input"
-                      type="number"
-                      placeholder="Ingresar cantidad"
-                      value={currentCantidadEntregableShell}
-                      onChange={(e) => setCurrentCantidadEntregableShell(e.target.value)}
-                      inputMode="numeric"
-                      min="1"
-                      disabled={isSyncing}
-                    />
-                  </div>
-                  <Button 
-                    onClick={handleAddEntregableShell} 
-                    disabled={!currentTipoEntregableShell || currentCantidadEntregableShell === '' || parseInt(currentCantidadEntregableShell) <= 0 || availableEntregableShellTypes.length === 0 || isSyncing}
-                    className="shrink-0"
+                  <Label htmlFor="tipo-entregable-shell-select">Tipo de Entregable</Label>
+                  <Select
+                    value={currentTipoEntregableShell}
+                    onValueChange={setCurrentTipoEntregableShell}
+                    disabled={availableEntregableShellTypes.length === 0 || isSyncing}
                   >
-                    Agregar
-                  </Button>
-                </div>
-
-                {entregablesShellAgregados.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    <Label className="text-sm text-muted-foreground">Entregables Shell agregados:</Label>
-                    <ul className="space-y-1">
-                      {entregablesShellAgregados.map((entregable, index) => (
-                        <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
-                          <span className="text-sm">{entregable.tipo}: {entregable.cantidad}</span>
-                          <Button variant="ghost" size="sm" onClick={() => handleRemoveEntregableShell(index)} disabled={isSyncing}>
-                            <Trash className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </li>
+                    <SelectTrigger id="tipo-entregable-shell-select">
+                      <SelectValue placeholder={availableEntregableShellTypes.length > 0 ? "Seleccionar entregable" : "Todos agregados"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableEntregableShellTypes.map(tipo => (
+                        <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
                       ))}
-                    </ul>
-                  </div>
-                )}
-                {availableEntregableShellTypes.length === 0 && ENTREGABLES_IMPULSO_SHELL_TYPES.length > 0 && entregablesShellAgregados.length === ENTREGABLES_IMPULSO_SHELL_TYPES.length && (
-                    <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de entregables Shell disponibles han sido agregados.</p>
-                )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-1/3 space-y-1">
+                  <Label htmlFor="cantidad-entregable-shell-input">Cantidad</Label>
+                  <Input
+                    id="cantidad-entregable-shell-input"
+                    type="number"
+                    placeholder="Ingresar cantidad"
+                    value={currentCantidadEntregableShell}
+                    onChange={(e) => setCurrentCantidadEntregableShell(e.target.value)}
+                    inputMode="numeric"
+                    min="1"
+                    disabled={isSyncing}
+                  />
+                </div>
+                <Button
+                  onClick={handleAddEntregableShell}
+                  disabled={!currentTipoEntregableShell || currentCantidadEntregableShell === '' || parseInt(currentCantidadEntregableShell) <= 0 || availableEntregableShellTypes.length === 0 || isSyncing}
+                  className="shrink-0"
+                >
+                  Agregar
+                </Button>
               </div>
+
+              {entregablesShellAgregados.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <Label className="text-sm text-muted-foreground">Entregables Shell agregados:</Label>
+                  <ul className="space-y-1">
+                    {entregablesShellAgregados.map((entregable, index) => (
+                      <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
+                        <span className="text-sm">{entregable.tipo}: {entregable.cantidad}</span>
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveEntregableShell(index)} disabled={isSyncing}>
+                          <Trash className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {availableEntregableShellTypes.length === 0 && ENTREGABLES_IMPULSO_SHELL_TYPES.length > 0 && entregablesShellAgregados.length === ENTREGABLES_IMPULSO_SHELL_TYPES.length && (
+                <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de entregables Shell disponibles han sido agregados.</p>
+              )}
+            </div>
           )}
 
           {selectedBrands.includes('Qualid') && (
@@ -953,63 +953,63 @@ export default function TradeEventosPage() {
               <Label className="font-medium">Entregables Qualid</Label>
               <div className="flex items-end space-x-2">
                 <div className="flex-grow space-y-1">
-                    <Label htmlFor="tipo-entregable-qualid-select">Tipo de Entregable</Label>
-                    <Select
-                      value={currentTipoEntregableQualid}
-                      onValueChange={setCurrentTipoEntregableQualid}
-                      disabled={availableEntregableQualidTypes.length === 0 || isSyncing}
-                    >
-                      <SelectTrigger id="tipo-entregable-qualid-select">
-                        <SelectValue placeholder={availableEntregableQualidTypes.length > 0 ? "Seleccionar entregable" : "Todos agregados"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableEntregableQualidTypes.map(tipo => (
-                          <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="w-1/3 space-y-1">
-                    <Label htmlFor="cantidad-entregable-qualid-input">Cantidad</Label>
-                    <Input
-                      id="cantidad-entregable-qualid-input"
-                      type="number"
-                      placeholder="Ingresar cantidad"
-                      value={currentCantidadEntregableQualid}
-                      onChange={(e) => setCurrentCantidadEntregableQualid(e.target.value)}
-                      inputMode="numeric"
-                      min="1"
-                      disabled={isSyncing}
-                    />
-                  </div>
-                  <Button 
-                    onClick={handleAddEntregableQualid} 
-                    disabled={!currentTipoEntregableQualid || currentCantidadEntregableQualid === '' || parseInt(currentCantidadEntregableQualid) <= 0 || availableEntregableQualidTypes.length === 0 || isSyncing}
-                    className="shrink-0"
+                  <Label htmlFor="tipo-entregable-qualid-select">Tipo de Entregable</Label>
+                  <Select
+                    value={currentTipoEntregableQualid}
+                    onValueChange={setCurrentTipoEntregableQualid}
+                    disabled={availableEntregableQualidTypes.length === 0 || isSyncing}
                   >
-                    Agregar
-                  </Button>
-                </div>
-
-                {entregablesQualidAgregados.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    <Label className="text-sm text-muted-foreground">Entregables Qualid agregados:</Label>
-                    <ul className="space-y-1">
-                      {entregablesQualidAgregados.map((entregable, index) => (
-                        <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
-                          <span className="text-sm">{entregable.tipo}: {entregable.cantidad}</span>
-                          <Button variant="ghost" size="sm" onClick={() => handleRemoveEntregableQualid(index)} disabled={isSyncing}>
-                            <Trash className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </li>
+                    <SelectTrigger id="tipo-entregable-qualid-select">
+                      <SelectValue placeholder={availableEntregableQualidTypes.length > 0 ? "Seleccionar entregable" : "Todos agregados"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableEntregableQualidTypes.map(tipo => (
+                        <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
                       ))}
-                    </ul>
-                  </div>
-                )}
-                {availableEntregableQualidTypes.length === 0 && ENTREGABLES_IMPULSO_QUALID_TYPES.length > 0 && entregablesQualidAgregados.length === ENTREGABLES_IMPULSO_QUALID_TYPES.length && (
-                    <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de entregables Qualid disponibles han sido agregados.</p>
-                )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-1/3 space-y-1">
+                  <Label htmlFor="cantidad-entregable-qualid-input">Cantidad</Label>
+                  <Input
+                    id="cantidad-entregable-qualid-input"
+                    type="number"
+                    placeholder="Ingresar cantidad"
+                    value={currentCantidadEntregableQualid}
+                    onChange={(e) => setCurrentCantidadEntregableQualid(e.target.value)}
+                    inputMode="numeric"
+                    min="1"
+                    disabled={isSyncing}
+                  />
+                </div>
+                <Button
+                  onClick={handleAddEntregableQualid}
+                  disabled={!currentTipoEntregableQualid || currentCantidadEntregableQualid === '' || parseInt(currentCantidadEntregableQualid) <= 0 || availableEntregableQualidTypes.length === 0 || isSyncing}
+                  className="shrink-0"
+                >
+                  Agregar
+                </Button>
               </div>
+
+              {entregablesQualidAgregados.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <Label className="text-sm text-muted-foreground">Entregables Qualid agregados:</Label>
+                  <ul className="space-y-1">
+                    {entregablesQualidAgregados.map((entregable, index) => (
+                      <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
+                        <span className="text-sm">{entregable.tipo}: {entregable.cantidad}</span>
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveEntregableQualid(index)} disabled={isSyncing}>
+                          <Trash className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {availableEntregableQualidTypes.length === 0 && ENTREGABLES_IMPULSO_QUALID_TYPES.length > 0 && entregablesQualidAgregados.length === ENTREGABLES_IMPULSO_QUALID_TYPES.length && (
+                <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de entregables Qualid disponibles han sido agregados.</p>
+              )}
+            </div>
           )}
 
           {/* Sección de Fotos del Evento */}
@@ -1143,15 +1143,15 @@ export default function TradeEventosPage() {
 
         </CardContent>
         <CardFooter>
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
             disabled={!canProceed() || isSyncing}
             className="w-full"
             style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
           >
             {isSyncing ? 'Guardando...' : 'Siguiente'}
           </Button>
-          
+
           {/* Indicador de progreso */}
           {selectedBrands.length > 0 && (
             <div className="ml-4 mt-0 p-3 bg-gray-50 rounded-md">

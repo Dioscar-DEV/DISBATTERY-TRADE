@@ -1,9 +1,9 @@
 'use client';
 
-import {useRouter, useSearchParams} from 'next/navigation';
-import {useEffect, useState, useRef} from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
 import React from 'react';
-import {Button} from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -12,12 +12,12 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {Input} from '@/components/ui/input';
-import {Label} from '@/components/ui/label';
-import {Camera} from 'lucide-react';
-import {useToast} from '@/hooks/use-toast';
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
-import {Alert, AlertDescription, AlertTitle} from "@/components/ui/alert";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Camera } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { crearVisita, setN8NWebhookURL } from '@/services/visitas';
 import { RespuestasMerchandising } from '@/types/visitas';
 
@@ -34,11 +34,11 @@ export function ShellMerchandisingPage() {
   const [stickersPlacedQuantity, setStickersPlacedQuantity] = useState<number | null>(null);
   const [stickersPlacedPhoto, setStickersPlacedPhoto] = useState<string | null>(null);
 
-    const [totalCenefasColocadas, setTotalCenefasColocadas] = useState<number | null>(null);
-    const [totalPapelBobinaColocado, setTotalPapelBobinaColocado] = useState<number | null>(null);
-    const [stickersCambioLubricanteEntregados, setStickersCambioLubricanteEntregados] = useState<number | null>(null);
-    const [ambientadoresVehiculo, setAmbientadoresVehiculo] = useState<number | null>(null);
-    const [bolsasParaCarro, setBolsasParaCarro] = useState<number | null>(null);
+  const [totalCenefasColocadas, setTotalCenefasColocadas] = useState<number | null>(null);
+  const [totalPapelBobinaColocado, setTotalPapelBobinaColocado] = useState<number | null>(null);
+  const [stickersCambioLubricanteEntregados, setStickersCambioLubricanteEntregados] = useState<number | null>(null);
+  const [ambientadoresVehiculo, setAmbientadoresVehiculo] = useState<number | null>(null);
+  const [bolsasParaCarro, setBolsasParaCarro] = useState<number | null>(null);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState(true); // Assume true initially
@@ -46,57 +46,51 @@ export function ShellMerchandisingPage() {
   const [capturingType, setCapturingType] = useState<string | null>(null);
 
 
-  const {toast} = useToast();
+  const { toast } = useToast();
   const router = useRouter();
-    const searchParams = useSearchParams();
-    const brands = searchParams.get('brands'); // This is not used currently
 
-    useEffect(() => {
-        console.log('Selected brands (from previous page):', brands); // Example of how to use it
-    }, [brands]);
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast({
+          variant: 'destructive',
+          title: 'Cámara no Soportada',
+          description: 'Su navegador no soporta el acceso a la cámara.',
+        });
+        setHasCameraPermission(false);
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment"
+          },
+        });
+        setHasCameraPermission(true);
+        // Stop tracks immediately, we'll request them again when taking photo
+        stream.getTracks().forEach(track => track.stop());
 
-    useEffect(() => {
-        const getCameraPermission = async () => {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                 toast({
-                    variant: 'destructive',
-                    title: 'Cámara no Soportada',
-                    description: 'Su navegador no soporta el acceso a la cámara.',
-                });
-                setHasCameraPermission(false);
-                return;
-            }
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: "environment"
-                    },
-                });
-                setHasCameraPermission(true);
-                // Stop tracks immediately, we'll request them again when taking photo
-                stream.getTracks().forEach(track => track.stop());
-
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                setHasCameraPermission(false);
-                toast({
-                    variant: 'destructive',
-                    title: 'Acceso a la Cámara Denegado',
-                    description: 'Por favor, active los permisos de la cámara en la configuración de su navegador para usar esta aplicación.',
-                });
-            }
-        };
-        getCameraPermission();
-    }, [toast]);
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Acceso a la Cámara Denegado',
+          description: 'Por favor, active los permisos de la cámara en la configuración de su navegador para usar esta aplicación.',
+        });
+      }
+    };
+    getCameraPermission();
+  }, [toast]);
 
   const takePhoto = async (setter: React.Dispatch<React.SetStateAction<string | null>>) => {
     if (!videoRef.current || !hasCameraPermission) {
-        toast({
-            variant: 'destructive',
-            title: 'Cámara no lista',
-            description: 'Permiso de cámara no concedido o cámara no disponible.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cámara no lista',
+        description: 'Permiso de cámara no concedido o cámara no disponible.',
+      });
+      return;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -137,12 +131,12 @@ export function ShellMerchandisingPage() {
       });
       videoRef.current?.classList.add('hidden');
       setCapturingType(null);
-       // Ensure video is hidden on error
+      // Ensure video is hidden on error
       const currentStream = videoRef.current?.srcObject;
       if (currentStream instanceof MediaStream) {
         currentStream.getTracks().forEach(track => track.stop());
       }
-      if(videoRef.current) videoRef.current.srcObject = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
     }
   };
 
@@ -165,46 +159,46 @@ export function ShellMerchandisingPage() {
     setStickersPlacedQuantity(isNaN(value) ? null : value);
   };
 
-    const handleTotalCenefasColocadasChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = parseInt(e.target.value);
-        setTotalCenefasColocadas(isNaN(value) ? null : value);
-    };
+  const handleTotalCenefasColocadasChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setTotalCenefasColocadas(isNaN(value) ? null : value);
+  };
 
-    const handleTotalPapelBobinaColocadoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = parseInt(e.target.value);
-        setTotalPapelBobinaColocado(isNaN(value) ? null : value);
-    };
+  const handleTotalPapelBobinaColocadoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setTotalPapelBobinaColocado(isNaN(value) ? null : value);
+  };
 
-    const handleStickersCambioLubricanteEntregadosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = parseInt(e.target.value);
-        setStickersCambioLubricanteEntregados(isNaN(value) ? null : value);
-    };
+  const handleStickersCambioLubricanteEntregadosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setStickersCambioLubricanteEntregados(isNaN(value) ? null : value);
+  };
 
-    const handleAmbientadoresVehiculoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = parseInt(e.target.value);
-        setAmbientadoresVehiculo(isNaN(value) ? null : value);
-    };
+  const handleAmbientadoresVehiculoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setAmbientadoresVehiculo(isNaN(value) ? null : value);
+  };
 
-    const handleBolsasParaCarroChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = parseInt(e.target.value);
-        setBolsasParaCarro(isNaN(value) ? null : value);
-    };
+  const handleBolsasParaCarroChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setBolsasParaCarro(isNaN(value) ? null : value);
+  };
 
 
-    const saveDataLocally = (data: any) => {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const shellData = JSON.parse(localStorage.getItem('shellData') || '[]')
-        shellData.push(data);
-        localStorage.setItem('shellData', JSON.stringify(shellData));
-      }
-    };
+  const saveDataLocally = (data: any) => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const shellData = JSON.parse(localStorage.getItem('shellData') || '[]')
+      shellData.push(data);
+      localStorage.setItem('shellData', JSON.stringify(shellData));
+    }
+  };
 
   const handleSubmit = async () => {
     console.log('=== ACUMULANDO DATOS DEL FORMULARIO SHELL ===');
     console.log('planogramWorked:', planogramWorked);
     console.log('authorizedStickers:', authorizedStickers);
     console.log('stickersPlacedQuantity:', stickersPlacedQuantity);
-    
+
     if (planogramWorked === '') {
       console.log('Error: planogramWorked está vacío');
       toast({
@@ -271,7 +265,7 @@ export function ShellMerchandisingPage() {
       // Obtener datos del cliente desde localStorage
       const clienteData = localStorage.getItem('clienteData');
       console.log('clienteData raw:', clienteData);
-      
+
       if (!clienteData) {
         console.log('Error: No hay clienteData en localStorage');
         toast({
@@ -284,7 +278,7 @@ export function ShellMerchandisingPage() {
 
       const cliente = JSON.parse(clienteData);
       console.log('cliente parsed:', cliente);
-      
+
       console.log('🚩🚩🚩 === VERIFICANDO DATOS DE SEÑALIZACIÓN AL LLEGAR A SHELL-MERCHANDISING ===');
       console.log('🚩 cliente.hasSignage:', cliente.hasSignage);
       console.log('🚩 cliente.signagePhoto existe:', !!cliente.signagePhoto);
@@ -292,7 +286,7 @@ export function ShellMerchandisingPage() {
       console.log('🚩 cliente.pointId:', cliente.pointId);
       console.log('🚩 cliente.tipoVisita:', cliente.tipoVisita);
       console.log('🚩 TODOS LOS CAMPOS DEL CLIENTE:', Object.keys(cliente));
-      
+
       // 📝 RECUPERAR Y MOSTRAR DEBUG LOG DE SIGNAGE-CAPTURE
       const debugLogRaw = localStorage.getItem('debugSignageFlow');
       if (debugLogRaw) {
@@ -339,24 +333,24 @@ export function ShellMerchandisingPage() {
 
       // Acumular datos en localStorage usando la MISMA ESTRUCTURA que trade-impulso
       const datosAcumulados = JSON.parse(localStorage.getItem('datosFormularioCompleto') || '{}');
-      
+
       // ✅ ESTRUCTURA COMPATIBLE CON REPORTES-FINALES (igual que trade-impulso)
       datosAcumulados.tipoVisita = 'Merchandising';
       datosAcumulados.marca = 'Shell'; // Merchandising siempre es Shell
       datosAcumulados.clienteData = cliente;
-      
+
       // Mantener compatibilidad con datos existentes de merchandising si los hay
       datosAcumulados.recursosUsados = datosAcumulados.recursosUsados || [];
       datosAcumulados.entregablesShell = datosAcumulados.entregablesShell || [];
       datosAcumulados.entregablesQualid = datosAcumulados.entregablesQualid || [];
-      
+
       // Guardar datos específicos de Shell Merchandising
       datosAcumulados.shellMerchandising = datosShellMerchandising;
-      
+
       // Asegurar que no hay ventas en merchandising (solo en trade-impulso)
       datosAcumulados.huboVentasShell = false;
       datosAcumulados.huboVentasQualid = false;
-      
+
       // Refuerza la asignación de cliente con rif y nombre correctos
       const clienteRobusto = {
         rif: cliente.rif || cliente.rifCliente || cliente.clientRif || '',
@@ -380,9 +374,9 @@ export function ShellMerchandisingPage() {
       };
       datosAcumulados.cliente = clienteRobusto;
       datosAcumulados.clienteData = clienteRobusto;
-      
+
       localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosAcumulados));
-      
+
       console.log('🚩🚩🚩 === DEBUGGING SEÑALIZACIÓN EN SHELL-MERCHANDISING ===');
       console.log('🚩 cliente.hasSignage (original):', cliente.hasSignage);
       console.log('🚩 cliente.signagePhoto (original):', cliente.signagePhoto ? 'FOTO PRESENTE' : 'NO FOTO');
@@ -390,10 +384,10 @@ export function ShellMerchandisingPage() {
       console.log('🚩 clienteRobusto.signagePhoto:', clienteRobusto.signagePhoto ? 'FOTO PRESENTE' : 'NO FOTO');
       console.log('🚩 datosAcumulados.cliente.hasSignage:', datosAcumulados.cliente.hasSignage);
       console.log('🚩 datosAcumulados.clienteData.hasSignage:', datosAcumulados.clienteData.hasSignage);
-      
+
       console.log('=== DATOS ACUMULADOS EXITOSAMENTE ===');
       console.log('Datos guardados en localStorage:', datosAcumulados);
-      
+
       // 📝 LIMPIAR DEBUG LOG DESPUÉS DE PROCESAR
       localStorage.removeItem('debugSignageFlow');
       console.log('📝 Debug log limpiado después de procesar datos');
@@ -409,7 +403,7 @@ export function ShellMerchandisingPage() {
     } catch (error) {
       console.log('=== ERROR ACUMULANDO DATOS ===');
       console.error('Error guardando datos localmente:', error);
-      
+
       toast({
         variant: 'destructive',
         title: 'Error guardando progreso',
@@ -420,64 +414,64 @@ export function ShellMerchandisingPage() {
     }
   };
 
-    useEffect(() => {
-        const syncData = async () => {
-            if (isSyncing || typeof window === 'undefined' || !window.localStorage) return;
-            setIsSyncing(true);
+  useEffect(() => {
+    const syncData = async () => {
+      if (isSyncing || typeof window === 'undefined' || !window.localStorage) return;
+      setIsSyncing(true);
 
-            try {
-                const localDataString = localStorage.getItem('shellData');
-                if (!localDataString) {
-                    setIsSyncing(false);
-                    return;
-                }
-                const localData = JSON.parse(localDataString);
-                if (localData.length === 0) {
-                     setIsSyncing(false);
-                    return;
-                }
-
-
-                // Simulate sending data to the server
-                console.log('Enviando datos de Shell al servidor:', localData);
-                // await api.post('/sync-shell-data', localData); // Replace with actual API call
-
-                // Clear local data after successful sync
-                localStorage.removeItem('shellData');
-                toast({
-                    title: 'Datos de Shell sincronizados',
-                    description: 'Todos los datos de Shell se han enviado al servidor.',
-                });
-            } catch (error) {
-                console.error('Error al sincronizar los datos de Shell:', error);
-                toast({
-                    variant: 'destructive',
-                    title: 'Error de sincronización (Shell)',
-                    description: 'Hubo un problema al sincronizar los datos. Inténtalo de nuevo más tarde.',
-                });
-            } finally {
-                setIsSyncing(false);
-            }
-        };
-
-        // Check for network connectivity
-        if (typeof window !== 'undefined' && navigator.onLine) {
-            syncData();
+      try {
+        const localDataString = localStorage.getItem('shellData');
+        if (!localDataString) {
+          setIsSyncing(false);
+          return;
         }
-
-        // Set up listener for online event
-        if (typeof window !== 'undefined') {
-            window.addEventListener('online', syncData);
+        const localData = JSON.parse(localDataString);
+        if (localData.length === 0) {
+          setIsSyncing(false);
+          return;
         }
 
 
-        // Clean up the event listener
-        return () => {
-             if (typeof window !== 'undefined') {
-                window.removeEventListener('online', syncData);
-             }
-        };
-    }, [isSyncing, toast]);
+        // Simulate sending data to the server
+        console.log('Enviando datos de Shell al servidor:', localData);
+        // await api.post('/sync-shell-data', localData); // Replace with actual API call
+
+        // Clear local data after successful sync
+        localStorage.removeItem('shellData');
+        toast({
+          title: 'Datos de Shell sincronizados',
+          description: 'Todos los datos de Shell se han enviado al servidor.',
+        });
+      } catch (error) {
+        console.error('Error al sincronizar los datos de Shell:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error de sincronización (Shell)',
+          description: 'Hubo un problema al sincronizar los datos. Inténtalo de nuevo más tarde.',
+        });
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    // Check for network connectivity
+    if (typeof window !== 'undefined' && navigator.onLine) {
+      syncData();
+    }
+
+    // Set up listener for online event
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', syncData);
+    }
+
+
+    // Clean up the event listener
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', syncData);
+      }
+    };
+  }, [isSyncing, toast]);
 
   return (
     <div
@@ -507,31 +501,31 @@ export function ShellMerchandisingPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <video ref={videoRef} className="hidden w-full aspect-video rounded-md" autoPlay muted playsInline />
-          
-          { !(hasCameraPermission) && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertTitle>Acceso a la Cámara Requerido</AlertTitle>
-                <AlertDescription>Por favor, permita el acceso a la cámara para usar esta función.</AlertDescription>
-              </Alert>
+
+          {!(hasCameraPermission) && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertTitle>Acceso a la Cámara Requerido</AlertTitle>
+              <AlertDescription>Por favor, permita el acceso a la cámara para usar esta función.</AlertDescription>
+            </Alert>
           )
           }
 
           <div>
             <Label htmlFor="planogram-photo-before">Foto Actual del Planograma</Label>
-              <Button
-                onClick={() => takePhoto(setPlanogramPhotoBefore)}
-                disabled={!hasCameraPermission || !!capturingType}
-                className="w-full mt-1 text-white"
-                style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
-              >
-                {capturingType === 'setPlanogramPhotoBefore' ? 'Capturando...' : (hasCameraPermission ? (
-                  <>
-                    <Camera className="mr-2 h-4 w-4" /> Tomar Foto del Planograma
-                  </>
-                ) : (
-                  'Cámara no permitida'
-                ))}
-              </Button>
+            <Button
+              onClick={() => takePhoto(setPlanogramPhotoBefore)}
+              disabled={!hasCameraPermission || !!capturingType}
+              className="w-full mt-1 text-white"
+              style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
+            >
+              {capturingType === 'setPlanogramPhotoBefore' ? 'Capturando...' : (hasCameraPermission ? (
+                <>
+                  <Camera className="mr-2 h-4 w-4" /> Tomar Foto del Planograma
+                </>
+              ) : (
+                'Cámara no permitida'
+              ))}
+            </Button>
             {planogramPhotoBefore && (
               <img
                 src={planogramPhotoBefore}
@@ -558,29 +552,29 @@ export function ShellMerchandisingPage() {
           {planogramWorked === 'Yes' && (
             <div>
               <Label htmlFor="planogram-photo-after">Foto del Planograma Después del Trabajo</Label>
-                <Button
-                  onClick={() => takePhoto(setPlanogramPhotoAfter)}
-                  disabled={!hasCameraPermission || !!capturingType}
-                  className="w-full mt-1 text-white"
-                  style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
-                >
-                  {capturingType === 'setPlanogramPhotoAfter' ? 'Capturando...' : (hasCameraPermission ? (
-                    <>
-                      <Camera className="mr-2 h-4 w-4" /> Tomar Foto del Planograma Después
-                    </>
-                  ) : (
-                    'Cámara no permitida'
-                  ))}
-                </Button>
+              <Button
+                onClick={() => takePhoto(setPlanogramPhotoAfter)}
+                disabled={!hasCameraPermission || !!capturingType}
+                className="w-full mt-1 text-white"
+                style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
+              >
+                {capturingType === 'setPlanogramPhotoAfter' ? 'Capturando...' : (hasCameraPermission ? (
+                  <>
+                    <Camera className="mr-2 h-4 w-4" /> Tomar Foto del Planograma Después
+                  </>
+                ) : (
+                  'Cámara no permitida'
+                ))}
+              </Button>
               {planogramPhotoAfter && (
                 <img
                   src={planogramPhotoAfter}
                   alt="Planograma Después"
                   className="mt-2 rounded-md object-cover w-full h-auto"
                   data-ai-hint="store shelf after"
-              />
-            )}
-          </div>
+                />
+              )}
+            </div>
           )}
 
           <div>
@@ -613,15 +607,15 @@ export function ShellMerchandisingPage() {
           </div>
 
           {stickersPlacedQuantity !== null && stickersPlacedQuantity > 0 && (
-          <div>
-            <Label htmlFor="stickers-placed-photo">Foto de los Stickers Colocados</Label>
+            <div>
+              <Label htmlFor="stickers-placed-photo">Foto de los Stickers Colocados</Label>
               <Button
                 onClick={() => takePhoto(setStickersPlacedPhoto)}
                 disabled={!hasCameraPermission || !!capturingType}
                 className="w-full mt-1 text-white"
                 style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
               >
-                 {capturingType === 'setStickersPlacedPhoto' ? 'Capturando...' : (hasCameraPermission ? (
+                {capturingType === 'setStickersPlacedPhoto' ? 'Capturando...' : (hasCameraPermission ? (
                   <>
                     <Camera className="mr-2 h-4 w-4" /> Tomar Foto de Stickers
                   </>
@@ -629,95 +623,95 @@ export function ShellMerchandisingPage() {
                   'Cámara no permitida'
                 ))}
               </Button>
-            {stickersPlacedPhoto && (
-              <img
-                src={stickersPlacedPhoto}
-                alt="Stickers Colocados"
-                className="mt-2 rounded-md object-cover w-full h-auto"
-                data-ai-hint="product stickers"
-              />
-            )}
-          </div>
+              {stickersPlacedPhoto && (
+                <img
+                  src={stickersPlacedPhoto}
+                  alt="Stickers Colocados"
+                  className="mt-2 rounded-md object-cover w-full h-auto"
+                  data-ai-hint="product stickers"
+                />
+              )}
+            </div>
           )}
 
-            <div>
-                <Label htmlFor="total-cenefas-colocadas">Total de Cenefas Shell colocadas</Label>
-                <Input
-                    type="number"
-                    id="total-cenefas-colocadas"
-                    placeholder="Ingresar cantidad"
-                    value={totalCenefasColocadas !== null ? totalCenefasColocadas.toString() : ''}
-                    onChange={handleTotalCenefasColocadasChange}
-                    inputMode="numeric"
-                    min="0"
-                    className="mt-1"
-                />
-            </div>
+          <div>
+            <Label htmlFor="total-cenefas-colocadas">Total de Cenefas Shell colocadas</Label>
+            <Input
+              type="number"
+              id="total-cenefas-colocadas"
+              placeholder="Ingresar cantidad"
+              value={totalCenefasColocadas !== null ? totalCenefasColocadas.toString() : ''}
+              onChange={handleTotalCenefasColocadasChange}
+              inputMode="numeric"
+              min="0"
+              className="mt-1"
+            />
+          </div>
 
-            <div>
-                <Label htmlFor="total-papel-bobina-colocado">Total de Papel Bobina Shell colocado (metros)</Label>
-                <Input
-                    type="number"
-                    id="total-papel-bobina-colocado"
-                    placeholder="Ingresar cantidad"
-                    value={totalPapelBobinaColocado !== null ? totalPapelBobinaColocado.toString() : ''}
-                    onChange={handleTotalPapelBobinaColocadoChange}
-                    inputMode="numeric"
-                    min="0"
-                    className="mt-1"
-                />
-            </div>
+          <div>
+            <Label htmlFor="total-papel-bobina-colocado">Total de Papel Bobina Shell colocado (metros)</Label>
+            <Input
+              type="number"
+              id="total-papel-bobina-colocado"
+              placeholder="Ingresar cantidad"
+              value={totalPapelBobinaColocado !== null ? totalPapelBobinaColocado.toString() : ''}
+              onChange={handleTotalPapelBobinaColocadoChange}
+              inputMode="numeric"
+              min="0"
+              className="mt-1"
+            />
+          </div>
 
-            <div>
-                <Label htmlFor="stickers-cambio-lubricante-entregados">Stickers Shell Cambio de Lubricante entregados</Label>
-                <Input
-                    type="number"
-                    id="stickers-cambio-lubricante-entregados"
-                    placeholder="Ingresar cantidad"
-                    value={stickersCambioLubricanteEntregados !== null ? stickersCambioLubricanteEntregados.toString() : ''}
-                    onChange={handleStickersCambioLubricanteEntregadosChange}
-                    inputMode="numeric"
-                    min="0"
-                    className="mt-1"
-                />
-            </div>
+          <div>
+            <Label htmlFor="stickers-cambio-lubricante-entregados">Stickers Shell Cambio de Lubricante entregados</Label>
+            <Input
+              type="number"
+              id="stickers-cambio-lubricante-entregados"
+              placeholder="Ingresar cantidad"
+              value={stickersCambioLubricanteEntregados !== null ? stickersCambioLubricanteEntregados.toString() : ''}
+              onChange={handleStickersCambioLubricanteEntregadosChange}
+              inputMode="numeric"
+              min="0"
+              className="mt-1"
+            />
+          </div>
 
-            <div>
-                <Label htmlFor="ambientadores-vehiculo">Ambientadores Shell para vehículo</Label>
-                <Input
-                    type="number"
-                    id="ambientadores-vehiculo"
-                    placeholder="Ingresar cantidad"
-                    value={ambientadoresVehiculo !== null ? ambientadoresVehiculo.toString() : ''}
-                    onChange={handleAmbientadoresVehiculoChange}
-                    inputMode="numeric"
-                    min="0"
-                    className="mt-1"
-                />
-            </div>
+          <div>
+            <Label htmlFor="ambientadores-vehiculo">Ambientadores Shell para vehículo</Label>
+            <Input
+              type="number"
+              id="ambientadores-vehiculo"
+              placeholder="Ingresar cantidad"
+              value={ambientadoresVehiculo !== null ? ambientadoresVehiculo.toString() : ''}
+              onChange={handleAmbientadoresVehiculoChange}
+              inputMode="numeric"
+              min="0"
+              className="mt-1"
+            />
+          </div>
 
-            <div>
-                <Label htmlFor="bolsas-para-carro">Bolsas Shell para carro</Label>
-                <Input
-                    type="number"
-                    id="bolsas-para-carro"
-                    placeholder="Ingresar cantidad"
-                    value={bolsasParaCarro !== null ? bolsasParaCarro.toString() : ''}
-                    onChange={handleBolsasParaCarroChange}
-                    inputMode="numeric"
-                    min="0"
-                    className="mt-1"
-                />
-            </div>
+          <div>
+            <Label htmlFor="bolsas-para-carro">Bolsas Shell para carro</Label>
+            <Input
+              type="number"
+              id="bolsas-para-carro"
+              placeholder="Ingresar cantidad"
+              value={bolsasParaCarro !== null ? bolsasParaCarro.toString() : ''}
+              onChange={handleBolsasParaCarroChange}
+              inputMode="numeric"
+              min="0"
+              className="mt-1"
+            />
+          </div>
         </CardContent>
         <CardFooter>
-            <Button
-                onClick={handleSubmit}
-                disabled={isSyncing || !hasCameraPermission || !!capturingType}
-                className="w-full"
-            >
-                {isSyncing ? 'Sincronizando...' : 'Guardar y Continuar'}
-            </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSyncing || !hasCameraPermission || !!capturingType}
+            className="w-full"
+          >
+            {isSyncing ? 'Sincronizando...' : 'Guardar y Continuar'}
+          </Button>
         </CardFooter>
       </Card>
     </div>

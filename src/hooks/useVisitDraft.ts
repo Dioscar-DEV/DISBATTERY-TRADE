@@ -1,14 +1,17 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { db, type VisitDraft } from '@/lib/indexedDB';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { db, type VisitDraft } from "@/lib/indexedDB";
 
-type DraftStepKey = keyof Pick<VisitDraft, 'step1' | 'step2' | 'step3' | 'step4' | 'step5'>;
+type DraftStepKey = keyof Pick<
+  VisitDraft,
+  "step1" | "step2" | "step3" | "step4" | "step5"
+>;
 
 export interface UseVisitDraftOptions {
   routePointId: string;
   clienteId: string;
-  brand: 'shell' | 'qualid';
+  brand: "shell" | "qualid";
 }
 
 interface UseVisitDraftState {
@@ -26,9 +29,9 @@ export function useVisitDraft(options: UseVisitDraftOptions) {
   // Crear o recuperar un borrador existente para el mismo punto
   const ensureDraft = useCallback(async (): Promise<string> => {
     const existing = await db.visitDrafts
-      .where('routePointId')
+      .where("routePointId")
       .equals(routePointId)
-      .and((d) => d.status !== 'synced')
+      .and((d) => d.status !== "synced")
       .first();
 
     if (existing) {
@@ -43,7 +46,7 @@ export function useVisitDraft(options: UseVisitDraftOptions) {
       routePointId,
       clienteId,
       brand,
-      status: 'draft',
+      status: "draft",
       createdAt: now,
       updatedAt: now,
       version: now,
@@ -71,16 +74,25 @@ export function useVisitDraft(options: UseVisitDraftOptions) {
         version: now,
       } as Partial<VisitDraft>);
       const fresh = await db.visitDrafts.get(id);
-      setState({ draftId: id, draft: fresh || null, isSaving: false, lastSavedAt: now });
+      setState({
+        draftId: id,
+        draft: fresh || null,
+        isSaving: false,
+        lastSavedAt: now,
+      });
     },
     [ensureDraft, state.draftId]
   );
 
   const setGpsData = useCallback(
-    async (gpsData: NonNullable<VisitDraft['gpsData']>) => {
+    async (gpsData: NonNullable<VisitDraft["gpsData"]>) => {
       const id = state.draftId || (await ensureDraft());
       const now = Date.now();
-      await db.visitDrafts.update(id, { gpsData, updatedAt: now, version: now });
+      await db.visitDrafts.update(id, {
+        gpsData,
+        updatedAt: now,
+        version: now,
+      });
       setState((s) => ({ ...s, lastSavedAt: now }));
     },
     [ensureDraft, state.draftId]
@@ -89,7 +101,11 @@ export function useVisitDraft(options: UseVisitDraftOptions) {
   const markCompleted = useCallback(async () => {
     if (!state.draftId) return;
     const now = Date.now();
-    await db.visitDrafts.update(state.draftId, { status: 'completed', updatedAt: now, version: now });
+    await db.visitDrafts.update(state.draftId, {
+      status: "completed",
+      updatedAt: now,
+      version: now,
+    });
     const fresh = await db.visitDrafts.get(state.draftId);
     setState((s) => ({ ...s, draft: fresh || null, lastSavedAt: now }));
   }, [state.draftId]);
@@ -121,9 +137,9 @@ export function useVisitDraft(options: UseVisitDraftOptions) {
         } catch {}
       }
     };
-    window.addEventListener('beforeunload', handler);
+    window.addEventListener("beforeunload", handler);
     return () => {
-      window.removeEventListener('beforeunload', handler);
+      window.removeEventListener("beforeunload", handler);
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     };
   }, [load]);
@@ -144,5 +160,3 @@ export function useVisitDraft(options: UseVisitDraftOptions) {
     [state, saveStep, autosave, load, clear, setGpsData, markCompleted]
   );
 }
-
-

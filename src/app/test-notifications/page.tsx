@@ -14,12 +14,12 @@ export default function TestNotificationsPage() {
             Panel de pruebas para el sistema de notificaciones push de Disbattery Trade
           </p>
         </div>
-        
+
         <NotificationTester />
-        
+
         <div className="mt-8 text-center">
-          <a 
-            href="/" 
+          <a
+            href="/"
             className="text-blue-600 hover:text-blue-800 underline"
           >
             ← Volver al inicio

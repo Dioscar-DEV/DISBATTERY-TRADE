@@ -28,7 +28,7 @@ export default function OfflineInitializer() {
           '/shell-material-interno'
         ];
         await serviceWorkerManager.precacheUrls(urls);
-      } catch {}
+      } catch { }
     })();
   }, []);
 

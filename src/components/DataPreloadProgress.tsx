@@ -6,12 +6,12 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { 
-  Wifi, 
-  WifiOff, 
-  Download, 
-  CheckCircle, 
-  AlertCircle, 
+import {
+  Wifi,
+  WifiOff,
+  Download,
+  CheckCircle,
+  AlertCircle,
   RefreshCw,
   Database,
   Users,
@@ -63,7 +63,7 @@ export default function DataPreloadProgress({
       const skipTimer = setTimeout(() => {
         setShowSkipButton(true);
       }, 10000);
-      
+
       // ✅ TIMEOUT DE EMERGENCIA: Si no se completa en 30 segundos, forzar skip
       const emergencyTimer = setTimeout(() => {
         console.warn('⚠️ [DataPreloadProgress] Timeout de emergencia alcanzado (30s)');
@@ -72,7 +72,7 @@ export default function DataPreloadProgress({
           onSkip();
         }
       }, 30000);
-      
+
       return () => {
         clearTimeout(skipTimer);
         clearTimeout(emergencyTimer);
@@ -160,21 +160,21 @@ export default function DataPreloadProgress({
             )}
           </div>
           <CardTitle className="text-lg">
-            {isError ? 'Error de descarga' : 
-             isComplete ? '¡Listo para trabajar offline!' : 
-             timeoutReached ? 'Continuando sin precarga' : 
-             'Preparando modo offline'}
+            {isError ? 'Error de descarga' :
+              isComplete ? '¡Listo para trabajar offline!' :
+                timeoutReached ? 'Continuando sin precarga' :
+                  'Preparando modo offline'}
           </CardTitle>
           <CardDescription>
-            {isError 
+            {isError
               ? 'Hubo un problema descargando los datos'
-              : isComplete 
+              : isComplete
                 ? 'Todos los datos están listos para uso sin conexión'
                 : 'Descargando datos necesarios para trabajar sin conexión'
             }
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent>
           {isError ? (
             <div className="space-y-4">
@@ -185,7 +185,7 @@ export default function DataPreloadProgress({
                       🚨 Problema de configuración de Firebase
                     </div>
                     <div className="text-red-600 text-xs">
-                      La base de datos requiere índices especiales que no están configurados. 
+                      La base de datos requiere índices especiales que no están configurados.
                       Esto no afecta la funcionalidad offline básica.
                     </div>
                     <div className="text-orange-600 text-xs font-medium">
@@ -198,12 +198,12 @@ export default function DataPreloadProgress({
                   </div>
                 )}
               </div>
-              
+
               <div className="text-xs text-gray-600 bg-blue-50 p-3 rounded-md">
-                💡 <strong>Sin preocupación:</strong> La aplicación funcionará normalmente. 
+                💡 <strong>Sin preocupación:</strong> La aplicación funcionará normalmente.
                 Los datos se cargarán según sea necesario durante el uso.
               </div>
-              
+
               <div className="flex space-x-2">
                 {!error?.includes('requires an index') && (
                   <Button onClick={onRetry} variant="outline" className="flex-1">
@@ -233,7 +233,7 @@ export default function DataPreloadProgress({
                 )}
               </div>
               <Button onClick={onComplete} className="w-full">
-                {result && result.routesLoaded > 0 
+                {result && result.routesLoaded > 0
                   ? `Continuar con ${result.routesLoaded} rutas disponibles`
                   : 'Continuar a la aplicación'
                 }
@@ -254,7 +254,7 @@ export default function DataPreloadProgress({
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Progress value={progress.percentage} className="w-full" />
                     <div className="flex justify-between text-xs text-gray-500">
@@ -264,7 +264,7 @@ export default function DataPreloadProgress({
                   </div>
                 </>
               )}
-              
+
               <div className="text-xs text-gray-400 text-center">
                 <div className="flex items-center justify-center space-x-1 mb-1">
                   <Wifi className="w-3 h-3" />
@@ -272,14 +272,14 @@ export default function DataPreloadProgress({
                 </div>
                 <div>Después podrás trabajar completamente offline</div>
               </div>
-              
+
               {/* ✅ MOSTRAR TIMEOUT WARNING */}
               {timeoutReached && (
                 <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded-md text-center">
                   ⏰ La descarga está tomando más tiempo del esperado. Continuando sin precarga...
                 </div>
               )}
-              
+
               {showSkipButton && !timeoutReached && (
                 <Button onClick={onSkip} variant="outline" className="w-full">
                   Saltar y continuar online

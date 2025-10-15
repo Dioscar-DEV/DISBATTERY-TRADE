@@ -103,7 +103,7 @@ export const NotificationTester = () => {
           Herramienta para probar el sistema de notificaciones de la PWA
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="space-y-6">
         {/* Estado del Sistema */}
         <div className="space-y-3">
@@ -122,7 +122,7 @@ export const NotificationTester = () => {
                 </>
               )}
             </Badge>
-            
+
             <Badge variant={hasPermission ? "default" : "secondary"}>
               {hasPermission ? (
                 <>
@@ -136,7 +136,7 @@ export const NotificationTester = () => {
                 </>
               )}
             </Badge>
-            
+
             <Badge variant={canReceiveNotifications ? "default" : "outline"}>
               {canReceiveNotifications ? 'Listo para Recibir' : 'No Configurado'}
             </Badge>
@@ -147,7 +147,7 @@ export const NotificationTester = () => {
         <div className="space-y-3">
           <h3 className="font-medium">Configuración</h3>
           <div className="flex flex-wrap gap-2">
-            <Button 
+            <Button
               onClick={handleRequestPermission}
               disabled={isLoading || hasPermission}
               variant={hasPermission ? "outline" : "default"}
@@ -155,8 +155,8 @@ export const NotificationTester = () => {
             >
               {hasPermission ? 'Permisos Ya Concedidos' : 'Solicitar Permisos'}
             </Button>
-            
-            <Button 
+
+            <Button
               onClick={handleInitializeNotifications}
               disabled={isLoading || !hasPermission}
               variant="secondary"
@@ -171,7 +171,7 @@ export const NotificationTester = () => {
         <div className="space-y-3">
           <h3 className="font-medium">Pruebas de Notificación</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <Button 
+            <Button
               onClick={handleTestLocalNotification}
               disabled={!canReceiveNotifications}
               variant="outline"
@@ -180,8 +180,8 @@ export const NotificationTester = () => {
             >
               🧪 Prueba Local
             </Button>
-            
-            <Button 
+
+            <Button
               onClick={handleTestRouteNotification}
               disabled={!canReceiveNotifications}
               variant="outline"
@@ -190,8 +190,8 @@ export const NotificationTester = () => {
             >
               🗺️ Nueva Ruta (Mercaderista)
             </Button>
-            
-            <Button 
+
+            <Button
               onClick={handleTestCompletedNotification}
               disabled={!canReceiveNotifications}
               variant="outline"
@@ -200,8 +200,8 @@ export const NotificationTester = () => {
             >
               ✅ Ruta Completada (Admin)
             </Button>
-            
-            <Button 
+
+            <Button
               onClick={handleTestServiceWorkerNotification}
               disabled={!canReceiveNotifications}
               variant="outline"

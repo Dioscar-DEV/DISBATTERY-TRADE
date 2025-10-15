@@ -47,7 +47,7 @@ export function PWAInstallBanner() {
         console.log('🎯 [PWA Banner] Mostrando banner después del delay');
         setShowBanner(true);
       }, 1500);
-      
+
       return () => clearTimeout(timer);
     } else {
       console.log('🎯 [PWA Banner] Banner no se muestra porque fue cerrado recientemente');
@@ -75,7 +75,7 @@ export function PWAInstallBanner() {
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as any);
-      window.removeEventListener('appinstalled', () => {});
+      window.removeEventListener('appinstalled', () => { });
     };
   }, []);
 
@@ -83,7 +83,7 @@ export function PWAInstallBanner() {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      
+
       if (outcome === 'accepted') {
         setShowBanner(false);
         setCanInstall(false);
@@ -139,7 +139,7 @@ export function PWAInstallBanner() {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2 flex-shrink-0">
               <Button
                 onClick={canInstall ? handleInstallClick : handleOpenInstallPage}
@@ -150,7 +150,7 @@ export function PWAInstallBanner() {
                 <Download className="h-3 w-3 mr-1" />
                 Instalar
               </Button>
-              
+
               <Button
                 onClick={handleDismiss}
                 variant="ghost"

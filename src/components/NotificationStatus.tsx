@@ -79,7 +79,7 @@ export const NotificationStatus = () => {
         <span className="text-sm font-medium">Notificaciones:</span>
         {getStatusBadge()}
       </div>
-      
+
       <div className="flex-1">
         <p className="text-xs text-gray-600">{getStatusText()}</p>
       </div>

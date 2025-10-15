@@ -20,11 +20,11 @@ interface PWAInstallButtonProps {
   showOnlyWhenInstallable?: boolean;
 }
 
-export function PWAInstallButton({ 
-  variant = 'default', 
-  size = 'default', 
+export function PWAInstallButton({
+  variant = 'default',
+  size = 'default',
   className = '',
-  showOnlyWhenInstallable = false 
+  showOnlyWhenInstallable = false
 }: PWAInstallButtonProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -54,7 +54,7 @@ export function PWAInstallButton({
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as any);
-      window.removeEventListener('appinstalled', () => {});
+      window.removeEventListener('appinstalled', () => { });
     };
   }, []);
 
@@ -63,7 +63,7 @@ export function PWAInstallButton({
 
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
+
     if (outcome === 'accepted') {
       setCanInstall(false);
       setDeferredPrompt(null);

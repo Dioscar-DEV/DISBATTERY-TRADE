@@ -3,14 +3,14 @@
  * Maneja la lógica diferencial según el rol del usuario
  */
 
-import { UserData } from './auth';
-import { dataPreloadService } from './dataPreloadService';
-import { offlineService } from './offlineService';
+import { UserData } from "./auth";
+import { dataPreloadService } from "./dataPreloadService";
+import { offlineService } from "./offlineService";
 
 interface LoginRedirect {
   path: string;
   shouldPreload: boolean;
-  storageStrategy: 'offline-first' | 'online-realtime';
+  storageStrategy: "offline-first" | "online-realtime";
 }
 
 interface PostLoginResult {
@@ -35,34 +35,34 @@ class PostLoginStrategy {
   private getLoginStrategy(user: UserData): LoginRedirect {
     // Lógica de roles según la arquitectura dual propuesta
     switch (user.role) {
-      case 'Mercaderista':
+      case "Mercaderista":
         return {
-          path: '/mi-ruta',
+          path: "/mi-ruta",
           shouldPreload: true,
-          storageStrategy: 'offline-first'
+          storageStrategy: "offline-first",
         };
-      
-      case 'Administrador':
-      case 'AdminMaster':
+
+      case "Administrador":
+      case "AdminMaster":
         return {
-          path: '/admin/dashboard',
+          path: "/admin/dashboard",
           shouldPreload: false,
-          storageStrategy: 'online-realtime'
+          storageStrategy: "online-realtime",
         };
-      
-      case 'Supervisor':
+
+      case "Supervisor":
         return {
-          path: '/admin/rutas',
+          path: "/admin/rutas",
           shouldPreload: false,
-          storageStrategy: 'online-realtime'
+          storageStrategy: "online-realtime",
         };
-      
+
       default:
         // Fallback para roles no reconocidos
         return {
-          path: '/mi-ruta',
+          path: "/mi-ruta",
           shouldPreload: true,
-          storageStrategy: 'offline-first'
+          storageStrategy: "offline-first",
         };
     }
   }
@@ -75,73 +75,79 @@ class PostLoginStrategy {
     onProgress?: (progress: PreloadProgress) => void
   ): Promise<PostLoginResult> {
     try {
-      console.log(`🚀 [PostLogin] Ejecutando estrategia para usuario: ${user.fullName} (${user.role})`);
-      
+      console.log(
+        `🚀 [PostLogin] Ejecutando estrategia para usuario: ${user.fullName} (${user.role})`
+      );
+
       const strategy = this.getLoginStrategy(user);
-      
+
       if (strategy.shouldPreload) {
         // Estrategia Offline-First para Mercaderistas
-        console.log(`📱 [PostLogin] Aplicando estrategia offline-first para ${user.role}`);
-        
+        console.log(
+          `📱 [PostLogin] Aplicando estrategia offline-first para ${user.role}`
+        );
+
         // Configurar callback de progreso si se proporciona
         if (onProgress) {
           dataPreloadService.onProgress(onProgress);
         }
-        
+
         // Verificar si ya hay datos offline recientes
         const hasRecentData = await this.hasRecentOfflineData(user);
-        
+
         if (hasRecentData) {
-          console.log(`✅ [PostLogin] Datos offline recientes encontrados, omitiendo precarga completa`);
-          
+          console.log(
+            `✅ [PostLogin] Datos offline recientes encontrados, omitiendo precarga completa`
+          );
+
           // ✅ SIMULAR PROGRESO RÁPIDO DE VERIFICACIÓN PARA MEJOR UX
           if (onProgress) {
             // Paso 1: Verificando datos
             onProgress({
-              step: 'init',
+              step: "init",
               current: 1,
               total: 4,
               percentage: 25,
-              message: 'Verificando datos offline existentes...'
+              message: "Verificando datos offline existentes...",
             });
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
+            await new Promise((resolve) => setTimeout(resolve, 300));
+
             // Paso 2: Validando rutas
             onProgress({
-              step: 'routes',
+              step: "routes",
               current: 2,
               total: 4,
               percentage: 50,
-              message: 'Validando rutas disponibles...'
+              message: "Validando rutas disponibles...",
             });
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
+            await new Promise((resolve) => setTimeout(resolve, 300));
+
             // Paso 3: Validando clientes
             onProgress({
-              step: 'clients',
+              step: "clients",
               current: 3,
               total: 4,
               percentage: 75,
-              message: 'Validando datos de clientes...'
+              message: "Validando datos de clientes...",
             });
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
+            await new Promise((resolve) => setTimeout(resolve, 300));
+
             // Paso 4: Completado
             onProgress({
-              step: 'complete',
+              step: "complete",
               current: 4,
               total: 4,
               percentage: 100,
-              message: '¡Datos offline ya disponibles!'
+              message: "¡Datos offline ya disponibles!",
             });
-            
+
             // ✅ Pequeño delay para mostrar el mensaje de éxito antes de continuar
-            await new Promise(resolve => setTimeout(resolve, 1200));
+            await new Promise((resolve) => setTimeout(resolve, 1200));
           }
-          
+
           // ✅ Obtener estadísticas de los datos existentes para mostrar al usuario
           const stats = await dataPreloadService.getOfflineDataStats(user.uid);
-          
+
           return {
             success: true,
             redirect: strategy,
@@ -150,57 +156,63 @@ class PostLoginStrategy {
               routesLoaded: stats.routesCount,
               clientesLoaded: stats.clientesCount,
               totalSizeMB: 0, // No calculamos tamaño para datos existentes
-              duration: 1000 // Tiempo simulado
-            }
+              duration: 1000, // Tiempo simulado
+            },
           };
         }
-        
+
         // Ejecutar precarga de datos
         console.log(`⬇️ [PostLogin] Iniciando precarga de datos offline...`);
-        const preloadResult = await dataPreloadService.preloadDataForMercaderista(user);
-        
+        const preloadResult =
+          await dataPreloadService.preloadDataForMercaderista(user);
+
         if (!preloadResult.success) {
           // Si falla la precarga, aún permitir el login pero advertir al usuario
-          console.warn(`⚠️ [PostLogin] Precarga falló, pero permitiendo acceso: ${preloadResult.error}`);
+          console.warn(
+            `⚠️ [PostLogin] Precarga falló, pero permitiendo acceso: ${preloadResult.error}`
+          );
           return {
             success: true,
             redirect: strategy,
             preloadResult,
-            error: `Advertencia: No se pudieron descargar todos los datos offline. ${preloadResult.error}`
+            error: `Advertencia: No se pudieron descargar todos los datos offline. ${preloadResult.error}`,
           };
         }
-        
+
         console.log(`✅ [PostLogin] Precarga completada exitosamente`);
         return {
           success: true,
           redirect: strategy,
-          preloadResult
+          preloadResult,
         };
-        
       } else {
         // Estrategia Online en Tiempo Real para Admins/Supervisores
-        console.log(`🌐 [PostLogin] Aplicando estrategia online en tiempo real para ${user.role}`);
-        
+        console.log(
+          `🌐 [PostLogin] Aplicando estrategia online en tiempo real para ${user.role}`
+        );
+
         // Para usuarios administrativos, limpiar cualquier dato offline existente
         // para asegurar que siempre trabajen con datos frescos
         await this.clearAdminOfflineData();
-        
+
         return {
           success: true,
-          redirect: strategy
+          redirect: strategy,
         };
       }
-      
     } catch (error) {
-      console.error('❌ [PostLogin] Error ejecutando estrategia post-login:', error);
-      
+      console.error(
+        "❌ [PostLogin] Error ejecutando estrategia post-login:",
+        error
+      );
+
       // En caso de error, redirigir según el rol con estrategia mínima
       const fallbackStrategy = this.getLoginStrategy(user);
-      
+
       return {
         success: false,
         redirect: fallbackStrategy,
-        error: error instanceof Error ? error.message : 'Error desconocido'
+        error: error instanceof Error ? error.message : "Error desconocido",
       };
     }
   }
@@ -211,23 +223,28 @@ class PostLoginStrategy {
   private async hasRecentOfflineData(user: UserData): Promise<boolean> {
     try {
       const stats = await dataPreloadService.getOfflineDataStats(user.uid);
-      
+
       if (stats.routesCount === 0) {
         return false;
       }
-      
+
       // Considerar datos "recientes" si tienen menos de 6 horas
-      const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
+      const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
       const hasRecentData = stats.lastSync && stats.lastSync > sixHoursAgo;
-      
+
       if (hasRecentData) {
-        console.log(`📊 [PostLogin] Datos offline recientes encontrados: ${stats.routesCount} rutas, última sincronización: ${new Date(stats.lastSync!).toLocaleString()}`);
+        console.log(
+          `📊 [PostLogin] Datos offline recientes encontrados: ${
+            stats.routesCount
+          } rutas, última sincronización: ${new Date(
+            stats.lastSync!
+          ).toLocaleString()}`
+        );
       }
-      
+
       return hasRecentData || false;
-      
     } catch (error) {
-      console.error('❌ Error verificando datos offline recientes:', error);
+      console.error("❌ Error verificando datos offline recientes:", error);
       return false;
     }
   }
@@ -240,9 +257,14 @@ class PostLoginStrategy {
       // Los administradores no deben tener datos offline
       // para garantizar que siempre trabajen con información actualizada
       await offlineService.clearOfflineData();
-      console.log(`🧹 [PostLogin] Datos offline limpiados para usuario administrativo`);
+      console.log(
+        `🧹 [PostLogin] Datos offline limpiados para usuario administrativo`
+      );
     } catch (error) {
-      console.warn('⚠️ [PostLogin] Error limpiando datos offline para admin:', error);
+      console.warn(
+        "⚠️ [PostLogin] Error limpiando datos offline para admin:",
+        error
+      );
       // No es crítico, continuar con el login
     }
   }
@@ -262,17 +284,19 @@ class PostLoginStrategy {
         return {
           hasData: false,
           routesCount: 0,
-          clientesCount: 0
+          clientesCount: 0,
         };
       }
 
       const stats = await dataPreloadService.getOfflineDataStats(user.uid);
-      
+
       let dataAge: string | undefined;
       if (stats.dataAge) {
         const hours = Math.floor(stats.dataAge / (1000 * 60 * 60));
-        const minutes = Math.floor((stats.dataAge % (1000 * 60 * 60)) / (1000 * 60));
-        
+        const minutes = Math.floor(
+          (stats.dataAge % (1000 * 60 * 60)) / (1000 * 60)
+        );
+
         if (hours > 0) {
           dataAge = `${hours}h ${minutes}m`;
         } else {
@@ -285,15 +309,14 @@ class PostLoginStrategy {
         routesCount: stats.routesCount,
         clientesCount: stats.clientesCount,
         lastSync: stats.lastSync ? new Date(stats.lastSync) : undefined,
-        dataAge
+        dataAge,
       };
-
     } catch (error) {
-      console.error('❌ Error obteniendo estadísticas offline:', error);
+      console.error("❌ Error obteniendo estadísticas offline:", error);
       return {
         hasData: false,
         routesCount: 0,
-        clientesCount: 0
+        clientesCount: 0,
       };
     }
   }
@@ -309,36 +332,41 @@ class PostLoginStrategy {
       return {
         success: false,
         redirect: this.getLoginStrategy(user),
-        error: 'La actualización de datos offline solo está disponible para mercaderistas'
+        error:
+          "La actualización de datos offline solo está disponible para mercaderistas",
       };
     }
 
-    console.log(`🔄 [PostLogin] Forzando actualización de datos offline para ${user.fullName}`);
-    
+    console.log(
+      `🔄 [PostLogin] Forzando actualización de datos offline para ${user.fullName}`
+    );
+
     try {
       // Limpiar datos existentes
       await offlineService.clearOfflineData();
-      
+
       // Configurar callback de progreso
       if (onProgress) {
         dataPreloadService.onProgress(onProgress);
       }
-      
+
       // Ejecutar nueva precarga
-      const preloadResult = await dataPreloadService.preloadDataForMercaderista(user);
-      
+      const preloadResult = await dataPreloadService.preloadDataForMercaderista(
+        user
+      );
+
       return {
         success: preloadResult.success,
         redirect: this.getLoginStrategy(user),
         preloadResult,
-        error: preloadResult.success ? undefined : preloadResult.error
+        error: preloadResult.success ? undefined : preloadResult.error,
       };
-      
     } catch (error) {
       return {
         success: false,
         redirect: this.getLoginStrategy(user),
-        error: error instanceof Error ? error.message : 'Error actualizando datos'
+        error:
+          error instanceof Error ? error.message : "Error actualizando datos",
       };
     }
   }

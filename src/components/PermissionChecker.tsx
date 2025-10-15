@@ -17,10 +17,10 @@ interface PermissionCheckerProps {
   showCameraCheck?: boolean;
 }
 
-export function PermissionChecker({ 
-  onPermissionsReady, 
-  showLocationCheck = true, 
-  showCameraCheck = true 
+export function PermissionChecker({
+  onPermissionsReady,
+  showLocationCheck = true,
+  showCameraCheck = true
 }: PermissionCheckerProps) {
   const [permissions, setPermissions] = useState<PermissionStatus>({
     camera: 'unknown',
@@ -44,7 +44,7 @@ export function PermissionChecker({
       try {
         const cameraPermission = await navigator.permissions.query({ name: 'camera' as PermissionName });
         newPermissions.camera = cameraPermission.state;
-        
+
         // Escuchar cambios de permisos
         cameraPermission.onchange = () => {
           setPermissions(prev => ({ ...prev, camera: cameraPermission.state }));
@@ -60,7 +60,7 @@ export function PermissionChecker({
       try {
         const locationPermission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
         newPermissions.location = locationPermission.state;
-        
+
         // Escuchar cambios de permisos
         locationPermission.onchange = () => {
           setPermissions(prev => ({ ...prev, location: locationPermission.state }));
@@ -133,7 +133,7 @@ export function PermissionChecker({
     }
   };
 
-  const allPermissionsGranted = 
+  const allPermissionsGranted =
     (!showCameraCheck || permissions.camera === 'granted') &&
     (!showLocationCheck || permissions.location === 'granted');
 

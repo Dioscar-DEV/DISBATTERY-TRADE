@@ -10,7 +10,8 @@
     --input-border: #ced4da;
 }
 
-body, html {
+body,
+html {
     margin: 0;
     padding: 0;
     height: 100%;
@@ -49,8 +50,10 @@ body, html {
 }
 
 .login-card {
-    background-color: rgba(255, 255, 255, 0.85); /* Fondo blanco con ligera transparencia */
-    backdrop-filter: blur(8px); /* Efecto de desenfoque para el fondo */
+    background-color: rgba(255, 255, 255, 0.85);
+    /* Fondo blanco con ligera transparencia */
+    backdrop-filter: blur(8px);
+    /* Efecto de desenfoque para el fondo */
     padding: 40px 30px;
     border-radius: 24px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
@@ -95,7 +98,8 @@ body, html {
     padding: 12px 15px;
     border: 1px solid var(--input-border);
     border-radius: 8px;
-    box-sizing: border-box; /* Asegura que el padding no afecte el ancho total */
+    box-sizing: border-box;
+    /* Asegura que el padding no afecte el ancho total */
     font-size: 14px;
 }
 
@@ -108,7 +112,8 @@ body, html {
 }
 
 .password-wrapper input {
-    padding-right: 40px; /* Espacio para el ícono */
+    padding-right: 40px;
+    /* Espacio para el ícono */
 }
 
 .password-wrapper .fa-eye,
@@ -135,7 +140,8 @@ body, html {
 }
 
 .login-button:hover {
-    background-color: #002244; /* Un azul un poco más oscuro */
+    background-color: #002244;
+    /* Un azul un poco más oscuro */
 }
 
 .login-button:active {
@@ -146,7 +152,8 @@ body, html {
     display: block;
     margin-top: 15px;
     font-size: 12px;
-    color: #333; /* Color negro/gris oscuro */
+    color: #333;
+    /* Color negro/gris oscuro */
     text-decoration: none;
     cursor: pointer;
     transition: color 0.3s ease;
@@ -159,8 +166,11 @@ body, html {
 
 /* Media Query para Responsividad */
 @media (max-width: 768px) {
-    body, html {
-        overflow: auto; /* Permite scroll en móviles si es necesario */
+
+    body,
+    html {
+        overflow: auto;
+        /* Permite scroll en móviles si es necesario */
     }
 
     .login-card {
@@ -178,7 +188,7 @@ body, html {
     color: #fff;
     padding: 16px 24px;
     border-radius: 10px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
     opacity: 0;
     pointer-events: none;
     transform: translate(-50%, 40px);
@@ -187,13 +197,22 @@ body, html {
     font-size: 15px;
     font-family: inherit;
 }
+
 .toast.show {
     opacity: 1;
     pointer-events: auto;
     transform: translate(-50%, 0);
-    animation: toast-in 0.4s cubic-bezier(.4,0,.2,1);
+    animation: toast-in 0.4s cubic-bezier(.4, 0, .2, 1);
 }
+
 @keyframes toast-in {
-    from { opacity: 0; transform: translate(-50%, 40px); }
-    to   { opacity: 1; transform: translate(-50%, 0); }
-} 
+    from {
+        opacity: 0;
+        transform: translate(-50%, 40px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}

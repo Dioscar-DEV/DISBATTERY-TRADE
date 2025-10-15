@@ -46,7 +46,7 @@ export default function ShellMaterialInternoPage() {
   const [tieneExhibidores, setTieneExhibidores] = useState<string>('');
   const [cantidadExhibidores, setCantidadExhibidores] = useState<number | null>(null);
   const [fotoExhibidoresShell, setFotoExhibidoresShell] = useState<string | null>(null);
-  
+
   const [afichesAgregados, setAfichesAgregados] = useState<AficheColocado[]>([]);
   const [currentTipoAfiche, setCurrentTipoAfiche] = useState<string>('');
   const [currentCantidadAfiche, setCurrentCantidadAfiche] = useState<string>('');
@@ -66,44 +66,44 @@ export default function ShellMaterialInternoPage() {
 
   useEffect(() => {
     const getCameraPermission = async () => {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-             toast({
-                variant: 'destructive',
-                title: 'Cámara no Soportada',
-                description: 'Su navegador no soporta el acceso a la cámara.',
-            });
-            setHasCameraPermission(false);
-            return;
-        }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: "environment"
-                },
-            });
-            setHasCameraPermission(true);
-            stream.getTracks().forEach(track => track.stop());
-        } catch (error) {
-            console.error('Error accessing camera:', error);
-            setHasCameraPermission(false);
-            toast({
-                variant: 'destructive',
-                title: 'Acceso a la Cámara Denegado',
-                description: 'Por favor, active los permisos de la cámara en la configuración de su navegador para usar esta aplicación.',
-            });
-        }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast({
+          variant: 'destructive',
+          title: 'Cámara no Soportada',
+          description: 'Su navegador no soporta el acceso a la cámara.',
+        });
+        setHasCameraPermission(false);
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment"
+          },
+        });
+        setHasCameraPermission(true);
+        stream.getTracks().forEach(track => track.stop());
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Acceso a la Cámara Denegado',
+          description: 'Por favor, active los permisos de la cámara en la configuración de su navegador para usar esta aplicación.',
+        });
+      }
     };
     getCameraPermission();
   }, [toast]);
 
   const takePhoto = async (setter: React.Dispatch<React.SetStateAction<string | null>>, photoType: string) => {
     if (!videoRef.current || !hasCameraPermission) {
-        toast({
-            variant: 'destructive',
-            title: 'Cámara no lista',
-            description: 'Permiso de cámara no concedido o cámara no disponible.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cámara no lista',
+        description: 'Permiso de cámara no concedido o cámara no disponible.',
+      });
+      return;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -111,7 +111,7 @@ export default function ShellMaterialInternoPage() {
       await videoRef.current.play();
 
       videoRef.current.classList.remove('hidden');
-      setCapturingType(photoType); 
+      setCapturingType(photoType);
 
       await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -119,7 +119,7 @@ export default function ShellMaterialInternoPage() {
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       const context = canvas.getContext('2d');
-       if (context) {
+      if (context) {
         context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         const photoURL = canvas.toDataURL('image/png');
         setter(photoURL);
@@ -145,7 +145,7 @@ export default function ShellMaterialInternoPage() {
       if (currentStream instanceof MediaStream) {
         currentStream.getTracks().forEach(track => track.stop());
       }
-      if(videoRef.current) videoRef.current.srcObject = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
     }
   };
 
@@ -172,12 +172,12 @@ export default function ShellMaterialInternoPage() {
       return;
     }
     if (currentCantidadAfiche === '' || currentCantidadAfiche === null) {
-        toast({
-            variant: 'destructive',
-            title: 'Cantidad Requerida',
-            description: 'Por favor, ingrese la cantidad de afiches.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cantidad Requerida',
+        description: 'Por favor, ingrese la cantidad de afiches.',
+      });
+      return;
     }
     const cantidadNum = parseInt(currentCantidadAfiche);
     if (isNaN(cantidadNum) || cantidadNum < 0) {
@@ -199,8 +199,8 @@ export default function ShellMaterialInternoPage() {
       return;
     }
 
-    setAfichesAgregados([...afichesAgregados, { 
-      tipo: currentTipoAfiche, 
+    setAfichesAgregados([...afichesAgregados, {
+      tipo: currentTipoAfiche,
       cantidad: cantidadNum,
       foto: cantidadNum > 0 ? currentFotoAfiche : undefined
     }]);
@@ -292,7 +292,7 @@ export default function ShellMaterialInternoPage() {
       // Aviso Acrílico
       colocoAvisoAcrilicoShell: colocoAvisoAcrilico === 'Yes',
       fotoAvisoAcrilicoShell: fotoAvisoAcrilico,
-      
+
       timestamp: new Date().toISOString(),
       seccion: 'shell-material-interno'
     };
@@ -411,11 +411,11 @@ export default function ShellMaterialInternoPage() {
         <CardContent className="space-y-6">
           <video ref={videoRef} className="hidden w-full aspect-video rounded-md" autoPlay muted playsInline />
 
-          { !(hasCameraPermission) && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertTitle>Acceso a la Cámara Requerido</AlertTitle>
-                <AlertDescription>Por favor, permita el acceso a la cámara para usar esta función.</AlertDescription>
-              </Alert>
+          {!(hasCameraPermission) && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertTitle>Acceso a la Cámara Requerido</AlertTitle>
+              <AlertDescription>Por favor, permita el acceso a la cámara para usar esta función.</AlertDescription>
+            </Alert>
           )}
 
           <div>
@@ -449,20 +449,20 @@ export default function ShellMaterialInternoPage() {
               </div>
               <div>
                 <Label htmlFor="foto-exhibidores-shell">Foto del Exhibidor Shell</Label>
-                 <Button
-                    onClick={() => takePhoto(setFotoExhibidoresShell, 'fotoExhibidoresShell')}
-                    disabled={!hasCameraPermission || !!capturingType}
-                    className="w-full mt-1 text-white"
-                    style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
-                  >
-                    {capturingType === 'fotoExhibidoresShell' ? 'Capturando...' : (hasCameraPermission ? (
-                      <>
-                        <Camera className="mr-2 h-4 w-4" /> Tomar Foto del Exhibidor Shell
-                      </>
-                    ) : (
-                      'Cámara no permitida'
-                    ))}
-                  </Button>
+                <Button
+                  onClick={() => takePhoto(setFotoExhibidoresShell, 'fotoExhibidoresShell')}
+                  disabled={!hasCameraPermission || !!capturingType}
+                  className="w-full mt-1 text-white"
+                  style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
+                >
+                  {capturingType === 'fotoExhibidoresShell' ? 'Capturando...' : (hasCameraPermission ? (
+                    <>
+                      <Camera className="mr-2 h-4 w-4" /> Tomar Foto del Exhibidor Shell
+                    </>
+                  ) : (
+                    'Cámara no permitida'
+                  ))}
+                </Button>
                 {fotoExhibidoresShell && (
                   <img
                     src={fotoExhibidoresShell}
@@ -540,8 +540,8 @@ export default function ShellMaterialInternoPage() {
                 </div>
               )}
 
-              <Button 
-                onClick={handleAddAfiche} 
+              <Button
+                onClick={handleAddAfiche}
                 disabled={!currentTipoAfiche || currentCantidadAfiche === '' || availableAficheTypes.length === 0 || !!capturingType || (parseInt(currentCantidadAfiche || '0') > 0 && !currentFotoAfiche)}
                 className="w-full"
               >
@@ -577,8 +577,8 @@ export default function ShellMaterialInternoPage() {
                 </div>
               </div>
             )}
-             {availableAficheTypes.length === 0 && AFICHES_SHELL_TYPES.length > 0 && afichesAgregados.length === AFICHES_SHELL_TYPES.length && (
-                <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de afiches disponibles han sido agregados.</p>
+            {availableAficheTypes.length === 0 && AFICHES_SHELL_TYPES.length > 0 && afichesAgregados.length === AFICHES_SHELL_TYPES.length && (
+              <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de afiches disponibles han sido agregados.</p>
             )}
           </div>
 
@@ -686,9 +686,9 @@ export default function ShellMaterialInternoPage() {
 
         </CardContent>
         <CardFooter>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={isSyncing || !!capturingType} 
+          <Button
+            onClick={handleSubmit}
+            disabled={isSyncing || !!capturingType}
             className="w-full"
           >
             {isSyncing ? 'Sincronizando...' : 'Guardar y Continuar a Ventas'}

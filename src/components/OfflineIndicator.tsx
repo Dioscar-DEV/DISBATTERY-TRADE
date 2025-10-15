@@ -39,7 +39,7 @@ export function OfflineIndicator() {
     const handleOffline = () => {
       setIsOnline(false);
       setShowOfflineMessage(true);
-      
+
       // Ocultar mensaje después de 5 segundos
       setTimeout(() => {
         setShowOfflineMessage(false);

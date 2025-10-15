@@ -23,7 +23,7 @@ export function ChunkErrorHandler() {
         document.body.children.length < 3 // Muy pocos elementos DOM
       ) {
         console.error('🚨 DETECTADO: Archivo .txt siendo servido como HTML');
-        
+
         toast({
           variant: 'destructive',
           title: 'Error crítico detectado',
@@ -41,7 +41,7 @@ export function ChunkErrorHandler() {
         } else {
           window.location.reload();
         }
-        
+
         return true; // Indica que se detectó el error
       }
       return false;
@@ -49,7 +49,7 @@ export function ChunkErrorHandler() {
 
     const handleChunkError = (event: ErrorEvent) => {
       const error = event.error || event;
-      
+
       // Detectar ChunkLoadError y errores de archivos .txt siendo servidos como HTML
       if (
         error?.name === 'ChunkLoadError' ||
@@ -57,7 +57,7 @@ export function ChunkErrorHandler() {
         error?.message?.includes('ChunkLoadError')
       ) {
         console.warn('🔄 ChunkLoadError detectado, limpiando cache y recargando...', error);
-        
+
         // Mostrar toast de información
         toast({
           title: 'Actualizando aplicación',
@@ -93,7 +93,7 @@ export function ChunkErrorHandler() {
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const error = event.reason;
-      
+
       // Detectar chunk errors en promises
       if (
         error?.message?.includes('Loading chunk') ||

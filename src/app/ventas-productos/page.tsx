@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function VentasProductosPage() {
   const router = useRouter();
   const { toast } = useToast();
-  
+
   const [datosFormulario, setDatosFormulario] = useState<any>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -27,7 +27,7 @@ export default function VentasProductosPage() {
     gadus: '',
     otros: ''
   });
-  
+
   // Estados para ventas Qualid
   const [ventasQualid, setVentasQualid] = useState({
     fluidos: '',
@@ -49,7 +49,7 @@ export default function VentasProductosPage() {
       router.push('/');
       return;
     }
-    
+
     const datosParseados = JSON.parse(datos);
     setDatosFormulario(datosParseados);
 
@@ -72,7 +72,7 @@ export default function VentasProductosPage() {
 
     try {
       setIsSyncing(true);
-      
+
       // Validar que se hayan llenado los campos requeridos si hubo ventas
       if (datosFormulario.huboVentasShell === true) {
         const shellVacio = Object.values(ventasShell).every(val => val === '');
@@ -105,18 +105,18 @@ export default function VentasProductosPage() {
         ventasQualidDetalladas: datosFormulario.huboVentasQualid === true ? ventasQualid : null,
         timestamp: new Date().toISOString()
       };
-      
+
       // Guardar en localStorage
       localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosCompletos));
-      
+
       toast({
         title: 'Datos de Ventas Guardados',
         description: 'Continuando a reportes finales...',
       });
-      
+
       // Navegar a reportes finales
       router.push('/reportes-finales');
-      
+
     } catch (error) {
       console.error('Error guardando ventas:', error);
       toast({
@@ -168,7 +168,7 @@ export default function VentasProductosPage() {
             Complete los detalles de ventas de los productos reportados.
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           {/* Ventas Shell Detalladas */}
           {mostrarVentasShell && (
@@ -294,7 +294,7 @@ export default function VentasProductosPage() {
                     max="999"
                     value={ventasShell.gadus}
                     onChange={(e) => handleVentasShellChange('gadus', e.target.value)}
-                  disabled={isSyncing}
+                    disabled={isSyncing}
                     placeholder="0"
                   />
                 </div>
@@ -309,9 +309,9 @@ export default function VentasProductosPage() {
                     max="999"
                     value={ventasShell.otros}
                     onChange={(e) => handleVentasShellChange('otros', e.target.value)}
-                  disabled={isSyncing}
+                    disabled={isSyncing}
                     placeholder="0"
-                />
+                  />
                 </div>
               </div>
             </div>
@@ -369,7 +369,7 @@ export default function VentasProductosPage() {
                     disabled={isSyncing}
                     placeholder="0"
                   />
-          </div>
+                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="qualid-pesado">Total en unidades de productos QUALID SERVICIO PESADO vendidos: *</Label>
@@ -381,7 +381,7 @@ export default function VentasProductosPage() {
                     max="999"
                     value={ventasQualid.servicioPesado}
                     onChange={(e) => handleVentasQualidChange('servicioPesado', e.target.value)}
-                  disabled={isSyncing}
+                    disabled={isSyncing}
                     placeholder="0"
                   />
                 </div>
@@ -396,15 +396,15 @@ export default function VentasProductosPage() {
                     max="999"
                     value={ventasQualid.cauchos}
                     onChange={(e) => handleVentasQualidChange('cauchos', e.target.value)}
-                  disabled={isSyncing}
+                    disabled={isSyncing}
                     placeholder="0"
-                />
+                  />
                 </div>
               </div>
             </div>
           )}
         </CardContent>
-        
+
         <CardFooter>
           <Button
             onClick={handleContinuar}

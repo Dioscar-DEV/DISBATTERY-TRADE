@@ -1,9 +1,9 @@
 'use client';
 
-import {useRouter, useSearchParams} from 'next/navigation';
-import {useEffect, useState, useRef, Suspense} from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, useRef, Suspense } from 'react';
 
-import {Button} from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -12,11 +12,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {Input} from '@/components/ui/input';
-import {Label}from '@/components/ui/label';
-import {Camera, Settings} from 'lucide-react';
-import {useToast}from '@/hooks/use-toast';
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Camera, Settings } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { PermissionChecker } from '@/components/PermissionChecker';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -24,7 +24,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 function SignageCaptureContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const {toast} = useToast();
+  const { toast } = useToast();
 
   const [clientRif, setClientRif] = useState<string>('');
   const [clientName, setClientName] = useState<string | null>(null);
@@ -32,10 +32,10 @@ function SignageCaptureContent() {
   const [timestamp, setTimestamp] = useState<string>('');
   const [visitType, setVisitType] = useState<string>('');
   const [tradeSubType, setTradeSubType] = useState<string>('');
-  
+
   const [hasSignage, setHasSignage] = useState<string>('');
   const [signagePhoto, setSignagePhoto] = useState<string | null>(null);
-  
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState(true);
   const [capturingType, setCapturingType] = useState<string | null>(null);
@@ -63,13 +63,13 @@ function SignageCaptureContent() {
       }
 
     } else {
-        console.error("CRITICAL ERROR: clienteData no encontrado en localStorage. Redirigiendo.");
-        toast({
-          variant: 'destructive',
-          title: 'Error Crítico de Datos',
-          description: 'No se encontraron datos del cliente. Por favor, inicie de nuevo.',
-        });
-        router.push('/mi-ruta');
+      console.error("CRITICAL ERROR: clienteData no encontrado en localStorage. Redirigiendo.");
+      toast({
+        variant: 'destructive',
+        title: 'Error Crítico de Datos',
+        description: 'No se encontraron datos del cliente. Por favor, inicie de nuevo.',
+      });
+      router.push('/mi-ruta');
     }
 
   }, [router, toast]);
@@ -86,42 +86,42 @@ function SignageCaptureContent() {
 
   useEffect(() => {
     const getCameraPermission = async () => {
-        // ✅ MEJORA OFFLINE: Verificación más tolerante sin internet
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-             toast({
-                variant: 'destructive',
-                title: 'Cámara no Soportada',
-                description: 'Su navegador no soporta el acceso a la cámara.',
-            });
-            setHasCameraPermission(false);
-            return;
+      // ✅ MEJORA OFFLINE: Verificación más tolerante sin internet
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast({
+          variant: 'destructive',
+          title: 'Cámara no Soportada',
+          description: 'Su navegador no soporta el acceso a la cámara.',
+        });
+        setHasCameraPermission(false);
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment"
+          },
+        });
+        setHasCameraPermission(true);
+        stream.getTracks().forEach(track => track.stop());
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+
+        // ✅ MEJORA: Manejo específico para modo offline
+        if (!navigator.onLine) {
+          console.log('📷 Modo offline: asumiendo permisos de cámara disponibles');
+          setHasCameraPermission(true); // Asumir que funciona offline
+          return;
         }
-        
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: "environment"
-                },
-            });
-            setHasCameraPermission(true);
-            stream.getTracks().forEach(track => track.stop());
-        } catch (error) {
-            console.error('Error accessing camera:', error);
-            
-            // ✅ MEJORA: Manejo específico para modo offline
-            if (!navigator.onLine) {
-                console.log('📷 Modo offline: asumiendo permisos de cámara disponibles');
-                setHasCameraPermission(true); // Asumir que funciona offline
-                return;
-            }
-            
-            setHasCameraPermission(false);
-            toast({
-                variant: 'destructive',
-                title: 'Acceso a la Cámara Denegado',
-                description: 'Por favor, active los permisos de la cámara en la configuración de su navegador para usar esta aplicación.',
-            });
-        }
+
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Acceso a la Cámara Denegado',
+          description: 'Por favor, active los permisos de la cámara en la configuración de su navegador para usar esta aplicación.',
+        });
+      }
     };
     getCameraPermission();
   }, [toast]);
@@ -135,12 +135,12 @@ function SignageCaptureContent() {
 
   const takePhoto = async (setter: React.Dispatch<React.SetStateAction<string | null>>) => {
     if (!videoRef.current || !hasCameraPermission) {
-        toast({
-            variant: 'destructive',
-            title: 'Cámara no lista',
-            description: 'Permiso de cámara no concedido o cámara no disponible.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Cámara no lista',
+        description: 'Permiso de cámara no concedido o cámara no disponible.',
+      });
+      return;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -148,7 +148,7 @@ function SignageCaptureContent() {
       await videoRef.current.play();
 
       videoRef.current.classList.remove('hidden');
-      setCapturingType(setter.name); 
+      setCapturingType(setter.name);
 
       await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -156,7 +156,7 @@ function SignageCaptureContent() {
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       const context = canvas.getContext('2d');
-       if (context) {
+      if (context) {
         context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         const photoURL = canvas.toDataURL('image/png');
         setter(photoURL);
@@ -182,80 +182,80 @@ function SignageCaptureContent() {
       if (currentStream instanceof MediaStream) {
         currentStream.getTracks().forEach(track => track.stop());
       }
-      if(videoRef.current) videoRef.current.srcObject = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
     }
   };
 
   const handleNextPage = () => {
     if (hasSignage === '') {
-        toast({
-            variant: 'destructive',
-            title: 'Señalización Requerida',
-            description: 'Por favor, indique si el cliente tiene señalización.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Señalización Requerida',
+        description: 'Por favor, indique si el cliente tiene señalización.',
+      });
+      return;
     }
 
     // ✅ VALIDACIÓN OBLIGATORIA: Foto de señalización cuando el cliente SÍ tiene
     if (hasSignage === 'Yes' && !signagePhoto) {
-        toast({
-            variant: 'destructive',
-            title: 'Foto de Señalización Requerida',
-            description: 'Debe tomar una foto de la señalización cuando indica que el cliente SÍ tiene.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Foto de Señalización Requerida',
+        description: 'Debe tomar una foto de la señalización cuando indica que el cliente SÍ tiene.',
+      });
+      return;
     }
-    
+
     const visitData = {
-        clientRif,
-        clientName,
-        address,
-        timestamp,
-        visitType,
-        hasSignage,
-        signagePhoto,
+      clientRif,
+      clientName,
+      address,
+      timestamp,
+      visitType,
+      hasSignage,
+      signagePhoto,
     };
 
     // 🗺️ OBTENER DATOS EXISTENTES DEL CLIENTE PRIMERO (INCLUYENDO COORDENADAS)
     const existingClienteData = localStorage.getItem('clienteData');
     let existingData: any = {};
     if (existingClienteData) {
-        existingData = JSON.parse(existingClienteData);
-        console.log('🗺️ DATOS EXISTENTES DEL CLIENTE:', existingData);
-        console.log('🗺️ COORDENADAS EXISTENTES:', existingData.position);
+      existingData = JSON.parse(existingClienteData);
+      console.log('🗺️ DATOS EXISTENTES DEL CLIENTE:', existingData);
+      console.log('🗺️ COORDENADAS EXISTENTES:', existingData.position);
     }
 
     // Guardar datos del cliente en localStorage PRESERVANDO las coordenadas existentes
     const clienteData = {
-        rif: clientRif || existingData.rif || '',
-        nombre: clientName || existingData.nombre || '',
-        direccion: address || existingData.direccion || '',
-        // 🗺️ PRESERVAR COORDENADAS EXISTENTES - SOLO usar fallback si no hay coordenadas válidas
-        position: (existingData.position && existingData.position.lat !== 0 && existingData.position.lng !== 0) 
-            ? existingData.position 
-            : (existingData.position || { lat: 0, lng: 0 }),
-        // ✅ PRESERVAR EL IDENTIFICADOR DEL PUNTO PARA ACTUALIZAR STATUS EN LA RUTA
-        pointId: existingData.pointId || '',
-        sede: existingData.sede || 'GRUPO DISBATTERY',
-        telefono: existingData.telefono || '',
-        email: existingData.email || '',
-        contacto: existingData.contacto || '',
-        region: existingData.region || '',
-        ciudad: existingData.ciudad || '',
-        tipo: existingData.tipo || '',
-        // ✅ GUARDAR tipoVisita QUE USA EL RESTO DEL FLUJO
-        tipoVisita: visitType || existingData.tipoVisita,
-        visitType,
-        hasSignage, // 'Yes' | 'No'
-        signagePhoto, // base64
-        timestamp
+      rif: clientRif || existingData.rif || '',
+      nombre: clientName || existingData.nombre || '',
+      direccion: address || existingData.direccion || '',
+      // 🗺️ PRESERVAR COORDENADAS EXISTENTES - SOLO usar fallback si no hay coordenadas válidas
+      position: (existingData.position && existingData.position.lat !== 0 && existingData.position.lng !== 0)
+        ? existingData.position
+        : (existingData.position || { lat: 0, lng: 0 }),
+      // ✅ PRESERVAR EL IDENTIFICADOR DEL PUNTO PARA ACTUALIZAR STATUS EN LA RUTA
+      pointId: existingData.pointId || '',
+      sede: existingData.sede || 'GRUPO DISBATTERY',
+      telefono: existingData.telefono || '',
+      email: existingData.email || '',
+      contacto: existingData.contacto || '',
+      region: existingData.region || '',
+      ciudad: existingData.ciudad || '',
+      tipo: existingData.tipo || '',
+      // ✅ GUARDAR tipoVisita QUE USA EL RESTO DEL FLUJO
+      tipoVisita: visitType || existingData.tipoVisita,
+      visitType,
+      hasSignage, // 'Yes' | 'No'
+      signagePhoto, // base64
+      timestamp
     };
 
     console.log('🗺️ COORDENADAS FINALES PRESERVADAS:', clienteData.position);
     console.log('🔍 DEBUGGING GPS - existingData.position:', existingData.position);
     console.log('🔍 DEBUGGING GPS - tiene lat/lng válidos?:', existingData.position?.lat !== 0 && existingData.position?.lng !== 0);
     console.log('🔍 DEBUGGING GPS - lat:', existingData.position?.lat, 'lng:', existingData.position?.lng);
-    
+
     console.log('🚩🚩🚩 === DEBUGGING SEÑALIZACIÓN EN SIGNAGE-CAPTURE ===');
     console.log('🚩 hasSignage VALUE:', hasSignage);
     console.log('🚩 hasSignage TYPE:', typeof hasSignage);
@@ -264,9 +264,9 @@ function SignageCaptureContent() {
     console.log('🚩 signagePhoto:', signagePhoto ? 'FOTO CAPTURADA' : 'NO FOTO');
     console.log('🚩 clienteData.hasSignage:', clienteData.hasSignage);
     console.log('🚩 clienteData.signagePhoto:', clienteData.signagePhoto ? 'FOTO EN clienteData' : 'NO FOTO EN clienteData');
-    
+
     localStorage.setItem('clienteData', JSON.stringify(clienteData));
-    
+
     // ✅ VERIFICACIÓN FINAL ANTES DE NAVEGAR
     const verificacion = localStorage.getItem('clienteData');
     const clienteVerificado = JSON.parse(verificacion || '{}');
@@ -276,7 +276,7 @@ function SignageCaptureContent() {
     console.log('🚩 signagePhoto guardado:', clienteVerificado.signagePhoto ? 'SÍ GUARDADA' : 'NO GUARDADA');
     console.log('🚩 position guardado:', clienteVerificado.position);
     console.log('🚩 pointId guardado:', clienteVerificado.pointId);
-    
+
     // 📝 GUARDAR LOG CRÍTICO PARA DEBUGGING
     const debugLog = {
       timestamp: new Date().toISOString(),
@@ -291,25 +291,25 @@ function SignageCaptureContent() {
     };
     localStorage.setItem('debugSignageFlow', JSON.stringify(debugLog));
     console.log('📝 DEBUG LOG GUARDADO:', debugLog);
-    
+
     console.log("Visit Start Data (including signage):", visitData);
     console.log("Cliente data saved to localStorage:", clienteData);
     console.log("🎯 RIF guardado:", clienteData.rif);
     console.log("🎯 Nombre guardado:", clienteData.nombre);
 
     if (visitType === 'Merchandising') {
-        router.push('/shell-merchandising');
+      router.push('/shell-merchandising');
     } else if (visitType === 'Trade (Eventos)') {
-        router.push('/trade-eventos');
+      router.push('/trade-eventos');
     } else if (visitType === 'Trade (Impulso)') {
-        router.push('/trade-impulso');
+      router.push('/trade-impulso');
     } else {
-        toast({
-          variant: 'destructive',
-          title: 'Tipo de Visita no válido',
-          description: 'Por favor, regrese y seleccione un tipo de visita.',
-        });
-        router.push('/visit-capture');
+      toast({
+        variant: 'destructive',
+        title: 'Tipo de Visita no válido',
+        description: 'Por favor, regrese y seleccione un tipo de visita.',
+      });
+      router.push('/visit-capture');
     }
   };
 
@@ -326,7 +326,7 @@ function SignageCaptureContent() {
       <Card className="w-full max-w-md space-y-4">
         <CardHeader className="text-center">
           <CardTitle>
-             <span
+            <span
               style={{
                 backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)',
                 WebkitBackgroundClip: 'text',
@@ -366,7 +366,7 @@ function SignageCaptureContent() {
                     Verifica y activa los permisos necesarios para capturar fotos y ubicación
                   </DialogDescription>
                 </DialogHeader>
-                <PermissionChecker 
+                <PermissionChecker
                   onPermissionsReady={(permissions) => {
                     setHasCameraPermission(permissions.camera === 'granted');
                   }}
@@ -378,21 +378,21 @@ function SignageCaptureContent() {
           </div>
 
           <video ref={videoRef} className="hidden w-full aspect-video rounded-md" autoPlay muted playsInline />
-          { !(hasCameraPermission) && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertTitle>Acceso a la Cámara Requerido</AlertTitle>
-                <AlertDescription>
-                  Por favor, permita el acceso a la cámara para usar esta función.
-                  <br />
-                  <Button 
-                    variant="link" 
-                    className="p-0 h-auto text-destructive underline mt-1"
-                    onClick={() => setShowPermissionsDialog(true)}
-                  >
-                    🔧 Activar permisos aquí
-                  </Button>
-                </AlertDescription>
-              </Alert>
+          {!(hasCameraPermission) && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertTitle>Acceso a la Cámara Requerido</AlertTitle>
+              <AlertDescription>
+                Por favor, permita el acceso a la cámara para usar esta función.
+                <br />
+                <Button
+                  variant="link"
+                  className="p-0 h-auto text-destructive underline mt-1"
+                  onClick={() => setShowPermissionsDialog(true)}
+                >
+                  🔧 Activar permisos aquí
+                </Button>
+              </AlertDescription>
+            </Alert>
           )}
 
           <div>
@@ -415,16 +415,16 @@ function SignageCaptureContent() {
                 variant="outline"
                 onClick={() => takePhoto(setSignagePhoto)}
                 disabled={!hasCameraPermission || !!capturingType}
-                className="w-full shadow-md text-white" 
+                className="w-full shadow-md text-white"
                 style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
               >
                 {capturingType === 'setSignagePhoto' ? 'Capturando...' : (hasCameraPermission ? (
-                <>
-                  <Camera className="mr-2 h-4 w-4" /> Tomar Foto de la Señalización
-                </>
-              ) : (
-                'Cámara no permitida'
-              ))}
+                  <>
+                    <Camera className="mr-2 h-4 w-4" /> Tomar Foto de la Señalización
+                  </>
+                ) : (
+                  'Cámara no permitida'
+                ))}
               </Button>
               {signagePhoto && (
                 <img
@@ -438,9 +438,9 @@ function SignageCaptureContent() {
           )}
         </CardContent>
         <CardFooter>
-          <Button 
-            onClick={handleNextPage} 
-            className="w-full shadow-md" 
+          <Button
+            onClick={handleNextPage}
+            className="w-full shadow-md"
             disabled={hasSignage === '' || !!capturingType}
           >
             Siguiente
@@ -460,4 +460,4 @@ export default function SignageCapturePage() {
   );
 }
 
-    
+

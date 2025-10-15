@@ -1,4 +1,4 @@
-import Dexie, { Table } from 'dexie';
+import Dexie, { Table } from "dexie";
 
 export interface Cliente {
   id?: number;
@@ -13,8 +13,8 @@ export interface Ruta {
   id?: number;
   fecha: string;
   puntos: Cliente[];
-  estado: 'planificada' | 'en_progreso' | 'completada';
-  syncStatus: 'synced' | 'pending' | 'error';
+  estado: "planificada" | "en_progreso" | "completada";
+  syncStatus: "synced" | "pending" | "error";
 }
 
 export interface VisitaOffline {
@@ -24,7 +24,7 @@ export interface VisitaOffline {
   data: any;
   fotos: { [key: string]: string };
   timestamp: number;
-  syncStatus: 'pending' | 'syncing' | 'synced' | 'error';
+  syncStatus: "pending" | "syncing" | "synced" | "error";
 }
 
 export class DisbatteryDB extends Dexie {
@@ -33,11 +33,11 @@ export class DisbatteryDB extends Dexie {
   visitas!: Table<VisitaOffline>;
 
   constructor() {
-    super('DisbatteryTradeDB');
+    super("DisbatteryTradeDB");
     this.version(1).stores({
-      clientes: '++id, rif, nombre, sede',
-      rutas: '++id, fecha, estado, syncStatus',
-      visitas: '++id, visitaId, clienteRif, syncStatus, timestamp'
+      clientes: "++id, rif, nombre, sede",
+      rutas: "++id, fecha, estado, syncStatus",
+      visitas: "++id, visitaId, clienteRif, syncStatus, timestamp",
     });
   }
 }

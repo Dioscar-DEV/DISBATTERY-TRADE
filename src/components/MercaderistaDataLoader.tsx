@@ -39,10 +39,10 @@ export default function MercaderistaDataLoader() {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -61,7 +61,7 @@ export default function MercaderistaDataLoader() {
 
     // Escuchar evento personalizado de login
     window.addEventListener('mercaderista-login-success', handleMercaderistaLogin as EventListener);
-    
+
     return () => {
       window.removeEventListener('mercaderista-login-success', handleMercaderistaLogin as EventListener);
     };
@@ -71,7 +71,7 @@ export default function MercaderistaDataLoader() {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       // Obtener usuario actual
       const currentUser = await getCurrentUser();
       if (!currentUser) {
@@ -79,9 +79,9 @@ export default function MercaderistaDataLoader() {
         router.push('/');
         return;
       }
-      
+
       setUser(currentUser);
-      
+
       // Solo proceder si es mercaderista
       if (currentUser.role !== 'Mercaderista') {
         console.log('Usuario no es mercaderista, no necesita datos offline');
@@ -89,17 +89,17 @@ export default function MercaderistaDataLoader() {
         setIsLoading(false);
         return;
       }
-      
+
       // Verificar necesidad de descarga
       const downloadCheck = await offlineDataManager.shouldDownloadData(currentUser);
-      
+
       // Obtener estadísticas actuales
       const stats = await offlineDataManager.getDataStats(currentUser);
       setDataStats(stats);
-      
+
       if (downloadCheck.needsDownload) {
         setDownloadStatus('needed');
-        
+
         // Auto-descargar si hay conexión y no hay datos existentes
         if (isOnline && !downloadCheck.hasExistingData) {
           console.log('🚀 Auto-iniciando descarga de datos...');
@@ -108,7 +108,7 @@ export default function MercaderistaDataLoader() {
       } else {
         setDownloadStatus('completed');
       }
-      
+
     } catch (error) {
       console.error('❌ Error verificando usuario y datos:', error);
       setError(error instanceof Error ? error.message : 'Error desconocido');
@@ -120,27 +120,27 @@ export default function MercaderistaDataLoader() {
 
   const handleDownload = async () => {
     if (!user || !isOnline) return;
-    
+
     try {
       setIsDownloading(true);
       setError(null);
       setProgress({ step: 'init', percentage: 0, message: 'Iniciando descarga...' });
-      
+
       const result = await offlineDataManager.forceDownloadData(user, setProgress);
-      
+
       if (result.success) {
         setDownloadStatus('completed');
-        
+
         // Actualizar estadísticas
         const newStats = await offlineDataManager.getDataStats(user);
         setDataStats(newStats);
-        
+
         console.log('✅ Descarga completada exitosamente');
       } else {
         setDownloadStatus('error');
         setError(result.error || 'Error en la descarga');
       }
-      
+
     } catch (error) {
       console.error('❌ Error durante descarga:', error);
       setDownloadStatus('error');
@@ -180,7 +180,7 @@ export default function MercaderistaDataLoader() {
   if (!user || user.role !== 'Mercaderista') {
     return null;
   }
-  
+
   // ✅ SOLUCIÓN DIRECTA: Desactivar el diálogo visualmente para siempre.
   // Al no renderizar el componente modal, evitamos la descarga masiva y el bloqueo de la UI.
   return null;

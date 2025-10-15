@@ -12,7 +12,7 @@ export function AnalyticsInitializer() {
     const initAnalytics = async () => {
       try {
         await analyticsService.initialize();
-        
+
         // Trackear si es PWA launch
         if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
           await analyticsService.trackPWALaunch();

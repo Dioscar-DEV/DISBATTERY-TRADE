@@ -21,7 +21,7 @@ export default function NotFound() {
           <p className="text-gray-600">
             Lo sentimos, la página que estás buscando no existe o ha sido movida.
           </p>
-          
+
           <div className="space-y-2">
             <Link href="/">
               <Button className="w-full bg-red-600 hover:bg-red-700">
@@ -29,17 +29,17 @@ export default function NotFound() {
                 Ir al inicio
               </Button>
             </Link>
-            
-            <Button 
-              variant="outline" 
-              className="w-full" 
+
+            <Button
+              variant="outline"
+              className="w-full"
               onClick={() => window.history.back()}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Volver atrás
             </Button>
           </div>
-          
+
           <div className="pt-4 text-sm text-gray-500">
             <p>Error 404 - DISBATTERY Trade</p>
           </div>
