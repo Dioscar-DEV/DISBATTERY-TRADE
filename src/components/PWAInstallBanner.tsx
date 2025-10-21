@@ -21,7 +21,7 @@ export function PWAInstallBanner() {
 
   useEffect(() => {
     // Verificar si ya está instalada
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    if ((window as Window).matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true);
       return;
     }
@@ -38,7 +38,7 @@ export function PWAInstallBanner() {
       timeSinceDismissed: bannerDismissed ? (Date.now() - dismissedTime) : 0,
       sixHoursInMs,
       shouldShow,
-      isInstalled: window.matchMedia('(display-mode: standalone)').matches
+      isInstalled: (window as Window).matchMedia('(display-mode: standalone)').matches
     });
 
     if (shouldShow) {

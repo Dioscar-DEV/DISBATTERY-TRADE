@@ -88,19 +88,34 @@ async function uploadVisitaToFirebase(visita: VisitaOffline) {
   };
 
   // 4. Enviar a Firestore y N8N
+  // Construir payloads respetando los tipos esperados por crearVisita
+  const respuestasPayload: any = datosAcumulados.respuestas ?? {};
+
+  // datosN8N contiene la estructura organizada para N8N/Sheets (incluye fotos como URLs)
+  const datosN8NPayload = {
+    datosSheet: datosSheet,
+    fotos: fotosUrls,
+  };
+
   const visitaId = await crearVisita({
     rifCliente: cliente.rif,
     nombreEstablecimiento: cliente.nombre,
     tipoVisita: datosAcumulados.tipoVisita,
+    mercaderista:
+      datosAcumulados.mercaderista || datosAcumulados.nombreMercaderista ||
+      cliente?.mercaderista || "mercaderista-offline",
+    correoMercaderista:
+      datosAcumulados.correoMercaderista || datosAcumulados.email || "",
+    ubicacion:
+      datosAcumulados.ubicacion || datosAcumulados.location || {
+        lat: 0,
+        lng: 0,
+        direccion: "No capturada",
+      },
+    sucursal: datosAcumulados.sucursal,
     // ... resto de los datos ...
-    respuestas: {
-      datosSheet: datosSheet,
-      fotos: fotosUrls,
-    },
-    datosN8N: {
-      datosSheet: datosSheet,
-      fotos: fotosUrls,
-    },
+    respuestas: respuestasPayload as any,
+    datosN8N: datosN8NPayload,
   });
 
   return visitaId;
@@ -160,7 +175,7 @@ export class SyncService {
       if ("serviceWorker" in navigator && "SyncManager" in window) {
         navigator.serviceWorker.ready
           .then((registration) => {
-            registration.sync.register("sync-pending-visitas");
+            (registration as any).sync.register("sync-pending-visitas");
             console.log(
               "✅ Tarea de sincronización en segundo plano registrada."
             );

@@ -39,7 +39,7 @@ export const useNotifications = ({
 
   // Verificar estado inicial de permisos
   useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
+    if (typeof window !== "undefined" && "Notification" in (window as Window)) {
       setHasPermission(Notification.permission === "granted");
     }
   }, []);
@@ -230,7 +230,7 @@ export const useNotificationStatus = () => {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const supported =
-        "Notification" in window && "serviceWorker" in navigator;
+        "Notification" in (window as Window) && "serviceWorker" in navigator;
       setIsSupported(supported);
 
       if (supported) {

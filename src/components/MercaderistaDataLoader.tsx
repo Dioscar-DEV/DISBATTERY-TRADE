@@ -60,10 +60,10 @@ export default function MercaderistaDataLoader() {
     };
 
     // Escuchar evento personalizado de login
-    window.addEventListener('mercaderista-login-success', handleMercaderistaLogin as EventListener);
+    window.addEventListener('mercaderista-login-success', handleMercaderistaLogin as unknown as EventListenerOrEventListenerObject);
 
     return () => {
-      window.removeEventListener('mercaderista-login-success', handleMercaderistaLogin as EventListener);
+      window.removeEventListener('mercaderista-login-success', handleMercaderistaLogin as unknown as EventListenerOrEventListenerObject);
     };
   }, []);
 

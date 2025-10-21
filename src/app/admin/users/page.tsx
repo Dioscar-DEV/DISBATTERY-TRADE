@@ -973,7 +973,7 @@ function UserManagementPageContent() {
                                 <SelectValue placeholder="Seleccionar ciudad" />
                               </SelectTrigger>
                               <SelectContent className="max-h-48 overflow-y-auto">
-                                {(isCurrentUserAdminMaster ? availableCities : getCitiesBySede(currentUser?.sede || 'GRUPO DISBATTERY')).map((city) => (
+                                {(isCurrentUserAdminMaster ? availableCities : getCitiesBySede(currentUser?.sede as Sede || 'GRUPO DISBATTERY' as Sede)).map((city) => (
                                   <SelectItem key={city} value={city}>
                                     {city}
                                   </SelectItem>

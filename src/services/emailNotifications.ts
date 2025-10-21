@@ -180,7 +180,7 @@ export const testEmailService = async (): Promise<boolean> => {
     return result;
   } catch (error) {
     console.error("❌ Error probando EmailJS:", error);
-    alert("❌ Error: " + error.message);
+    alert("❌ Error: " + (error as Error).message);
     return false;
   }
 };
@@ -220,7 +220,7 @@ export const testRutaCompletadaEmail = async (): Promise<boolean> => {
     return result;
   } catch (error) {
     console.error("❌ Error probando email de ruta completada:", error);
-    alert("❌ Error: " + error.message);
+    alert("❌ Error: " + (error as Error).message);
     return false;
   }
 };
@@ -277,7 +277,7 @@ export const debugRutaCompletada = async (): Promise<void> => {
     const sedeTest = "GRUPO DISBATTERY";
     console.log(`2️⃣ Filtrando administradores para sede: ${sedeTest}`);
 
-    const adminsParaSede = [];
+    const adminsParaSede: { fullName: string; email: string; sede: string }[] = [];
     querySnapshot.forEach((doc) => {
       const userData = doc.data();
       const userSede = userData.sede || "GRUPO DISBATTERY";
@@ -333,7 +333,7 @@ export const debugRutaCompletada = async (): Promise<void> => {
     }
   } catch (error) {
     console.error("❌ Error en debug:", error);
-    alert("❌ Error en debug: " + error.message);
+    alert("❌ Error en debug: " + (error as Error).message);
   }
 };
 

@@ -137,9 +137,9 @@ export function useVisitDraft(options: UseVisitDraftOptions) {
         } catch {}
       }
     };
-    window.addEventListener("beforeunload", handler);
+    (window as Window).addEventListener("beforeunload", handler);
     return () => {
-      window.removeEventListener("beforeunload", handler);
+      (window as Window).removeEventListener("beforeunload", handler);
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     };
   }, [load]);

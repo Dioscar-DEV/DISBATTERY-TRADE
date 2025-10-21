@@ -224,12 +224,12 @@ export function useOfflineSync() {
     initializeServiceWorker();
 
     // Configurar listeners de conectividad
-    window.addEventListener("online", handleConnectionChange);
-    window.addEventListener("offline", handleConnectionChange);
+    (window as Window).addEventListener("online", handleConnectionChange);
+    (window as Window).addEventListener("offline", handleConnectionChange);
 
     return () => {
-      window.removeEventListener("online", handleConnectionChange);
-      window.removeEventListener("offline", handleConnectionChange);
+      (window as Window).removeEventListener("online", handleConnectionChange);
+      (window as Window).removeEventListener("offline", handleConnectionChange);
     };
   }, [initializeServiceWorker, handleConnectionChange]);
 

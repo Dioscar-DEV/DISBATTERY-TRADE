@@ -14,6 +14,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getFirestoreClient, getStorageClient } from "@/firebase/clientApp";
 import { offlineService, OfflineVisita } from "./offlineService";
+import { crearVisita } from "./visitas";
 import { updateRoutePointStatus } from "./routes";
 import { format } from "date-fns";
 
@@ -249,12 +250,33 @@ class SyncService {
         direccionCliente: clienteInfo?.direccion,
       };
 
-      // 5. Guardar en Firestore (el nombre de la colección depende del tipo de visita)
-      const collectionName = this.getCollectionName(visita.tipoVisita);
-      await addDoc(
-        collection(getFirestoreClient(), collectionName),
-        visitaData
-      );
+      // 5. Guardar en Firestore usando la función centralizada `crearVisita`
+      // Construir payload compatible con CreateVisitaData
+      const respuestasPayload: any = visita.formData || {};
+
+      const datosN8N = {
+        datosSheet: visita.formData || {},
+        fotos: photoUrls,
+      };
+
+      const crearPayload = {
+        rifCliente: clienteInfo?.rif || visita.clienteId,
+        nombreEstablecimiento: clienteInfo?.nombre || visita.clienteId,
+        tipoVisita: visita.tipoVisita,
+        mercaderista: visita.mercaderistoId || mercaderistaInfo?.uid || "mercaderista-offline",
+        correoMercaderista: mercaderistaInfo?.email || "",
+        ubicacion: {
+          lat: visita.gpsLocation?.lat || 0,
+          lng: visita.gpsLocation?.lng || 0,
+          direccion: clienteInfo?.direccion || "No disponible",
+        },
+        sucursal: clienteInfo?.sede || "DESCONOCIDA",
+        respuestas: respuestasPayload,
+        datosN8N,
+      } as any;
+
+      const createdId = await crearVisita(crearPayload);
+      console.log(`✅ [SyncService] Visita creada con ID (crearVisita): ${createdId}`);
 
       // 6. Actualizar estado del punto en la ruta
       try {
@@ -278,7 +300,7 @@ class SyncService {
       }
 
       console.log(
-        `✅ [SyncService] Visita guardada en ${collectionName} con ${photoUrls.length} fotos`
+        `✅ [SyncService] Visita sincronizada y creada con ID ${createdId} con ${photoUrls.length} fotos`
       );
       return true;
     } catch (error) {

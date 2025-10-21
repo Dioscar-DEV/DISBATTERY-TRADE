@@ -21,7 +21,7 @@ export async function initializeOfflineServices() {
     console.log("✅ Offline data manager initialized and migrated");
 
     // 3. Registrar Service Worker a través del manager para evitar registros duplicados
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    if (typeof (window as Window) !== "undefined" && "serviceWorker" in navigator) {
       try {
         const registered = await serviceWorkerManager.initialize();
         if (registered) {
@@ -93,7 +93,7 @@ export async function initializeOfflineServices() {
 
 // Configurar listeners de conectividad
 function setupConnectivityListeners() {
-  if (typeof window === "undefined") return;
+  if (typeof (window as Window) === "undefined") return;
 
   const handleOnline = () => {
     console.log("🌐 Connection restored - starting sync");
@@ -106,19 +106,19 @@ function setupConnectivityListeners() {
     // Aquí se puede mostrar notificación de modo offline
   };
 
-  window.addEventListener("online", handleOnline);
-  window.addEventListener("offline", handleOffline);
+  (window as Window).addEventListener("online", handleOnline);
+  (window as Window).addEventListener("offline", handleOffline);
 
   // Cleanup function (se puede llamar en unmount)
   return () => {
-    window.removeEventListener("online", handleOnline);
-    window.removeEventListener("offline", handleOffline);
+    (window as Window).removeEventListener("online", handleOnline);
+    (window as Window).removeEventListener("offline", handleOffline);
   };
 }
 
 // Configurar sincronización automática
 function setupAutoSync() {
-  if (typeof window === "undefined") return;
+  if (typeof (window as Window) === "undefined") return;
 
   // Sincronización cada 5 minutos si hay conexión
   const syncInterval = setInterval(() => {
@@ -134,12 +134,12 @@ function setupAutoSync() {
     }
   };
 
-  window.addEventListener("focus", handleFocus);
+  (window as Window).addEventListener("focus", handleFocus);
 
   // Cleanup function
   return () => {
     clearInterval(syncInterval);
-    window.removeEventListener("focus", handleFocus);
+    (window as Window).removeEventListener("focus", handleFocus);
   };
 }
 
@@ -160,17 +160,17 @@ function showUpdateAvailableNotification() {
   console.log("📢 Update available notification");
 
   // Crear evento personalizado para que los componentes puedan escucharlo
-  if (typeof window !== "undefined") {
+  if (typeof (window as Window) !== "undefined") {
     const event = new CustomEvent("sw-update-available", {
       detail: { message: "Nueva versión disponible" },
     });
-    window.dispatchEvent(event);
+    (window as Window).dispatchEvent(event);
   }
 }
 
 // Hook para inicializar servicios offline en componentes
 export function useOfflineInitializer() {
-  if (typeof window !== "undefined") {
+  if (typeof (window as Window) !== "undefined") {
     // Solo ejecutar una vez cuando el componente se monta
     initializeOfflineServices();
   }
@@ -182,7 +182,7 @@ export async function getOfflineServicesStatus() {
     const status = {
       indexedDB: false,
       serviceWorker: false,
-      connectivity: typeof window !== "undefined" ? navigator.onLine : false,
+      connectivity: typeof (window as Window) !== "undefined" ? navigator.onLine : false,
       timestamp: Date.now(),
     };
 
@@ -196,7 +196,7 @@ export async function getOfflineServicesStatus() {
     }
 
     // Verificar Service Worker
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    if (typeof (window as Window) !== "undefined" && "serviceWorker" in navigator) {
       const registration = await navigator.serviceWorker.getRegistration();
       status.serviceWorker = !!registration?.active;
     }

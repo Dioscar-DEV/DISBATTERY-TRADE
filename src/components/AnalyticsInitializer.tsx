@@ -73,7 +73,8 @@ export function AnalyticsInitializer() {
   // Hook para trackear tiempo en página
   useEffect(() => {
     const startTime = Date.now();
-    const pageName = pathname.split('/').filter(Boolean).join('_') || 'home';
+    const pageName = pathname?.split('/').filter(Boolean).join('_') || 'home';
+  
 
     return () => {
       const timeSpent = Math.round((Date.now() - startTime) / 1000);

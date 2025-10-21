@@ -32,7 +32,7 @@ export function PWAInstallButton({
 
   useEffect(() => {
     // Verificar si ya está instalada
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    if ((window as Window).matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true);
     }
 
@@ -43,7 +43,7 @@ export function PWAInstallButton({
       setCanInstall(true);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as any);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as unknown as EventListenerOrEventListenerObject);
 
     // Escuchar cuando se instala
     window.addEventListener('appinstalled', () => {
@@ -53,7 +53,7 @@ export function PWAInstallButton({
     });
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as any);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as unknown as EventListenerOrEventListenerObject);
       window.removeEventListener('appinstalled', () => { });
     };
   }, []);

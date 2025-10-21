@@ -39,7 +39,7 @@ export function ChunkErrorHandler() {
             window.location.reload();
           });
         } else {
-          window.location.reload();
+          (window as Window).location.reload();
         }
 
         return true; // Indica que se detectó el error

@@ -44,7 +44,7 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
   try {
     console.log("🔔 Solicitando permisos de notificación push...");
 
-    if (!("Notification" in window)) {
+    if (!("Notification" in (window as Window))) {
       console.error("❌ Este navegador no soporta notificaciones");
       return false;
     }
@@ -88,7 +88,7 @@ export const getUserNotificationToken = async (): Promise<string | null> => {
       return null;
     }
 
-    if (typeof window === "undefined") {
+    if (typeof (window as Window) === "undefined") {
       console.log("⚠️ Ejecutándose en servidor, no se puede obtener token");
       return null;
     }
@@ -439,16 +439,16 @@ export const showLocalNotification = (data: NotificationData) => {
       }, 5000);
 
       notification.onclick = () => {
-        window.focus();
+        (window as Window).focus();
         notification.close();
 
         // Navegar según el tipo de notificación
         if (data.data?.type === "nueva-ruta") {
-          window.location.href = "/mi-ruta";
+          (window as Window).location.href = "/mi-ruta";
         } else if (data.data?.type === "ruta-editada") {
-          window.location.href = "/mi-ruta";
+          (window as Window).location.href = "/mi-ruta";
         } else if (data.data?.type === "ruta-completada") {
-          window.location.href = "/admin/dashboard";
+          (window as Window).location.href = "/admin/dashboard";
         }
       };
     }
