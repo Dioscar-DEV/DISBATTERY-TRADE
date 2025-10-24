@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, ListChecks, BarChart3, MapPinned, UserCircle, ArrowLeft, Menu } from 'lucide-react';
-import { getCurrentUserWithPermissions, UserData, UserPermissions, clearUserData } from '@/services/auth';
+import { getCurrentUserWithPermissions, UserData, UserPermissions } from '@/services/auth';
 import { LogoutButton } from '@/components/LogoutButton';
 
 export default function AdminDashboardPage() {

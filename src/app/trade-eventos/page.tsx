@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Camera, Trash, Video, X, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
-import { crearVisita, setN8NWebhookURL } from '@/services/visitas';
+import { setN8NWebhookURL } from '@/services/visitas';
 import { RespuestasTrade } from '@/types/visitas';
 import { getCurrentUser, getUserFromStorage } from '@/services/auth';
 import { getGPSLocation, GPSCoordinates } from '@/services/gpsService';

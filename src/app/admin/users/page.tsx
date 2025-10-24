@@ -45,7 +45,7 @@ import { getAuthClient, getFirestoreClient } from '@/firebase/clientApp';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, addDoc, getDocs, doc, deleteDoc, query, orderBy, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { Region, Sede, SEDES_DATA, getSedesByRegion, getCitiesBySede } from '@/types/routes';
-import { getCurrentUser, saveUserToStorage, clearUserData, UserData } from '@/services/auth';
+import { UserData } from '@/services/auth';
 import { LogoutButton } from '@/components/LogoutButton';
 import { obtenerUltimasVisitasUsuarios } from '@/services/visitas';
 import { Visita } from '@/types/visitas';
