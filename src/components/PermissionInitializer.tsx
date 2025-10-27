@@ -98,7 +98,7 @@ export function PermissionInitializer() {
             <p className="text-sm text-muted-foreground mb-6 text-center">
               Para usar todas las funciones de la aplicación, necesitamos configurar algunos permisos.
             </p>
-            <PermissionChecker 
+            <PermissionChecker
               onPermissionsReady={handlePermissionsReady}
               showLocationCheck={true}
               showCameraCheck={true}

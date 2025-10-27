@@ -87,14 +87,14 @@ export function PermissionChecker({
       if (showLocationCheck && (newPermissions.location === 'prompt' || newPermissions.location === 'unknown')) {
         // Slight delay to ensure UI mounted
         setTimeout(() => {
-          requestLocationPermission().catch(() => {});
+          requestLocationPermission().catch(() => { });
         }, 300);
       }
 
       // Luego intentar cámara (muchos navegadores requieren gesto, puede ser bloqueado)
       if (showCameraCheck && (newPermissions.camera === 'prompt' || newPermissions.camera === 'unknown')) {
         setTimeout(() => {
-          requestCameraPermission().catch(() => {});
+          requestCameraPermission().catch(() => { });
         }, 800);
       }
     }
