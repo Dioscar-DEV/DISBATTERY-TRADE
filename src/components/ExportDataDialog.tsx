@@ -203,8 +203,9 @@ export function ExportDataDialog({ isOpen, onClose, initialFilters = {} }: Expor
                                         <Calendar
                                             mode="single"
                                             selected={filtros.fechaDesde}
-                                            onSelect={(date) => handleFiltroChange("fechaDesde", date)}
+                                            onSelect={(date: Date | undefined) => date && handleFiltroChange("fechaDesde", date)}
                                             initialFocus
+                                            required={false}
                                         />
                                     </PopoverContent>
                                 </Popover>
@@ -230,8 +231,9 @@ export function ExportDataDialog({ isOpen, onClose, initialFilters = {} }: Expor
                                         <Calendar
                                             mode="single"
                                             selected={filtros.fechaHasta}
-                                            onSelect={(date) => handleFiltroChange("fechaHasta", date)}
+                                            onSelect={(date: Date | undefined) => date && handleFiltroChange("fechaHasta", date)}
                                             initialFocus
+                                            required={false}
                                         />
                                     </PopoverContent>
                                 </Popover>

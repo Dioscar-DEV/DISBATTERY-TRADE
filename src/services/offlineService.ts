@@ -51,6 +51,9 @@ class OfflineService {
   // hacemos upgrade si detectamos stores faltantes.
   private dbVersion = undefined as number | undefined;
   private db: IDBDatabase | null = null;
+  
+  // Configuración offline desde variables de entorno
+  private isOfflineModeEnabled = process.env.NEXT_PUBLIC_ENABLE_OFFLINE_MODE === 'true';
 
   // ObjectStore names
   private readonly STORES = {

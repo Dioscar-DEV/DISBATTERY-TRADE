@@ -29,7 +29,7 @@ export async function captureGPSOffline(
 
     const options: PositionOptions = {
       enableHighAccuracy: true,
-      timeout: 15000, // 15 segundos
+      timeout: parseInt(process.env.NEXT_PUBLIC_GPS_TIMEOUT || "15000"), // Configurable desde env
       maximumAge: 60000, // Cache por 1 minuto
     };
 

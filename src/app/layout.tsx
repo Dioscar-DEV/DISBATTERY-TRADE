@@ -6,6 +6,7 @@ import { PWAInstallBanner } from '@/components/PWAInstallBanner';
 import { AnalyticsInitializer } from '@/components/AnalyticsInitializer';
 import { UserStatusChecker } from '@/components/UserStatusChecker';
 import { ChunkErrorHandler } from '@/components/ChunkErrorHandler';
+import { PermissionInitializer } from '@/components/PermissionInitializer';
 import { PostHogProvider } from './providers';
 
 const montserrat = Montserrat({
@@ -113,6 +114,7 @@ export default function RootLayout({
       </head>
       <body className={`${montserrat.variable} font-sans antialiased`}>
         <PostHogProvider>
+          <PermissionInitializer /> {/* Inicializador automático de permisos */}
           <ChunkErrorHandler /> {/* Maneja errores de chunks automáticamente */}
           <PWAInstallBanner /> {/* Banner de instalación PWA persistente */}
           <AnalyticsInitializer /> {/* Inicializador de Google Analytics */}

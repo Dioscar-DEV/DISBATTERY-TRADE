@@ -1739,9 +1739,14 @@ export default function RutasPage() {
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
+              onSelect={
+                (date: Date | undefined) => {
+                  date && setSelectedDate(date)
+                }
+              }
               locale={es}
               className="rounded-md"
+              required={false}
             />
 
             <div className="mt-4 space-y-2">

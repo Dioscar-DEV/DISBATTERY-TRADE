@@ -126,11 +126,34 @@ const nextConfig: NextConfig = {
     // Move secrets to environment variables; do NOT commit production keys.
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:
       process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    NEXT_PUBLIC_FIREBASE_VAPID_KEY:
+      process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+    NEXT_PUBLIC_ENABLE_OFFLINE_MODE:
+      process.env.NEXT_PUBLIC_ENABLE_OFFLINE_MODE,
+    NEXT_PUBLIC_GPS_TIMEOUT:
+      process.env.NEXT_PUBLIC_GPS_TIMEOUT,
+    NEXT_PUBLIC_CAMERA_QUALITY:
+      process.env.NEXT_PUBLIC_CAMERA_QUALITY,
   },
-  // Configuración específica para Vercel
-  experimental: {
-    // Optimizaciones para Vercel
+  
+  // Configuración para forzar HTTPS en producción
+  async redirects() {
+    return [
+      {
+        source: '/(.*)',
+        has: [
+          {
+            type: 'header',
+            key: 'x-forwarded-proto',
+            value: 'http',
+          },
+        ],
+        destination: 'https://disbattery-trade.web.app',
+        permanent: true,
+      },
+    ];
   },
+  
 };
 
 // PWA habilitado con manejo mejorado de chunks

@@ -1,13 +1,13 @@
 import emailjs from "@emailjs/browser";
 
-// Configuración de EmailJS
+// Configuración de EmailJS desde variables de entorno
 const EMAILJS_CONFIG = {
-  serviceId: "service_gxvt5sr",
-  publicKey: "NldiItSGzS1TMPAz0",
+  serviceId: process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || "service_gxvt5sr",
+  publicKey: process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || "NldiItSGzS1TMPAz0",
   templates: {
-    nuevaRuta: "template_swkb7yd",
-    rutaCompletada: "template_3hl2pte",
-    nuevoUsuario: "template_2lwmrgc", // Template para aprobación de usuarios
+    nuevaRuta: process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_NUEVA_RUTA || "template_swkb7yd",
+    rutaCompletada: process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_RUTA_COMPLETADA || "template_3hl2pte",
+    nuevoUsuario: process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_NUEVO_USUARIO || "template_2lwmrgc", // Template para aprobación de usuarios
   },
 };
 

@@ -111,7 +111,8 @@ export function ShellMerchandisingPage() {
       const context = canvas.getContext('2d');
       if (context) {
         context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const photoURL = canvas.toDataURL('image/png');
+        const quality = parseFloat(process.env.NEXT_PUBLIC_CAMERA_QUALITY || "0.8");
+        const photoURL = canvas.toDataURL('image/jpeg', quality);
         setter(photoURL);
       } else {
         throw new Error('Could not get canvas context');

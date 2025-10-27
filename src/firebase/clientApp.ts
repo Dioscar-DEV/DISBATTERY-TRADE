@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
+import { getMessaging, type Messaging } from "firebase/messaging";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -32,12 +33,17 @@ if (!getApps().length) {
   app = getApp();
 }
 
-// Auth and Storage are browser-only; initialize lazily to avoid SSR errors
+// Auth, Storage and Messaging are browser-only; initialize lazily to avoid SSR errors
 let auth: Auth | null = null;
 let storage: FirebaseStorage | null = null;
+let messaging: Messaging | null = null;
 if (typeof window !== "undefined") {
   auth = getAuth(app);
   storage = getStorage(app);
+  // Initialize messaging with VAPID key from environment
+  if (process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY) {
+    messaging = getMessaging(app);
+  }
 }
 
 // Firestore: only enable persistent local cache in the browser environment.
@@ -102,3 +108,19 @@ export function getFirestoreClient(): Firestore {
 export function getAnalyticsClient() {
   return analytics;
 }
+
+export function getMessagingClient(): Messaging {
+  if (!messaging) {
+    if (typeof window === "undefined") {
+      throw new Error("Firebase Messaging is only available in the browser.");
+    }
+    if (!process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY) {
+      throw new Error("VAPID key is required for Firebase Messaging. Set NEXT_PUBLIC_FIREBASE_VAPID_KEY in your environment.");
+    }
+    messaging = getMessaging(app);
+  }
+  return messaging;
+}
+
+// Export VAPID key for use in messaging setup
+export const getVapidKey = () => process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
