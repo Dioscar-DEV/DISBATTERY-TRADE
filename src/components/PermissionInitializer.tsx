@@ -102,6 +102,8 @@ export function PermissionInitializer() {
               onPermissionsReady={handlePermissionsReady}
               showLocationCheck={true}
               showCameraCheck={true}
+              // Intentar solicitar permisos automáticamente cuando se muestre
+              autoRequest={true}
             />
             <div className="mt-4 text-center">
               <button

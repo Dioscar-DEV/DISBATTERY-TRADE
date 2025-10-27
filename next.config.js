@@ -1,0 +1,146 @@
+/** @type {import('next').NextConfig} */
+const isProd = process.env.NODE_ENV === "production";
+
+const nextConfig = {
+  images: {
+    unoptimized: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  env: {
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:
+      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    NEXT_PUBLIC_FIREBASE_VAPID_KEY:
+      process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+    NEXT_PUBLIC_ENABLE_OFFLINE_MODE:
+      process.env.NEXT_PUBLIC_ENABLE_OFFLINE_MODE,
+    NEXT_PUBLIC_GPS_TIMEOUT: process.env.NEXT_PUBLIC_GPS_TIMEOUT,
+    NEXT_PUBLIC_CAMERA_QUALITY: process.env.NEXT_PUBLIC_CAMERA_QUALITY,
+  },
+};
+
+if (isProd) {
+  nextConfig.output = "export";
+  nextConfig.trailingSlash = true;
+  nextConfig.redirects = async () => [
+    {
+      source: "/(.*)",
+      has: [
+        {
+          type: "header",
+          key: "x-forwarded-proto",
+          value: "http",
+        },
+      ],
+      destination: "https://disbattery-trade.web.app",
+      permanent: true,
+    },
+  ];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const withPWA = require("next-pwa")({
+  dest: "public",
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === "development",
+  fallbacks: {
+    document: "/offline.html",
+  },
+  publicExcludes: ["!offline.html"],
+  buildExcludes: [
+    /middleware-manifest\.json$/,
+    /.*\.txt$/,
+    /.*\.map$/,
+  ],
+  runtimeCaching: [
+    {
+      urlPattern: ({ request, url }) => {
+        return request.mode === "navigate" && !url.pathname.endsWith(".txt");
+      },
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "all-pages",
+        networkTimeoutSeconds: 5,
+        expiration: {
+          maxEntries: 200,
+          maxAgeSeconds: 60 * 60 * 24 * 30,
+        },
+      },
+    },
+    {
+      urlPattern: /^\/_next\/static\/chunks\/.*$/,
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "next-chunks",
+        networkTimeoutSeconds: 10,
+        expiration: {
+          maxEntries: 300,
+          maxAgeSeconds: 60 * 60 * 24 * 7,
+        },
+      },
+    },
+    {
+      urlPattern: /^\/_next\/static\/.*$/,
+      handler: "CacheFirst",
+      options: {
+        cacheName: "static-cache",
+        expiration: {
+          maxEntries: 200,
+          maxAgeSeconds: 60 * 60 * 24 * 30,
+        },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*$/i,
+      handler: "CacheFirst",
+      options: {
+        cacheName: "google-fonts-cache",
+        expiration: {
+          maxEntries: 10,
+          maxAgeSeconds: 60 * 60 * 24 * 365,
+        },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*$/i,
+      handler: "StaleWhileRevalidate",
+      options: {
+        cacheName: "firebase-images-cache",
+        expiration: {
+          maxEntries: 1000,
+          maxAgeSeconds: 60 * 60 * 24 * 30,
+        },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/storage\.googleapis\.com\/.*$/i,
+      handler: "StaleWhileRevalidate",
+      options: {
+        cacheName: "google-storage-cache",
+        expiration: {
+          maxEntries: 500,
+          maxAgeSeconds: 60 * 60 * 24 * 7,
+        },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*$/i,
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "firestore-api-cache",
+        networkTimeoutSeconds: 5,
+        expiration: {
+          maxEntries: 100,
+          maxAgeSeconds: 60 * 5,
+        },
+      },
+    },
+  ],
+});
+
+module.exports = withPWA(nextConfig);

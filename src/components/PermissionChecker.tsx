@@ -15,18 +15,21 @@ interface PermissionCheckerProps {
   onPermissionsReady?: (permissions: PermissionStatus) => void;
   showLocationCheck?: boolean;
   showCameraCheck?: boolean;
+  autoRequest?: boolean;
 }
 
 export function PermissionChecker({
   onPermissionsReady,
   showLocationCheck = true,
   showCameraCheck = true
+  , autoRequest = false
 }: PermissionCheckerProps) {
   const [permissions, setPermissions] = useState<PermissionStatus>({
     camera: 'unknown',
     location: 'unknown'
   });
   const [isChecking, setIsChecking] = useState(false);
+  const attemptedAutoRequest = { current: false } as { current: boolean };
 
   // Verificar permisos al cargar
   useEffect(() => {
@@ -73,6 +76,28 @@ export function PermissionChecker({
 
     setPermissions(newPermissions);
     onPermissionsReady?.(newPermissions);
+
+    // Si está permitido intentar pedir permisos automáticamente, y no lo hemos intentado aún,
+    // intentar solicitar los permisos en estado 'prompt' o 'unknown'. Algunos navegadores
+    // pueden bloquear solicitudes automáticas sin interacción del usuario; en ese caso
+    // los botones seguirán disponibles para que el usuario acepte manualmente.
+    if (autoRequest && !attemptedAutoRequest.current) {
+      attemptedAutoRequest.current = true;
+      // Intentar primero ubicación (puede lanzar prompt sin gesto en muchos navegadores)
+      if (showLocationCheck && (newPermissions.location === 'prompt' || newPermissions.location === 'unknown')) {
+        // Slight delay to ensure UI mounted
+        setTimeout(() => {
+          requestLocationPermission().catch(() => {});
+        }, 300);
+      }
+
+      // Luego intentar cámara (muchos navegadores requieren gesto, puede ser bloqueado)
+      if (showCameraCheck && (newPermissions.camera === 'prompt' || newPermissions.camera === 'unknown')) {
+        setTimeout(() => {
+          requestCameraPermission().catch(() => {});
+        }, 800);
+      }
+    }
   };
 
   const requestCameraPermission = async () => {
