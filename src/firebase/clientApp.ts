@@ -41,7 +41,7 @@ if (typeof window !== "undefined") {
   auth = getAuth(app);
   storage = getStorage(app);
   // Initialize messaging with VAPID key from environment
-  if (process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY) {
+  if (process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "BDCJ8sVw_IJmvCoEFGup7PHFvQKH3i8qzCsepnHWRguS-Wpb9ZsdOx9xCFSyjLM5tXv5YS1YVwB5sac1QAKRUeQ") {
     messaging = getMessaging(app);
   }
 }
@@ -114,7 +114,7 @@ export function getMessagingClient(): Messaging {
     if (typeof window === "undefined") {
       throw new Error("Firebase Messaging is only available in the browser.");
     }
-    if (!process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY) {
+    if (!process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "BDCJ8sVw_IJmvCoEFGup7PHFvQKH3i8qzCsepnHWRguS-Wpb9ZsdOx9xCFSyjLM5tXv5YS1YVwB5sac1QAKRUeQ") {
       throw new Error("VAPID key is required for Firebase Messaging. Set NEXT_PUBLIC_FIREBASE_VAPID_KEY in your environment.");
     }
     messaging = getMessaging(app);
@@ -123,4 +123,4 @@ export function getMessagingClient(): Messaging {
 }
 
 // Export VAPID key for use in messaging setup
-export const getVapidKey = () => process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+export const getVapidKey = () => process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "BDCJ8sVw_IJmvCoEFGup7PHFvQKH3i8qzCsepnHWRguS-Wpb9ZsdOx9xCFSyjLM5tXv5YS1YVwB5sac1QAKRUeQ";

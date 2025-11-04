@@ -11,7 +11,7 @@ import {
 import { getFirestoreClient } from "@/firebase/clientApp";
 
 // Configuración de Firebase Cloud Messaging (FCM)
-const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "BDCJ8sVw_IJmvCoEFGup7PHFvQKH3i8qzCsepnHWRguS-Wpb9ZsdOx9xCFSyjLM5tXv5YS1YVwB5sac1QAKRUeQ" ;
 
 export interface NotificationData {
   title: string;

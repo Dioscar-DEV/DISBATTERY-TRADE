@@ -138,10 +138,10 @@ export function GoogleMaps({
 
   useEffect(() => {
     const initMap = async () => {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyA6Q_8LsOmui-Dcib-w5KD3CiJagTxFHoA";
       
       if (!apiKey) {
-        setError('Google Maps API key no configurada. Por favor agrega NEXT_PUBLIC_GOOGLE_MAPS_API_KEY a tu archivo .env.local');
+        setError('Google Maps API key no configurada.');
         return;
       }
 

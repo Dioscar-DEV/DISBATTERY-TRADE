@@ -18,7 +18,7 @@ import {
 import { format } from "date-fns";
 
 // URL del webhook N8N desde variables de entorno o configuración directa
-let N8N_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+let N8N_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || "https://n8n.con-visas.com/webhook/Disbattery-Trade-app";
 
 // Configurar URL del webhook N8N
 export const setN8NWebhookURL = (url: string) => {
