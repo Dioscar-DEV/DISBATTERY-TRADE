@@ -11,6 +11,10 @@ interface PermissionStatus {
 export function PermissionInitializer() {
   const [showPermissionChecker, setShowPermissionChecker] = useState(false);
   const [permissionsChecked, setPermissionsChecked] = useState(false);
+  const [currentPermissions, setCurrentPermissions] = useState<PermissionStatus>({
+    camera: 'unknown',
+    location: 'unknown'
+  });
 
   useEffect(() => {
     // Solo verificar permisos en el navegador
@@ -73,13 +77,23 @@ export function PermissionInitializer() {
   };
 
   const handlePermissionsReady = (permissions: PermissionStatus) => {
-    // Si ambos permisos están concedidos, ocultar el checker
+    setCurrentPermissions(permissions);
+
+    // Si ambos permisos están concedidos, ocultar el checker automáticamente
     if (permissions.camera === 'granted' && permissions.location === 'granted') {
       sessionStorage.setItem('permissions_checked', 'true');
       setShowPermissionChecker(false);
       setPermissionsChecked(true);
     }
   };
+
+  const handleContinue = () => {
+    sessionStorage.setItem('permissions_checked', 'true');
+    setShowPermissionChecker(false);
+    setPermissionsChecked(true);
+  };
+
+  const allPermissionsGranted = currentPermissions.camera === 'granted' && currentPermissions.location === 'granted';
 
   // No mostrar nada si ya se verificaron los permisos
   if (permissionsChecked && !showPermissionChecker) {
@@ -107,14 +121,14 @@ export function PermissionInitializer() {
             />
             <div className="mt-4 text-center">
               <button
-                onClick={() => {
-                  sessionStorage.setItem('permissions_checked', 'true');
-                  setShowPermissionChecker(false);
-                  setPermissionsChecked(true);
-                }}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                onClick={handleContinue}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  allPermissionsGranted
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
-                Continuar sin configurar
+                {allPermissionsGranted ? 'Continuar' : 'Continuar sin configurar'}
               </button>
             </div>
           </div>

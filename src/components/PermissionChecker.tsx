@@ -36,6 +36,11 @@ export function PermissionChecker({
     checkAllPermissions();
   }, []);
 
+  // Llamar a onPermissionsReady cuando cambien los permisos
+  useEffect(() => {
+    onPermissionsReady?.(permissions);
+  }, [permissions, onPermissionsReady]);
+
   const checkAllPermissions = async () => {
     const newPermissions: PermissionStatus = {
       camera: 'unknown',
