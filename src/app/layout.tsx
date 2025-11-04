@@ -1,12 +1,15 @@
 import type { Metadata, Viewport } from 'next';
 import { Montserrat } from 'next/font/google';
 import './globals.css';
+import 'primereact/resources/themes/lara-light-blue/theme.css';
+import 'primereact/resources/primereact.min.css';
 import { Toaster } from '@/components/ui/toaster'; // Added Toaster import
 import { PWAInstallBanner } from '@/components/PWAInstallBanner';
 import { AnalyticsInitializer } from '@/components/AnalyticsInitializer';
 import { UserStatusChecker } from '@/components/UserStatusChecker';
 import { ChunkErrorHandler } from '@/components/ChunkErrorHandler';
 import { PermissionInitializer } from '@/components/PermissionInitializer';
+import { PrimeReactProvider } from '@/components/PrimeReactProvider';
 import { PostHogProvider } from './providers';
 
 const montserrat = Montserrat({
@@ -113,15 +116,17 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />
       </head>
       <body className={`${montserrat.variable} font-sans antialiased`}>
-        <PostHogProvider>
-          <PermissionInitializer /> {/* Inicializador automático de permisos */}
-          <ChunkErrorHandler /> {/* Maneja errores de chunks automáticamente */}
-          <PWAInstallBanner /> {/* Banner de instalación PWA persistente */}
-          <AnalyticsInitializer /> {/* Inicializador de Google Analytics */}
-          <UserStatusChecker /> {/* Verificador de status de usuario en tiempo real */}
-          {children}
-          <Toaster /> {/* Added Toaster component here */}
-        </PostHogProvider>
+        <PrimeReactProvider>
+          <PostHogProvider>
+            <PermissionInitializer /> {/* Inicializador automático de permisos */}
+            <ChunkErrorHandler /> {/* Maneja errores de chunks automáticamente */}
+            <PWAInstallBanner /> {/* Banner de instalación PWA persistente */}
+            <AnalyticsInitializer /> {/* Inicializador de Google Analytics */}
+            <UserStatusChecker /> {/* Verificador de status de usuario en tiempo real */}
+            {children}
+            <Toaster /> {/* Added Toaster component here */}
+          </PostHogProvider>
+        </PrimeReactProvider>
       </body>
     </html>
   );

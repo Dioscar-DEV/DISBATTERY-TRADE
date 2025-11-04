@@ -8,9 +8,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Configuración vacía de turbopack para silenciar el warning
+  turbopack: {},
   env: {
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:
       process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyA6Q_8LsOmui-Dcib-w5KD3CiJagTxFHoA",

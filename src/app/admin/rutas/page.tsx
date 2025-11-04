@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar } from '@/components/ui/calendar';
+import { Calendar } from 'primereact/calendar';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { format, addDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+
 import { collection, getDocs, query, orderBy, where, addDoc, doc, setDoc, Timestamp, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { getFirestoreClient } from '@/firebase/clientApp';
 import { useToast } from '@/hooks/use-toast';
@@ -1737,16 +1739,16 @@ export default function RutasPage() {
           </CardHeader>
           <CardContent>
             <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={
-                (date: Date | undefined) => {
-                  date && setSelectedDate(date)
+              value={selectedDate}
+              onChange={(e: any) => {
+                if (e.value instanceof Date) {
+                  setSelectedDate(e.value);
                 }
-              }
-              locale={es}
-              className="rounded-md"
-              required={false}
+              }}
+              inline
+              locale="es"
+              dateFormat="dd/mm/yy"
+              className="w-full"
             />
 
             <div className="mt-4 space-y-2">

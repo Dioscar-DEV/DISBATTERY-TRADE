@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "primereact/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -186,57 +185,37 @@ export function ExportDataDialog({ isOpen, onClose, initialFilters = {} }: Expor
                             {/* Fecha desde */}
                             <div className="space-y-2">
                                 <Label htmlFor="fechaDesde">Fecha desde</Label>
-                                <Popover open={showCalendar === "desde"} onOpenChange={(open) => setShowCalendar(open ? "desde" : null)}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal",
-                                                !filtros.fechaDesde && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {filtros.fechaDesde ? format(filtros.fechaDesde, "PPP", { locale: es }) : "Seleccionar fecha"}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar
-                                            mode="single"
-                                            selected={filtros.fechaDesde}
-                                            onSelect={(date: Date | undefined) => date && handleFiltroChange("fechaDesde", date)}
-                                            initialFocus
-                                            required={false}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
+                                <Calendar
+                                    value={filtros.fechaDesde}
+                                    onChange={(e: any) => {
+                                        if (e.value instanceof Date) {
+                                            handleFiltroChange("fechaDesde", e.value);
+                                        }
+                                    }}
+                                    inline
+                                    locale="es"
+                                    dateFormat="dd/mm/yy"
+                                    className="w-full"
+                                    showButtonBar
+                                />
                             </div>
 
                             {/* Fecha hasta */}
                             <div className="space-y-2">
                                 <Label htmlFor="fechaHasta">Fecha hasta</Label>
-                                <Popover open={showCalendar === "hasta"} onOpenChange={(open) => setShowCalendar(open ? "hasta" : null)}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal",
-                                                !filtros.fechaHasta && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {filtros.fechaHasta ? format(filtros.fechaHasta, "PPP", { locale: es }) : "Seleccionar fecha"}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar
-                                            mode="single"
-                                            selected={filtros.fechaHasta}
-                                            onSelect={(date: Date | undefined) => date && handleFiltroChange("fechaHasta", date)}
-                                            initialFocus
-                                            required={false}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
+                                <Calendar
+                                    value={filtros.fechaHasta}
+                                    onChange={(e: any) => {
+                                        if (e.value instanceof Date) {
+                                            handleFiltroChange("fechaHasta", e.value);
+                                        }
+                                    }}
+                                    inline
+                                    locale="es"
+                                    dateFormat="dd/mm/yy"
+                                    className="w-full"
+                                    showButtonBar
+                                />
                             </div>
 
                             {/* Mercaderista */}
