@@ -2,142 +2,86 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { autoUpdateRouteStatus } from '@/services/routes';
-import { onAuthStateChanged } from 'firebase/auth';
-import { getAuthClient, getFirestoreClient } from '@/firebase/clientApp';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { format } from 'date-fns';
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from '@/components/ui/card';
 import { CheckCircle } from 'lucide-react';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
+import { getAuthClient } from '@/firebase/clientApp';
+import { onAuthStateChanged, User } from 'firebase/auth';
+
+const LOCAL_STORAGE_KEYS = {
+  clienteData: 'clienteData',
+  currentUser: 'currentUser',
+} as const;
+
+const ROUTES = {
+  autoRedirect: {
+    path: '/mi-ruta',
+    description: 'redirección automática después de countdown',
+    completionLog: '🔄 [REDIRECT] Redirigiendo a /mi-ruta después de countdown',
+  },
+  myRoute: { path: '/mi-ruta', description: 'botón ir a mi ruta' },
+  visitCapture: { path: '/visit-capture', description: 'botón registrar nueva visita' },
+  home: { path: '/', description: 'botón volver al inicio' },
+} as const;
+
+const COUNTDOWN_SECONDS = 5;
+
+type ClienteData = {
+  pointId?: string;
+  rif?: string;
+  nombre?: string;
+  tipoVisita?: string;
+  isEvent?: boolean;
+  eventId?: string;
+};
+
+type SafeNavigate = (path: string, description?: string) => void;
+
+interface CountdownOptions {
+  initialValue: number;
+  onComplete: () => void;
+  completionLogMessage: string;
+}
 
 export default function RegistroExitosoPage() {
   const router = useRouter();
-  const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [countdown, setCountdown] = useState(5); // ✅ Contador de 5 segundos
 
-  // Hook de sincronización offline
   useOfflineSync();
+  useClienteDataLogger();
+  useAuthStateTracker();
 
-  // ✅ LOGGING DETALLADO AL CARGAR LA PÁGINA DE ÉXITO
-  useEffect(() => {
-    console.log('🎉 ========= PÁGINA DE REGISTRO EXITOSO CARGADA =========');
+  const safeNavigate = useSafeNavigate(router);
+  const handleAutoRedirect = useCallback(() => {
+    safeNavigate(ROUTES.autoRedirect.path, ROUTES.autoRedirect.description);
+  }, [safeNavigate]);
 
-    // Verificar qué hay en localStorage
-    const clienteDataString = localStorage.getItem('clienteData');
-    const currentUserString = localStorage.getItem('currentUser');
+  const countdown = useCountdown({
+    initialValue: COUNTDOWN_SECONDS,
+    onComplete: handleAutoRedirect,
+    completionLogMessage: ROUTES.autoRedirect.completionLog,
+  });
 
-    console.log('📊 [REGISTRO-EXITOSO] ClienteData en localStorage:', clienteDataString);
-    console.log('👤 [REGISTRO-EXITOSO] CurrentUser en localStorage:', currentUserString);
+  const handleRegistrarVisitaMerchandising = useCallback(() => {
+    safeNavigate(ROUTES.visitCapture.path, ROUTES.visitCapture.description);
+  }, [safeNavigate]);
 
-    if (clienteDataString) {
-      try {
-        const clienteData = JSON.parse(clienteDataString);
-        console.log('📋 [REGISTRO-EXITOSO] Datos del cliente procesado:', {
-          pointId: clienteData.pointId,
-          rif: clienteData.rif,
-          nombre: clienteData.nombre,
-          tipoVisita: clienteData.tipoVisita,
-          isEvent: clienteData.isEvent,
-          eventId: clienteData.eventId
-        });
-
-        if (!clienteData.pointId) {
-          console.error('❌ [PROBLEMA DETECTADO] El pointId está vacío en el clienteData:', clienteData.pointId);
-        } else {
-          console.log('✅ [ÉXITO] PointId correcto encontrado:', clienteData.pointId);
-        }
-
-
-      } catch (error) {
-        console.error('❌ [ERROR] No se pudo parsear clienteData:', error);
-      }
-    } else {
-      console.warn('⚠️ [ADVERTENCIA] No se encontró clienteData en localStorage');
-    }
-
-    console.log('🎉 ========= INICIANDO COUNTDOWN DE REDIRECCIÓN =========');
-  }, [toast]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          console.log('🔄 [REDIRECT] Redirigiendo a /mi-ruta después de countdown');
-          clearInterval(timer);
-          safeNavigate('/mi-ruta', 'redirección automática después de countdown');
-          return 0;
-        }
-        console.log(`⏱️ [COUNTDOWN] ${prev - 1} segundos restantes para redirección`);
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      clearInterval(timer);
-      console.log('🧹 [CLEANUP] Timer de countdown limpiado');
-    };
-  }, [router]);
-
-  const handleRegistrarVisitaMerchandising = () => {
-    safeNavigate('/visit-capture', 'botón registrar nueva visita');
-  };
-
-  const handleRegistrarVisitaTrade = () => {
+  const handleRegistrarVisitaTrade = useCallback(() => {
     console.log('🔄 [REDIRECT] Navegando a /mi-ruta desde botón (sin autocompletado automático)');
-    safeNavigate('/mi-ruta', 'botón ir a mi ruta');
-  };
+    safeNavigate(ROUTES.myRoute.path, ROUTES.myRoute.description);
+  }, [safeNavigate]);
 
-  const handleVolverAlInicio = () => {
-    safeNavigate('/', 'botón volver al inicio');
-  };
-
-  // Función helper para navegación segura con fallback
-  const safeNavigate = (path: string, description: string = '') => {
-    try {
-      console.log(`🔄 [NAVIGATION] Navegando a ${path}${description ? ` - ${description}` : ''}...`);
-      router.push(path);
-    } catch (error) {
-      console.error(`❌ [NAVIGATION ERROR] Error navegando a ${path}:`, error);
-      // Fallback para PWA offline
-      console.log(`🔄 [NAVIGATION FALLBACK] Usando window.location.href para ${path}`);
-      window.location.href = path;
-    }
-  };
-
-  // Configurar listener de autenticación y verificar auto-completación de ruta
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(getAuthClient(), (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        // ✅ FUNCIÓN REMOVIDA: La función checkAndCompleteRoute causaba que rutas nuevas 
-        // aparecieran como completadas incorrectamente. El autocompletado debe ser manual
-        // o más específico para evitar confusiones entre rutas diferentes del mismo día.
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Función para verificar y auto-completar ruta SOLO si TODOS los puntos están visitados
-  // ✅ FUNCIÓN REMOVIDA: checkAndCompleteRoute causaba que rutas nuevas 
-  // aparecieran como completadas incorrectamente. El autocompletado automático
-  // se deshabilitó para evitar confusiones entre rutas diferentes del mismo día.
-
-  const handleGoToMyRoute = () => {
-    console.log('🔄 [REDIRECT] Navegando manualmente a /mi-ruta (sin autocompletado automático)');
-    router.push('/mi-ruta');
-  };
+  const handleVolverAlInicio = useCallback(() => {
+    safeNavigate(ROUTES.home.path, ROUTES.home.description);
+  }, [safeNavigate]);
 
   return (
     <div className="relative flex flex-col min-h-screen bg-white overflow-hidden">
@@ -189,7 +133,8 @@ export default function RegistroExitosoPage() {
               <div className="flex items-center">
                 <div className="ml-3">
                   <p className="text-sm text-blue-800 font-medium">
-                    🔄 Regresando a tu ruta automáticamente en {countdown} segundo{countdown !== 1 ? 's' : ''}...
+                    🔄 Regresando a tu ruta automáticamente en {countdown}{' '}
+                    {formatSecondsLabel(countdown)}...
                   </p>
                   <p className="text-xs text-blue-600 mt-1">
                     Puedes continuar con el siguiente punto de tu ruta
@@ -233,4 +178,107 @@ export default function RegistroExitosoPage() {
       </main>
     </div>
   );
+}
+
+function useClienteDataLogger() {
+  useEffect(() => {
+    console.log('🎉 ========= PÁGINA DE REGISTRO EXITOSO CARGADA =========');
+
+    const clienteDataString = localStorage.getItem(LOCAL_STORAGE_KEYS.clienteData);
+    const currentUserString = localStorage.getItem(LOCAL_STORAGE_KEYS.currentUser);
+
+    console.log('📊 [REGISTRO-EXITOSO] ClienteData en localStorage:', clienteDataString);
+    console.log('👤 [REGISTRO-EXITOSO] CurrentUser en localStorage:', currentUserString);
+
+    if (clienteDataString) {
+      try {
+        const clienteData: ClienteData = JSON.parse(clienteDataString);
+        console.log('📋 [REGISTRO-EXITOSO] Datos del cliente procesado:', {
+          pointId: clienteData.pointId,
+          rif: clienteData.rif,
+          nombre: clienteData.nombre,
+          tipoVisita: clienteData.tipoVisita,
+          isEvent: clienteData.isEvent,
+          eventId: clienteData.eventId,
+        });
+
+        if (!clienteData.pointId) {
+          console.error('❌ [PROBLEMA DETECTADO] El pointId está vacío en el clienteData:', clienteData.pointId);
+        } else {
+          console.log('✅ [ÉXITO] PointId correcto encontrado:', clienteData.pointId);
+        }
+      } catch (error) {
+        console.error('❌ [ERROR] No se pudo parsear clienteData:', error);
+      }
+    } else {
+      console.warn('⚠️ [ADVERTENCIA] No se encontró clienteData en localStorage');
+    }
+
+    console.log('🎉 ========= INICIANDO COUNTDOWN DE REDIRECCIÓN =========');
+  }, []);
+}
+
+function useAuthStateTracker() {
+  const [, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(getAuthClient(), (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        // ✅ FUNCIÓN REMOVIDA: La función checkAndCompleteRoute causaba que rutas nuevas
+        // aparecieran como completadas incorrectamente. El autocompletado debe ser manual
+        // o más específico para evitar confusiones entre rutas diferentes del mismo día.
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+}
+
+function useCountdown({ initialValue, onComplete, completionLogMessage }: CountdownOptions) {
+  const [secondsRemaining, setSecondsRemaining] = useState(initialValue);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          console.log(completionLogMessage);
+          clearInterval(timer);
+          onComplete();
+          return 0;
+        }
+
+        const nextValue = prev - 1;
+        console.log(`⏱️ [COUNTDOWN] ${nextValue} segundos restantes para redirección`);
+        return nextValue;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(timer);
+      console.log('🧹 [CLEANUP] Timer de countdown limpiado');
+    };
+  }, [completionLogMessage, onComplete]);
+
+  return secondsRemaining;
+}
+
+function useSafeNavigate(router: ReturnType<typeof useRouter>): SafeNavigate {
+  return useCallback<SafeNavigate>(
+    (path, description = '') => {
+      try {
+        console.log(`🔄 [NAVIGATION] Navegando a ${path}${description ? ` - ${description}` : ''}...`);
+        router.push(path);
+      } catch (error) {
+        console.error(`❌ [NAVIGATION ERROR] Error navegando a ${path}:`, error);
+        console.log(`🔄 [NAVIGATION FALLBACK] Usando window.location.href para ${path}`);
+        window.location.href = path;
+      }
+    },
+    [router],
+  );
+}
+
+function formatSecondsLabel(seconds: number) {
+  return seconds === 1 ? 'segundo' : 'segundos';
 }
