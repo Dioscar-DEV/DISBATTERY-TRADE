@@ -24,7 +24,8 @@ html {
     background-repeat: no-repeat;
     background-position: center center;
     background-size: cover;
-    background-attachment: fixed;
+    /* Changed from fixed to scroll for better mobile performance */
+    background-attachment: scroll;
 }
 
 /* Elementos decorativos removidos - ya no necesarios con la nueva imagen de fondo */
@@ -164,17 +165,89 @@ html {
     text-decoration: underline;
 }
 
-/* Media Query para Responsividad */
-@media (max-width: 768px) {
-
-    body,
-    html {
-        overflow: auto;
-        /* Permite scroll en móviles si es necesario */
+/* Media Queries para Responsividad Mejorada */
+@media (max-width: 480px) {
+    /* Extra small screens - phones */
+    .disbattery-logo-top {
+        width: 80px;
+        top: 10px;
+        right: 15px;
     }
 
     .login-card {
-        padding: 30px 20px;
+        padding: 20px 15px;
+        margin: 10px;
+        max-width: none;
+        border-radius: 16px;
+    }
+
+    .disbattery-logo {
+        width: 150px;
+        margin-bottom: 15px;
+    }
+
+    .title {
+        font-size: 20px;
+    }
+
+    .subtitle {
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .input-group input {
+        padding: 10px 12px;
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+
+    .login-button {
+        padding: 10px;
+        font-size: 15px;
+    }
+
+    .forgot-password-link {
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 640px) and (min-width: 481px) {
+    /* Small screens - larger phones/small tablets */
+    .disbattery-logo-top {
+        width: 100px;
+        top: 15px;
+        right: 20px;
+    }
+
+    .login-card {
+        padding: 25px 20px;
+        max-width: 380px;
+    }
+
+    .disbattery-logo {
+        width: 180px;
+    }
+
+    .title {
+        font-size: 22px;
+    }
+}
+
+@media (max-width: 768px) and (min-width: 641px) {
+    /* Medium screens - tablets */
+    .login-card {
+        padding: 35px 25px;
+        max-width: 400px;
+    }
+
+    .disbattery-logo {
+        width: 200px;
+    }
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+    /* Large screens - small laptops */
+    .login-card {
+        max-width: 420px;
     }
 }
 

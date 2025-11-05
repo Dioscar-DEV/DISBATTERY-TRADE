@@ -2056,7 +2056,7 @@ export default function GestionClientesPage() {
 
                 <TabsContent value="tabla" className="space-y-4">
                   {/* Filtros */}
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                     <div>
                       <Label htmlFor="search">Buscar</Label>
                       <div className="relative">
@@ -2139,68 +2139,190 @@ export default function GestionClientesPage() {
 
                   {/* Tabla - Contenedeor con scroll más grande */}
                   <div className="border rounded-lg max-h-[600px] overflow-y-auto overflow-x-auto">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-white z-10">
-                        <TableRow>
-                          <TableHead>RIF</TableHead>
-                          <TableHead>Nombre</TableHead>
-                          <TableHead>Dirección</TableHead>
-                          <TableHead>Ciudad</TableHead>
-                          <TableHead>Región</TableHead>
-                          <TableHead>Sede</TableHead>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead>Estado</TableHead>
-                          <TableHead>Señalización</TableHead>
-                          <TableHead>Última Merchandising</TableHead>
-                          <TableHead>Última Trade-Impulso</TableHead>
-                          <TableHead>Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {loading ? (
+                    {/* Desktop Table View */}
+                    <div className="mobile-table">
+                      <Table className="responsive-table">
+                        <TableHeader className="sticky top-0 bg-white z-10">
                           <TableRow>
-                            <TableCell colSpan={12} className="text-center py-8">
-                              Cargando clientes...
-                            </TableCell>
+                            <TableHead>RIF</TableHead>
+                            <TableHead>Nombre</TableHead>
+                            <TableHead>Dirección</TableHead>
+                            <TableHead>Ciudad</TableHead>
+                            <TableHead>Región</TableHead>
+                            <TableHead>Sede</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead>Estado</TableHead>
+                            <TableHead>Señalización</TableHead>
+                            <TableHead>Última Merchandising</TableHead>
+                            <TableHead>Última Trade-Impulso</TableHead>
+                            <TableHead>Acciones</TableHead>
                           </TableRow>
-                        ) : filteredClientes.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={12} className="text-center py-8 text-gray-500">
-                              No se encontraron clientes
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          filteredClientes.map((cliente) => (
-                            <TableRow key={cliente.id}>
-                              <TableCell className="font-mono text-sm">{cliente.rif || 'N/A'}</TableCell>
-                              <TableCell className="font-medium">
-                                <Button
-                                  variant="ghost"
-                                  className="p-0 h-auto font-medium text-left hover:text-blue-600 hover:bg-transparent"
-                                  onClick={() => handleConfigureVisitType(cliente)}
-                                  disabled={currentUser ? !canAccessSede(currentUser, cliente.sede) : false}
-                                >
-                                  {cliente.nombre}
-                                </Button>
+                        </TableHeader>
+                        <TableBody>
+                          {loading ? (
+                            <TableRow>
+                              <TableCell colSpan={12} className="text-center py-8">
+                                Cargando clientes...
                               </TableCell>
-                              <TableCell>{cliente.direccion}</TableCell>
-                              <TableCell>{cliente.ciudad}</TableCell>
-                              <TableCell>{cliente.region}</TableCell>
-                              <TableCell>{cliente.sede}</TableCell>
-                              <TableCell>
-                                <Badge className={getTipoColor(cliente.tipo)}>
+                            </TableRow>
+                          ) : filteredClientes.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={12} className="text-center py-8 text-gray-500">
+                                No se encontraron clientes
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            filteredClientes.map((cliente) => (
+                              <TableRow key={cliente.id}>
+                                <TableCell className="font-mono text-sm">{cliente.rif || 'N/A'}</TableCell>
+                                <TableCell className="font-medium">
+                                  <Button
+                                    variant="ghost"
+                                    className="p-0 h-auto font-medium text-left hover:text-blue-600 hover:bg-transparent"
+                                    onClick={() => handleConfigureVisitType(cliente)}
+                                    disabled={currentUser ? !canAccessSede(currentUser, cliente.sede) : false}
+                                  >
+                                    {cliente.nombre}
+                                  </Button>
+                                </TableCell>
+                                <TableCell className="text-truncate max-w-[200px]" title={cliente.direccion}>{cliente.direccion}</TableCell>
+                                <TableCell className="text-truncate max-w-[120px]" title={cliente.ciudad}>{cliente.ciudad}</TableCell>
+                                <TableCell className="text-truncate max-w-[120px]" title={cliente.region}>{cliente.region}</TableCell>
+                                <TableCell className="text-truncate max-w-[120px]" title={cliente.sede}>{cliente.sede}</TableCell>
+                                <TableCell>
+                                  <Badge className={getTipoColor(cliente.tipo)}>
+                                    {cliente.tipo}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge className={getEstadoColor(cliente.estado)}>
+                                    {cliente.estado}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  {cliente.tieneSeñalizacion && cliente.signagePhoto && cliente.signagePhoto !== 'No capturada' && cliente.signagePhoto.startsWith('http') ? (
+                                    <div className="flex items-center gap-2">
+                                      <Badge className={getSeñalizacionColor(cliente.tieneSeñalizacion ?? null)}>
+                                        {getSeñalizacionText(cliente.tieneSeñalizacion ?? null)}
+                                      </Badge>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleViewSignagePhoto(cliente)}
+                                        className="h-6 px-2 text-xs"
+                                        title="Ver foto de señalización"
+                                      >
+                                        📷
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Badge className={getSeñalizacionColor(cliente.tieneSeñalizacion ?? null)}>
+                                      {getSeñalizacionText(cliente.tieneSeñalizacion ?? null)}
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <span className={`text-sm ${getColorVisitaEspecifica(cliente.ultimaVisitaMerchandising || null)}`}>
+                                    {formatearFechaVisita(cliente.ultimaVisitaMerchandising || null)}
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <span className={`text-sm ${getColorVisitaEspecifica(cliente.ultimaVisitaTradeImpulso || null)}`}>
+                                    {formatearFechaVisita(cliente.ultimaVisitaTradeImpulso || null)}
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleEditCliente(cliente)}
+                                      disabled={currentUser ? !canAccessSede(currentUser, cliente.sede) : false}
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDelete(cliente.id)}
+                                      className="text-red-600 hover:text-red-700"
+                                      disabled={currentUser ? !canAccessSede(currentUser, cliente.sede) : false}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="mobile-card">
+                      {loading ? (
+                        <div className="text-center py-8">
+                          Cargando clientes...
+                        </div>
+                      ) : filteredClientes.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          No se encontraron clientes
+                        </div>
+                      ) : (
+                        filteredClientes.map((cliente) => (
+                          <div key={cliente.id} className="mobile-card-item">
+                            <div className="mobile-card-header">
+                              <Button
+                                variant="ghost"
+                                className="p-0 h-auto font-medium text-left hover:text-blue-600 hover:bg-transparent"
+                                onClick={() => handleConfigureVisitType(cliente)}
+                                disabled={currentUser ? !canAccessSede(currentUser, cliente.sede) : false}
+                              >
+                                {cliente.nombre}
+                              </Button>
+                            </div>
+
+                            <div className="space-y-2">
+                              <div className="mobile-card-field">
+                                <span className="mobile-card-label">RIF:</span>
+                                <span className="mobile-card-value font-mono text-sm">{cliente.rif || 'N/A'}</span>
+                              </div>
+
+                              <div className="mobile-card-field">
+                                <span className="mobile-card-label">Dirección:</span>
+                                <span className="mobile-card-value text-truncate text-sm max-w-[200px]" title={cliente.direccion}>{cliente.direccion}</span>
+                              </div>
+
+                              <div className="mobile-card-field">
+                                <span className="mobile-card-label">Ciudad:</span>
+                                <span className="mobile-card-value text-sm">{cliente.ciudad}</span>
+                              </div>
+
+                              <div className="mobile-card-field">
+                                <span className="mobile-card-label">Región/Sede:</span>
+                                <span className="mobile-card-value text-sm">{cliente.region} / {cliente.sede}</span>
+                              </div>
+
+                              <div className="mobile-card-field">
+                                <span className="mobile-card-label">Tipo:</span>
+                                <Badge className={getTipoColor(cliente.tipo)} variant="secondary">
                                   {cliente.tipo}
                                 </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Badge className={getEstadoColor(cliente.estado)}>
+                              </div>
+
+                              <div className="mobile-card-field">
+                                <span className="mobile-card-label">Estado:</span>
+                                <Badge className={getEstadoColor(cliente.estado)} variant="secondary">
                                   {cliente.estado}
                                 </Badge>
-                              </TableCell>
-                              <TableCell>
+                              </div>
+
+                              <div className="mobile-card-field">
+                                <span className="mobile-card-label">Señalización:</span>
                                 {cliente.tieneSeñalizacion && cliente.signagePhoto && cliente.signagePhoto !== 'No capturada' && cliente.signagePhoto.startsWith('http') ? (
                                   <div className="flex items-center gap-2">
-                                    <Badge className={getSeñalizacionColor(cliente.tieneSeñalizacion ?? null)}>
+                                    <Badge className={getSeñalizacionColor(cliente.tieneSeñalizacion ?? null)} variant="secondary">
                                       {getSeñalizacionText(cliente.tieneSeñalizacion ?? null)}
                                     </Badge>
                                     <Button
@@ -2214,47 +2336,52 @@ export default function GestionClientesPage() {
                                     </Button>
                                   </div>
                                 ) : (
-                                  <Badge className={getSeñalizacionColor(cliente.tieneSeñalizacion ?? null)}>
+                                  <Badge className={getSeñalizacionColor(cliente.tieneSeñalizacion ?? null)} variant="secondary">
                                     {getSeñalizacionText(cliente.tieneSeñalizacion ?? null)}
                                   </Badge>
                                 )}
-                              </TableCell>
-                              <TableCell>
-                                <span className={`text-sm ${getColorVisitaEspecifica(cliente.ultimaVisitaMerchandising || null)}`}>
+                              </div>
+
+                              <div className="mobile-card-field">
+                                <span className="mobile-card-label">Última Merchandising:</span>
+                                <span className={`text-sm font-medium ${getColorVisitaEspecifica(cliente.ultimaVisitaMerchandising || null)}`}>
                                   {formatearFechaVisita(cliente.ultimaVisitaMerchandising || null)}
                                 </span>
-                              </TableCell>
-                              <TableCell>
-                                <span className={`text-sm ${getColorVisitaEspecifica(cliente.ultimaVisitaTradeImpulso || null)}`}>
+                              </div>
+
+                              <div className="mobile-card-field">
+                                <span className="mobile-card-label">Última Trade-Impulso:</span>
+                                <span className={`text-sm font-medium ${getColorVisitaEspecifica(cliente.ultimaVisitaTradeImpulso || null)}`}>
                                   {formatearFechaVisita(cliente.ultimaVisitaTradeImpulso || null)}
                                 </span>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex gap-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleEditCliente(cliente)}
-                                    disabled={currentUser ? !canAccessSede(currentUser, cliente.sede) : false}
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleDelete(cliente.id)}
-                                    className="text-red-600 hover:text-red-700"
-                                    disabled={currentUser ? !canAccessSede(currentUser, cliente.sede) : false}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
+                              </div>
+                            </div>
+
+                            <div className="mobile-card-actions">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditCliente(cliente)}
+                                disabled={currentUser ? !canAccessSede(currentUser, cliente.sede) : false}
+                              >
+                                <Edit className="w-4 h-4 mr-1" />
+                                Editar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(cliente.id)}
+                                className="text-red-600 hover:text-red-700"
+                                disabled={currentUser ? !canAccessSede(currentUser, cliente.sede) : false}
+                              >
+                                <Trash2 className="w-4 h-4 mr-1" />
+                                Eliminar
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
 
                   {/* Botón para cargar más clientes */}
@@ -2355,7 +2482,7 @@ export default function GestionClientesPage() {
 
       {/* Dialog para crear/editar cliente */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-[85vw] md:max-w-2xl lg:max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {isEditMode ? 'Editar Cliente' : 'Nuevo Cliente'}
@@ -2366,7 +2493,7 @@ export default function GestionClientesPage() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="rif">RIF del Cliente *</Label>
                 <Input
@@ -2972,7 +3099,7 @@ export default function GestionClientesPage() {
 
       {/* Modal para ver foto de señalización */}
       <Dialog open={photoModalOpen} onOpenChange={setPhotoModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               📷 Foto de Señalización - {selectedClienteName}

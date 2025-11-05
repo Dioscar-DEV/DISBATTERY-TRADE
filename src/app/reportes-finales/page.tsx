@@ -14,6 +14,7 @@ import { uploadMultipleImages, uploadOrganizedImages } from '@/services/images';
 import { SyncService } from '@/services/sync'; // Importar nuestro SyncService
 import { doc, updateDoc } from 'firebase/firestore';
 import { getFirestoreClient } from '@/firebase/clientApp';
+import { useOfflineSync } from '@/hooks/useOfflineSync'; // Importar hook de sincronización offline
 
 // 🗜️ FUNCIÓN PARA COMPRIMIR IMÁGENES BASE64
 const comprimirImagenBase64 = (base64String: string, calidad: number = 0.6): Promise<string> => {
@@ -154,6 +155,9 @@ export default function ReportesFinalesPage() {
   const [reporteComentariosAdicionales, setReporteComentariosAdicionales] = useState('');
 
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Hook de sincronización offline
+  useOfflineSync();
 
   // Configurar URL del webhook N8N al inicializar
   useEffect(() => {

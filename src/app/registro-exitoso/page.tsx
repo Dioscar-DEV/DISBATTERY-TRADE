@@ -19,12 +19,16 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { CheckCircle } from 'lucide-react';
+import { useOfflineSync } from '@/hooks/useOfflineSync';
 
 export default function RegistroExitosoPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   const [countdown, setCountdown] = useState(5); // ✅ Contador de 5 segundos
+
+  // Hook de sincronización offline
+  useOfflineSync();
 
   // ✅ LOGGING DETALLADO AL CARGAR LA PÁGINA DE ÉXITO
   useEffect(() => {
@@ -72,7 +76,7 @@ export default function RegistroExitosoPage() {
         if (prev <= 1) {
           console.log('🔄 [REDIRECT] Redirigiendo a /mi-ruta después de countdown');
           clearInterval(timer);
-          router.push('/mi-ruta');
+          safeNavigate('/mi-ruta', 'redirección automática después de countdown');
           return 0;
         }
         console.log(`⏱️ [COUNTDOWN] ${prev - 1} segundos restantes para redirección`);
@@ -87,16 +91,29 @@ export default function RegistroExitosoPage() {
   }, [router]);
 
   const handleRegistrarVisitaMerchandising = () => {
-    router.push('/visit-capture');
+    safeNavigate('/visit-capture', 'botón registrar nueva visita');
   };
 
   const handleRegistrarVisitaTrade = () => {
     console.log('🔄 [REDIRECT] Navegando a /mi-ruta desde botón (sin autocompletado automático)');
-    router.push('/mi-ruta');
+    safeNavigate('/mi-ruta', 'botón ir a mi ruta');
   };
 
   const handleVolverAlInicio = () => {
-    router.push('/');
+    safeNavigate('/', 'botón volver al inicio');
+  };
+
+  // Función helper para navegación segura con fallback
+  const safeNavigate = (path: string, description: string = '') => {
+    try {
+      console.log(`🔄 [NAVIGATION] Navegando a ${path}${description ? ` - ${description}` : ''}...`);
+      router.push(path);
+    } catch (error) {
+      console.error(`❌ [NAVIGATION ERROR] Error navegando a ${path}:`, error);
+      // Fallback para PWA offline
+      console.log(`🔄 [NAVIGATION FALLBACK] Usando window.location.href para ${path}`);
+      window.location.href = path;
+    }
   };
 
   // Configurar listener de autenticación y verificar auto-completación de ruta
