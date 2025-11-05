@@ -9,6 +9,85 @@ import { PermissionChecker } from '@/components/PermissionChecker';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+// Constantes
+const APP_CONFIG = {
+  name: 'Disbattery Trade App',
+  logo: 'https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png',
+  description: 'Aplicación oficial para mercaderistas Disbattery',
+  shareTitle: 'Disbattery Trade App',
+  shareText: '📱 Instala la app de Disbattery para mercaderistas',
+  gradient: 'linear-gradient(to right, #002D72, #D50000)',
+} as const;
+
+const APP_FEATURES = [
+  { icon: Star, text: 'Gestión de rutas y visitas' },
+  { icon: Star, text: 'Captura de fotos y reportes' },
+  { icon: Star, text: 'Sincronización automática' },
+  { icon: Star, text: 'Funciona sin conexión' },
+] as const;
+
+const APP_BADGES = [
+  { icon: Wifi, text: 'Funciona Offline', color: 'text-blue-600' },
+  { icon: Clock, text: 'Sincronización Auto', color: 'text-green-600' },
+  { icon: Smartphone, text: 'Instalable', color: 'text-purple-600' },
+] as const;
+
+const INSTALLATION_INSTRUCTIONS = {
+  chrome: {
+    title: '📱 En Chrome/Edge:',
+    steps: [
+      'Toca el menú (3 puntos)',
+      'Busca "Instalar app" o "Agregar a inicio"',
+      'Toca "Instalar"'
+    ],
+    color: 'blue'
+  },
+  safari: {
+    title: '🍎 En Safari (iPhone):',
+    steps: [
+      'Toca el botón compartir',
+      'Desliza y busca "Agregar a inicio"',
+      'Toca "Agregar"'
+    ],
+    color: 'green'
+  },
+  android: {
+    title: '🤖 En Android:',
+    steps: [
+      'Toca menú del navegador',
+      'Selecciona "Agregar a pantalla de inicio"',
+      'Confirma "Agregar"'
+    ],
+    color: 'purple'
+  }
+} as const;
+
+const router = useRouter();
+
+const UI_TEXTS = {
+  installButton: {
+    canInstall: '📱 INSTALAR APP AHORA',
+    cannotInstall: '📱 INSTALAR EN MI TELÉFONO'
+  },
+  continueButton: {
+    installed: 'Abrir App',
+    notInstalled: 'Usar en Navegador'
+  },
+  shareButton: 'Compartir con Compañeros',
+  tipText: '💡 Tip: Si no ves la opción "Instalar", usa el menú de tu navegador',
+  instructionsTitle: '📱 Cómo Instalar la App',
+  instructionsDescription: 'Sigue estos pasos para instalar Disbattery Trade en tu teléfono',
+  permissionsTitle: 'Configurar Permisos',
+  permissionsDescription: 'Activa los permisos necesarios para usar todas las funciones',
+  backButton: '← Volver',
+  continueUsingApp: 'Continuar Usando la App',
+  continueToApp: 'Continuar a la App',
+  installedMessage: '¡App ya instalada!',
+  installedDescription: 'La aplicación está lista para usar',
+  featuresTitle: '🚀 Características Principales:',
+  instructionsStepByStep: '🔥 INSTRUCCIONES PASO A PASO:',
+} as const;
+
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{
@@ -18,13 +97,11 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
-export default function InstalarPage() {
-  const router = useRouter();
+// Custom Hook para manejar instalación PWA
+const useAppInstallation = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [canInstall, setCanInstall] = useState(false);
-  const [showPermissions, setShowPermissions] = useState(false);
-  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     // Verificar si ya está instalada
@@ -54,12 +131,8 @@ export default function InstalarPage() {
     };
   }, []);
 
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) {
-      // Si no hay prompt automático, mostrar instrucciones
-      setShowInstructions(true);
-      return;
-    }
+  const installApp = async () => {
+    if (!deferredPrompt) return false;
 
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
@@ -67,13 +140,28 @@ export default function InstalarPage() {
     if (outcome === 'accepted') {
       setCanInstall(false);
       setDeferredPrompt(null);
+      return true;
     }
+
+    return false;
   };
 
-  const handleShare = async () => {
+  return {
+    deferredPrompt,
+    isInstalled,
+    canInstall,
+    installApp,
+  };
+};
+
+// Custom Hook para manejar acciones de la app
+const useAppActions = () => {
+  const router = useRouter();
+
+  const shareApp = async () => {
     const shareData = {
-      title: 'Disbattery Trade App',
-      text: '📱 Instala la app de Disbattery para mercaderistas',
+      title: APP_CONFIG.shareTitle,
+      text: APP_CONFIG.shareText,
       url: window.location.origin
     };
 
@@ -93,9 +181,241 @@ export default function InstalarPage() {
     }
   };
 
-  const handleContinue = () => {
+  const navigateToApp = (isInstalled: boolean) => {
     if (isInstalled) {
       router.push('/');
+    }
+  };
+
+  return {
+    shareApp,
+    navigateToApp,
+  };
+};
+
+// Componentes
+interface InstallationInstructionsProps {
+  onBack: () => void;
+  onContinue: () => void;
+}
+
+const InstallationInstructions: React.FC<InstallationInstructionsProps> = ({ onBack, onContinue }) => (
+  <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <Card className="w-full max-w-md shadow-xl">
+      <CardHeader className="text-center">
+        <CardTitle className="text-xl font-bold text-blue-600">
+          {UI_TEXTS.instructionsTitle}
+        </CardTitle>
+        <CardDescription>
+          {UI_TEXTS.instructionsDescription}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Alert>
+          <Download className="h-4 w-4" />
+          <AlertDescription>
+            <strong>{UI_TEXTS.instructionsStepByStep}</strong>
+          </AlertDescription>
+        </Alert>
+
+        <div className="space-y-3 text-sm">
+          {Object.entries(INSTALLATION_INSTRUCTIONS).map(([key, instruction]) => (
+            <div key={key} className={`bg-${instruction.color}-50 p-3 rounded-lg border-l-4 border-${instruction.color}-500`}>
+              <p className="font-bold">{instruction.title}</p>
+              {instruction.steps.map((step, index) => (
+                <p key={index}>{index + 1}. {step}</p>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <Button
+            onClick={onBack}
+            variant="outline"
+            className="w-full"
+          >
+            {UI_TEXTS.backButton}
+          </Button>
+
+          <Button
+            onClick={onContinue}
+            className="w-full"
+            style={{ backgroundImage: APP_CONFIG.gradient }}
+          >
+            {UI_TEXTS.continueUsingApp}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+);
+
+interface PermissionsSetupProps {
+  onBack: () => void;
+  onContinue: () => void;
+}
+
+const PermissionsSetup: React.FC<PermissionsSetupProps> = ({ onBack, onContinue }) => (
+  <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="w-full max-w-md">
+      <div className="text-center mb-6">
+        <Button
+          variant="ghost"
+          onClick={onBack}
+          className="mb-4"
+        >
+          {UI_TEXTS.backButton}
+        </Button>
+        <h1 className="text-2xl font-bold mb-2">{UI_TEXTS.permissionsTitle}</h1>
+        <p className="text-muted-foreground">
+          {UI_TEXTS.permissionsDescription}
+        </p>
+      </div>
+
+      <PermissionChecker
+        onPermissionsReady={() => { }}
+        showCameraCheck={true}
+        showLocationCheck={true}
+      />
+
+      <div className="mt-6 text-center">
+        <Button
+          onClick={onContinue}
+          className="w-full"
+          style={{ backgroundImage: APP_CONFIG.gradient }}
+        >
+          {UI_TEXTS.continueToApp}
+        </Button>
+      </div>
+    </div>
+  </div>
+);
+
+interface MainInstallationScreenProps {
+  isInstalled: boolean;
+  canInstall: boolean;
+  onInstall: () => void;
+  onContinue: () => void;
+  onShare: () => void;
+}
+
+const MainInstallationScreen: React.FC<MainInstallationScreenProps> = ({
+  isInstalled,
+  canInstall,
+  onInstall,
+  onContinue,
+  onShare,
+}) => (
+  <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <Card className="w-full max-w-md shadow-xl">
+      <CardHeader className="text-center pb-4">
+        <div className="mx-auto mb-4">
+          <img
+            src={APP_CONFIG.logo}
+            alt="Disbattery Logo"
+            className="max-h-16 mx-auto"
+          />
+        </div>
+        <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-red-600 bg-clip-text text-transparent">
+          {APP_CONFIG.name}
+        </CardTitle>
+        <CardDescription className="text-center">
+          {APP_CONFIG.description}
+        </CardDescription>
+
+        <div className="flex flex-wrap gap-2 justify-center mt-3">
+          {APP_BADGES.map((badge, index) => (
+            <Badge key={index} variant="secondary" className="text-xs">
+              <badge.icon className="w-3 h-3 mr-1" />
+              {badge.text}
+            </Badge>
+          ))}
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {isInstalled && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-green-700">
+              <CheckCircle className="h-5 w-5" />
+              <span className="font-medium">{UI_TEXTS.installedMessage}</span>
+            </div>
+            <p className="text-sm text-green-600 mt-1">
+              {UI_TEXTS.installedDescription}
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <h3 className="font-semibold text-center">{UI_TEXTS.featuresTitle}</h3>
+          <div className="grid grid-cols-1 gap-2 text-sm">
+            {APP_FEATURES.map((feature, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <feature.icon className="h-4 w-4 text-yellow-500" />
+                <span>{feature.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <Button
+            onClick={onInstall}
+            className="w-full text-lg py-6"
+            style={{ backgroundImage: APP_CONFIG.gradient }}
+          >
+            <Download className="mr-2 h-5 w-5" />
+            {canInstall ? UI_TEXTS.installButton.canInstall : UI_TEXTS.installButton.cannotInstall}
+          </Button>
+
+          <Button
+            onClick={onContinue}
+            variant="outline"
+            className="w-full"
+          >
+            <Smartphone className="mr-2 h-4 w-4" />
+            {isInstalled ? UI_TEXTS.continueButton.installed : UI_TEXTS.continueButton.notInstalled}
+          </Button>
+
+          <Button
+            onClick={onShare}
+            variant="outline"
+            className="w-full"
+          >
+            <Share2 className="mr-2 h-4 w-4" />
+            {UI_TEXTS.shareButton}
+          </Button>
+        </div>
+
+        <div className="text-center pt-4 border-t">
+          <p className="text-xs text-muted-foreground">
+            💡 <strong>Tip:</strong> {UI_TEXTS.tipText}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+);
+
+export default function InstalarPage() {
+  const [showPermissions, setShowPermissions] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
+
+  const { isInstalled, canInstall, installApp } = useAppInstallation();
+  const { shareApp, navigateToApp } = useAppActions();
+
+  const handleInstallClick = async () => {
+    const installed = await installApp();
+    if (!installed) {
+      // Si no hay prompt automático, mostrar instrucciones
+      setShowInstructions(true);
+    }
+  };
+
+  const handleContinue = () => {
+    if (isInstalled) {
+      navigateToApp(true);
     } else {
       setShowPermissions(true);
     }
@@ -103,214 +423,29 @@ export default function InstalarPage() {
 
   if (showInstructions) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl font-bold text-blue-600">
-              📱 Cómo Instalar la App
-            </CardTitle>
-            <CardDescription>
-              Sigue estos pasos para instalar Disbattery Trade en tu teléfono
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert>
-              <Download className="h-4 w-4" />
-              <AlertDescription>
-                <strong>🔥 INSTRUCCIONES PASO A PASO:</strong>
-              </AlertDescription>
-            </Alert>
-
-            <div className="space-y-3 text-sm">
-              <div className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
-                <p className="font-bold">📱 En Chrome/Edge:</p>
-                <p>1. Toca el menú <Menu className="inline h-4 w-4" /> (3 puntos)</p>
-                <p>2. Busca "Instalar app" o "Agregar a inicio"</p>
-                <p>3. Toca "Instalar"</p>
-              </div>
-
-              <div className="bg-green-50 p-3 rounded-lg border-l-4 border-green-500">
-                <p className="font-bold">🍎 En Safari (iPhone):</p>
-                <p>1. Toca el botón <Share2 className="inline h-4 w-4" /> compartir</p>
-                <p>2. Desliza y busca "Agregar a inicio"</p>
-                <p>3. Toca "Agregar"</p>
-              </div>
-
-              <div className="bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
-                <p className="font-bold">🤖 En Android:</p>
-                <p>1. Toca <Menu className="inline h-4 w-4" /> menú del navegador</p>
-                <p>2. Selecciona "Agregar a pantalla de inicio"</p>
-                <p>3. Confirma "Agregar"</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Button
-                onClick={() => setShowInstructions(false)}
-                variant="outline"
-                className="w-full"
-              >
-                ← Volver
-              </Button>
-
-              <Button
-                onClick={() => router.push('/')}
-                className="w-full"
-                style={{ backgroundImage: 'linear-gradient(to right, #002D72, #D50000)' }}
-              >
-                Continuar Usando la App
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <InstallationInstructions
+        onBack={() => setShowInstructions(false)}
+        onContinue={() => router.push('/')}
+      />
     );
   }
 
   if (showPermissions) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-6">
-            <Button
-              variant="ghost"
-              onClick={() => setShowPermissions(false)}
-              className="mb-4"
-            >
-              ← Volver
-            </Button>
-            <h1 className="text-2xl font-bold mb-2">Configurar Permisos</h1>
-            <p className="text-muted-foreground">
-              Activa los permisos necesarios para usar todas las funciones
-            </p>
-          </div>
-
-          <PermissionChecker
-            onPermissionsReady={() => { }}
-            showCameraCheck={true}
-            showLocationCheck={true}
-          />
-
-          <div className="mt-6 text-center">
-            <Button
-              onClick={() => router.push('/')}
-              className="w-full"
-              style={{ backgroundImage: 'linear-gradient(to right, #002D72, #D50000)' }}
-            >
-              Continuar a la App
-            </Button>
-          </div>
-        </div>
-      </div>
+      <PermissionsSetup
+        onBack={() => setShowPermissions(false)}
+        onContinue={() => router.push('/')}
+      />
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="text-center pb-4">
-          <div className="mx-auto mb-4">
-            <img
-              src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png"
-              alt="Disbattery Logo"
-              className="max-h-16 mx-auto"
-            />
-          </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-red-600 bg-clip-text text-transparent">
-            Disbattery Trade App
-          </CardTitle>
-          <CardDescription className="text-center">
-            Aplicación oficial para mercaderistas Disbattery
-          </CardDescription>
-
-          <div className="flex flex-wrap gap-2 justify-center mt-3">
-            <Badge variant="secondary" className="text-xs">
-              <Wifi className="w-3 h-3 mr-1" />
-              Funciona Offline
-            </Badge>
-            <Badge variant="secondary" className="text-xs">
-              <Clock className="w-3 h-3 mr-1" />
-              Sincronización Auto
-            </Badge>
-            <Badge variant="secondary" className="text-xs">
-              <Smartphone className="w-3 h-3 mr-1" />
-              Instalable
-            </Badge>
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          {isInstalled && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-green-700">
-                <CheckCircle className="h-5 w-5" />
-                <span className="font-medium">¡App ya instalada!</span>
-              </div>
-              <p className="text-sm text-green-600 mt-1">
-                La aplicación está lista para usar
-              </p>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <h3 className="font-semibold text-center">🚀 Características Principales:</h3>
-            <div className="grid grid-cols-1 gap-2 text-sm">
-              <div className="flex items-center gap-2">
-                <Star className="h-4 w-4 text-yellow-500" />
-                <span>Gestión de rutas y visitas</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Star className="h-4 w-4 text-yellow-500" />
-                <span>Captura de fotos y reportes</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Star className="h-4 w-4 text-yellow-500" />
-                <span>Sincronización automática</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Star className="h-4 w-4 text-yellow-500" />
-                <span>Funciona sin conexión</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {/* BOTÓN DE INSTALACIÓN SIEMPRE VISIBLE */}
-            <Button
-              onClick={handleInstallClick}
-              className="w-full text-lg py-6"
-              style={{ backgroundImage: 'linear-gradient(to right, #002D72, #D50000)' }}
-            >
-              <Download className="mr-2 h-5 w-5" />
-              {canInstall ? '📱 INSTALAR APP AHORA' : '📱 INSTALAR EN MI TELÉFONO'}
-            </Button>
-
-            <Button
-              onClick={handleContinue}
-              variant="outline"
-              className="w-full"
-            >
-              <Smartphone className="mr-2 h-4 w-4" />
-              {isInstalled ? 'Abrir App' : 'Usar en Navegador'}
-            </Button>
-
-            <Button
-              onClick={handleShare}
-              variant="outline"
-              className="w-full"
-            >
-              <Share2 className="mr-2 h-4 w-4" />
-              Compartir con Compañeros
-            </Button>
-          </div>
-
-          <div className="text-center pt-4 border-t">
-            <p className="text-xs text-muted-foreground">
-              💡 <strong>Tip:</strong> Si no ves la opción "Instalar", usa el menú de tu navegador
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <MainInstallationScreen
+      isInstalled={isInstalled}
+      canInstall={canInstall}
+      onInstall={handleInstallClick}
+      onContinue={handleContinue}
+      onShare={shareApp}
+    />
   );
-} 
+}
