@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Camera, Trash } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { offlineManager } from '@/services/offlineManager';
 
 interface AficheColocado {
   tipo: string;
@@ -341,28 +342,49 @@ export default function QualidMerchandising() {
       datosAcumulados.qualidMerchandising = datosQualid;
       console.log('✅ [QUALID] Datos de Qualid agregados al objeto acumulado');
 
-      // ✅ GUARDAR DE NUEVO EN LOCALSTORAGE CON VALIDACIÓN
-      try {
-        const datosSerializados = JSON.stringify(datosAcumulados);
-        localStorage.setItem('datosFormularioCompleto', datosSerializados);
-        console.log('✅ [QUALID] Datos guardados en localStorage exitosamente');
-        console.log('📊 [QUALID] Tamaño de datos guardados:', datosSerializados.length, 'caracteres');
-      } catch (storageError: any) {
-        console.error('❌ [QUALID] Error guardando en localStorage:', storageError);
-        throw new Error(`Error de almacenamiento: ${storageError?.message || 'Error desconocido'}`);
+      // Verificar si estamos offline y usar offlineManager
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        console.log('🔄 Modo Offline: Guardando con offlineManager...');
+        
+        const saveResult = await offlineManager.saveVisita(datosAcumulados);
+        
+        if (saveResult.success) {
+          console.log('✅ Datos guardados offline exitosamente:', saveResult.visitaId);
+          
+          toast({
+            title: 'Datos Guardados Offline',
+            description: 'Los datos se sincronizarán automáticamente cuando haya conexión.',
+          });
+
+          // Redirigir a página de éxito
+          router.push('/registro-exitoso');
+        } else {
+          throw new Error(saveResult.error || 'Error guardando offline');
+        }
+      } else {
+        // Modo online: continuar con el flujo normal
+        try {
+          const datosSerializados = JSON.stringify(datosAcumulados);
+          localStorage.setItem('datosFormularioCompleto', datosSerializados);
+          console.log('✅ [QUALID] Datos guardados en localStorage exitosamente');
+          console.log('📊 [QUALID] Tamaño de datos guardados:', datosSerializados.length, 'caracteres');
+        } catch (storageError: any) {
+          console.error('❌ [QUALID] Error guardando en localStorage:', storageError);
+          throw new Error(`Error de almacenamiento: ${storageError?.message || 'Error desconocido'}`);
+        }
+
+        console.log('=== ✅ DATOS DE QUALID MERCHANDISING GUARDADOS EXITOSAMENTE ===');
+        console.log('📋 Datos finales guardados:', datosAcumulados);
+
+        toast({
+          title: 'Datos de Qualid Guardados',
+          description: 'Progreso guardado. Continuando con el formulario...',
+        });
+
+        // ✅ NAVEGACIÓN CON DELAY PARA ASEGURAR QUE EL GUARDADO SE COMPLETE
+        console.log('🔄 [QUALID] Navegando a ventas-productos...');
+        router.push('/ventas-productos');
       }
-
-      console.log('=== ✅ DATOS DE QUALID MERCHANDISING GUARDADOS EXITOSAMENTE ===');
-      console.log('📋 Datos finales guardados:', datosAcumulados);
-
-      toast({
-        title: 'Datos de Qualid Guardados',
-        description: 'Progreso guardado. Continuando con el formulario...',
-      });
-
-      // ✅ NAVEGACIÓN CON DELAY PARA ASEGURAR QUE EL GUARDADO SE COMPLETE
-      console.log('🔄 [QUALID] Navegando a ventas-productos...');
-      router.push('/ventas-productos');
 
     } catch (error: any) {
       console.error('❌ [QUALID] ERROR COMPLETO guardando datos:', error);

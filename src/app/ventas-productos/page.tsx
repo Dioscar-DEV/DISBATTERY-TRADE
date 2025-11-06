@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { offlineManager } from '@/services/offlineManager';
 
 export default function VentasProductosPage() {
   const router = useRouter();
@@ -106,16 +107,37 @@ export default function VentasProductosPage() {
         timestamp: new Date().toISOString()
       };
 
-      // Guardar en localStorage
-      localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosCompletos));
+      // Verificar si estamos offline y usar offlineManager
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        console.log('🔄 Modo Offline: Guardando con offlineManager...');
+        
+        const saveResult = await offlineManager.saveVisita(datosCompletos);
+        
+        if (saveResult.success) {
+          console.log('✅ Datos guardados offline exitosamente:', saveResult.visitaId);
+          
+          toast({
+            title: 'Datos Guardados Offline',
+            description: 'Los datos se sincronizarán automáticamente cuando haya conexión.',
+          });
 
-      toast({
-        title: 'Datos de Ventas Guardados',
-        description: 'Continuando a reportes finales...',
-      });
+          // Redirigir a página de éxito
+          router.push('/registro-exitoso');
+        } else {
+          throw new Error(saveResult.error || 'Error guardando offline');
+        }
+      } else {
+        // Modo online: continuar con el flujo normal
+        localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosCompletos));
 
-      // Navegar a reportes finales
-      router.push('/reportes-finales');
+        toast({
+          title: 'Datos de Ventas Guardados',
+          description: 'Continuando a reportes finales...',
+        });
+
+        // Navegar a reportes finales
+        router.push('/reportes-finales');
+      }
 
     } catch (error) {
       console.error('Error guardando ventas:', error);

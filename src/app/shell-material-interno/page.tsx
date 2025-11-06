@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Camera, Trash } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { offlineManager } from '@/services/offlineManager';
 
 const AFICHES_SHELL_TYPES: string[] = [
   'AFICHES CAMPAÑA FERRARI 2023',
@@ -233,7 +234,7 @@ export default function ShellMaterialInternoPage() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validaciones (puedes agregar más según sea necesario)
     if (tieneExhibidores === '') {
       toast({
@@ -304,19 +305,40 @@ export default function ShellMaterialInternoPage() {
       // Agregar los nuevos datos
       datosAcumulados.shellMaterialInterno = datosMaterialInterno;
 
-      // Guardar de nuevo en localStorage
-      localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosAcumulados));
+      // Verificar si estamos offline y usar offlineManager
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        console.log('🔄 Modo Offline: Guardando con offlineManager...');
+        
+        const saveResult = await offlineManager.saveVisita(datosAcumulados);
+        
+        if (saveResult.success) {
+          console.log('✅ Datos guardados offline exitosamente:', saveResult.visitaId);
+          
+          toast({
+            title: 'Datos Guardados Offline',
+            description: 'Los datos se sincronizarán automáticamente cuando haya conexión.',
+          });
 
-      console.log('=== DATOS DE MATERIAL INTERNO GUARDADOS ===');
-      console.log(datosAcumulados);
+          // Redirigir a página de éxito
+          router.push('/registro-exitoso');
+        } else {
+          throw new Error(saveResult.error || 'Error guardando offline');
+        }
+      } else {
+        // Modo online: continuar con el flujo normal
+        localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosAcumulados));
 
-      toast({
-        title: 'Datos de Material Interno Guardados',
-        description: 'Progreso guardado. Continuando con el formulario...',
-      });
+        console.log('=== DATOS DE MATERIAL INTERNO GUARDADOS ===');
+        console.log(datosAcumulados);
 
-      // Flujo simplificado - continuar con Qualid merchandising
-      router.push('/qualid-merchandising');
+        toast({
+          title: 'Datos de Material Interno Guardados',
+          description: 'Progreso guardado. Continuando con el formulario...',
+        });
+
+        // Flujo simplificado - continuar con Qualid merchandising
+        router.push('/qualid-merchandising');
+      }
 
     } catch (error) {
       console.error('Error guardando datos de material interno:', error);

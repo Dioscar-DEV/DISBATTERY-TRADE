@@ -16,22 +16,47 @@ class OfflineDataManager {
     try {
       console.log("🔄 [OfflineDataManager] Inicializando sistema offline...");
 
-      // Limpiar bases de datos conflictivas
-      //await this.cleanupConflictingDatabases();
+      // Intentar inicializar la base de datos
+      let success = await initializeOfflineDB();
+      
+      // Si falla por error de versión, limpiar y reintentar
+      if (!success) {
+        console.log("⚠️ [OfflineDataManager] Fallo inicial, limpiando bases de datos conflictivas...");
+        await this.cleanupConflictingDatabases();
+        
+        // Reintentar después de limpiar
+        success = await initializeOfflineDB();
+      }
 
-      // Inicializar nueva base de datos
-      const success = await initializeOfflineDB();
       if (success) {
         this.isInitialized = true;
         console.log(
           "✅ [OfflineDataManager] Sistema offline inicializado correctamente"
         );
         return true;
+      } else {
+        console.warn("⚠️ [OfflineDataManager] No se pudo inicializar IndexedDB, continuando sin funcionalidad offline completa");
+        return false;
       }
-
-      throw new Error("Failed to initialize IndexedDB");
     } catch (error) {
       console.error("❌ [OfflineDataManager] Error inicializando:", error);
+      
+      // Si es un error de versión, intentar limpiar y reintentar una vez más
+      if (error instanceof Error && error.name === 'VersionError') {
+        console.log("🔄 [OfflineDataManager] Error de versión detectado, intentando limpieza y reintento...");
+        try {
+          await this.cleanupConflictingDatabases();
+          const retrySuccess = await initializeOfflineDB();
+          if (retrySuccess) {
+            this.isInitialized = true;
+            console.log("✅ [OfflineDataManager] Sistema offline inicializado después del reintento");
+            return true;
+          }
+        } catch (retryError) {
+          console.error("❌ [OfflineDataManager] Error en reintento:", retryError);
+        }
+      }
+      
       return false;
     }
   }
@@ -46,6 +71,7 @@ class OfflineDataManager {
       // Lista completa de posibles bases de datos conflictivas
       const dbNames = [
         "DisbatteryOfflineDB",
+        "DisbatteryOfflineDB_v3", // Agregar la versión actual
         "RouteOfflineDB",
         "VisitOfflineDB",
         "ClientOfflineDB",

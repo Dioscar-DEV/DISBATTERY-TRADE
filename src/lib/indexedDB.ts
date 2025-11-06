@@ -297,6 +297,28 @@ export async function initializeOfflineDB() {
     return true;
   } catch (error) {
     console.error("Error initializing offline database:", error);
+    
+    // Si es un error de versión, intentar limpiar y reinicializar
+    if (error instanceof Error && (error.name === 'VersionError' || error.message.includes('version'))) {
+      console.log("🔄 Detected version conflict, attempting to resolve...");
+      try {
+        // Cerrar la conexión actual
+        db.close();
+        
+        // Eliminar la base de datos problemática
+        await Dexie.delete("DisbatteryOfflineDB_v3");
+        
+        // Intentar abrir nuevamente
+        await db.open();
+        
+        console.log("✅ Database recreated successfully after version conflict");
+        return true;
+      } catch (retryError) {
+        console.error("❌ Failed to resolve version conflict:", retryError);
+        return false;
+      }
+    }
+    
     return false;
   }
 }

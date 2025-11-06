@@ -11,10 +11,11 @@ import { crearVisita, setN8NWebhookURL } from '@/services/visitas';
 import { RespuestasTrade } from '@/types/visitas';
 import { getCurrentUser, getUserFromStorage } from '@/services/auth';
 import { uploadMultipleImages, uploadOrganizedImages } from '@/services/images';
-import { SyncService } from '@/services/sync'; // Importar nuestro SyncService
 import { doc, updateDoc } from 'firebase/firestore';
 import { getFirestoreClient } from '@/firebase/clientApp';
 import { useOfflineSync } from '@/hooks/useOfflineSync'; // Importar hook de sincronización offline
+import { offlineManager } from '@/services/offlineManager';
+import SaveProgressDialog from '@/components/SaveProgressDialog'; // Importar hook de sincronización offline
 
 // 🗜️ FUNCIÓN PARA COMPRIMIR IMÁGENES BASE64
 const comprimirImagenBase64 = (base64String: string, calidad: number = 0.6): Promise<string> => {
@@ -155,6 +156,8 @@ export default function ReportesFinalesPage() {
   const [reporteComentariosAdicionales, setReporteComentariosAdicionales] = useState('');
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [visitaDataToSave, setVisitaDataToSave] = useState<any>(null);
 
   // Hook de sincronización offline
   useOfflineSync();
@@ -163,6 +166,29 @@ export default function ReportesFinalesPage() {
   useEffect(() => {
     setN8NWebhookURL('https://n8n.con-visas.com/webhook/Disbattery-Trade-app');
   }, []);
+
+  const handleSaveComplete = (success: boolean, visitaId?: string) => {
+    setShowSaveDialog(false);
+    setVisitaDataToSave(null);
+
+    if (success) {
+      toast({
+        title: '✅ Visita Guardada',
+        description: visitaId 
+          ? `Visita guardada exitosamente (ID: ${visitaId})`
+          : 'Visita guardada exitosamente',
+      });
+
+      // Navegar a la página de éxito
+      router.push('/registro-exitoso');
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Error al Guardar',
+        description: 'Hubo un problema guardando la visita. Intente nuevamente.',
+      });
+    }
+  };
 
   const handleGuardarYContinuar = async () => {
     //
@@ -190,47 +216,51 @@ export default function ReportesFinalesPage() {
         datosAcumulados.reporteQualidFaltante = reporteQualidFaltante;
         datosAcumulados.reporteComentariosAdicionales = reporteComentariosAdicionales;
 
-        // Llamar a nuestro SyncService para guardar en IndexedDB
-        await SyncService.saveVisitaOffline(datosAcumulados);
+        // Agregar información del mercaderista si no existe
+        let currentUser = await getCurrentUser();
+        if (!currentUser) {
+          currentUser = getUserFromStorage();
+        }
 
-        // ✅ MARCAR EL PUNTO COMO COMPLETADO EN LOCALSTORAGE (MODO OFFLINE)
-        let puntoIdOffline = null;
+        if (!datosAcumulados.mercaderista) {
+          datosAcumulados.mercaderista = currentUser?.fullName || 'Usuario App';
+        }
+        if (!datosAcumulados.correoMercaderista) {
+          datosAcumulados.correoMercaderista = currentUser?.email || '';
+        }
+        if (!datosAcumulados.mercaderistoId) {
+          datosAcumulados.mercaderistoId = currentUser?.uid || '';
+        }
 
-        // Para eventos, usar eventId si existe
-        if (datosAcumulados.clienteData?.isEvent && datosAcumulados.clienteData?.eventId) {
-          puntoIdOffline = datosAcumulados.clienteData.eventId;
-          console.log(`🎯 [OFFLINE] Evento detectado - usando eventId: ${puntoIdOffline}`);
-
-          // ✅ ACTUALIZAR STATUS EN FIRESTORE PARA EVENTOS (si hay conexión)
-          if (navigator.onLine) {
-            actualizarStatusEventoEnFirestore(puntoIdOffline);
-          } else {
-            console.log('📱 [OFFLINE] Status del evento se actualizará cuando haya conexión');
+        // Usar el offlineManager para guardar los datos
+        const saveResult = await offlineManager.saveVisita(datosAcumulados);
+        
+        if (saveResult.success) {
+          console.log('✅ Datos guardados offline exitosamente:', saveResult.visitaId);
+          
+          // Marcar punto como completado
+          const puntoId = datosAcumulados.clienteData?.id || datosAcumulados.clienteData?.rif;
+          if (puntoId) {
+            const puntosCompletados = JSON.parse(localStorage.getItem('puntosCompletados') || '[]');
+            if (!puntosCompletados.includes(puntoId)) {
+              puntosCompletados.push(puntoId);
+              localStorage.setItem('puntosCompletados', JSON.stringify(puntosCompletados));
+            }
           }
-        }
-        // Para clientes regulares, usar id o pointId
-        else if (datosAcumulados.clienteData?.id) {
-          puntoIdOffline = datosAcumulados.clienteData.id;
-          console.log(`👤 [OFFLINE] Cliente regular detectado - usando ID: ${puntoIdOffline}`);
-        }
 
-        if (puntoIdOffline) {
-          marcarPuntoComoCompletado(puntoIdOffline);
+          // Limpiar datos temporales
+          localStorage.removeItem('datosFormularioCompleto');
+          
+          toast({
+            title: 'Guardado Offline Exitoso',
+            description: `Visita guardada localmente. Se sincronizará automáticamente cuando haya conexión.`,
+          });
+
+          // Redirigir a página de éxito
+          router.push('/registro-exitoso');
         } else {
-          console.warn('⚠️ [OFFLINE] No se encontró un ID válido para marcar el punto como completado.');
+          throw new Error(saveResult.error || 'Error guardando offline');
         }
-
-        // Limpiar localStorage
-        localStorage.removeItem('clienteData');
-        localStorage.removeItem('datosFormularioCompleto');
-
-        toast({
-          title: '✅ Reporte Guardado Offline',
-          description: 'Los datos se han guardado en su dispositivo y se enviarán automáticamente cuando recupere la conexión.',
-        });
-
-        // Navegar a la página de éxito
-        router.push('/registro-exitoso');
 
       } catch (error) {
         console.error('Error guardando el reporte offline:', error);
@@ -265,6 +295,11 @@ export default function ReportesFinalesPage() {
         return;
       }
 
+      // Agregar los reportes finales a los datos acumulados
+      datosAcumulados.reporteShellFaltante = reporteShellFaltante;
+      datosAcumulados.reporteQualidFaltante = reporteQualidFaltante;
+      datosAcumulados.reporteComentariosAdicionales = reporteComentariosAdicionales;
+
       const cliente = datosAcumulados.clienteData;
 
       // Obtener datos del usuario logueado
@@ -273,8 +308,26 @@ export default function ReportesFinalesPage() {
         currentUser = getUserFromStorage();
       }
 
-      const mercaderista = datosAcumulados.mercaderista || currentUser?.fullName || 'Usuario App';
-      const correoMercaderista = datosAcumulados.correoMercaderista || currentUser?.email || '';
+      // Agregar información del mercaderista si no existe
+      if (!datosAcumulados.mercaderista) {
+        datosAcumulados.mercaderista = currentUser?.fullName || 'Usuario App';
+      }
+      if (!datosAcumulados.correoMercaderista) {
+        datosAcumulados.correoMercaderista = currentUser?.email || '';
+      }
+      if (!datosAcumulados.mercaderistoId) {
+        datosAcumulados.mercaderistoId = currentUser?.uid || '';
+      }
+
+      const mercaderista = datosAcumulados.mercaderista;
+      const correoMercaderista = datosAcumulados.correoMercaderista;
+
+      
+      console.log('🚀 [ReportesFinales] Usando nuevo sistema mejorado para modo online...');
+      setVisitaDataToSave(datosAcumulados);
+      setShowSaveDialog(true);
+      setIsSyncing(false);
+      
 
       // Preparar datos de ventas para las observaciones
       const ventasData: string[] = [];
@@ -1366,16 +1419,17 @@ export default function ReportesFinalesPage() {
   };
 
   return (
-    <div
-      className="flex flex-col items-center justify-center min-h-screen p-4"
-      style={{
-        backgroundImage: 'url("https://storage.googleapis.com/iandai/imagenes/Dise%C3%B1o%20sin%20t%C3%ADtulo%20(51).png")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }}
-    >
-      <Card className="w-full max-w-md">
+    <>
+      <div
+        className="flex flex-col items-center justify-center min-h-screen p-4"
+        style={{
+          backgroundImage: 'url("https://storage.googleapis.com/iandai/imagenes/Dise%C3%B1o%20sin%20t%C3%ADtulo%20(51).png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle>
             <span
@@ -1478,7 +1532,16 @@ export default function ReportesFinalesPage() {
             {isSyncing ? 'Guardando...' : 'Guardar Reportes y Finalizar Visita'}
           </Button>
         </CardFooter>
-      </Card>
-    </div>
+        </Card>
+      </div>
+
+      {/* Diálogo de progreso de guardado mejorado */}
+      <SaveProgressDialog
+        isOpen={showSaveDialog}
+        onClose={() => setShowSaveDialog(false)}
+        onComplete={handleSaveComplete}
+        visitaData={visitaDataToSave}
+      />
+    </>
   );
 }

@@ -20,6 +20,7 @@ import { getCurrentUser, getUserFromStorage } from '@/services/auth';
 import { uploadMultipleImages } from '@/services/images';
 import { useVisitDraft } from '@/hooks/useVisitDraft';
 import { offlineQueue } from '@/services/offlineQueue';
+import { offlineManager } from '@/services/offlineManager';
 
 export default function ObservacionesPage() {
   // Borrador offline por punto de ruta (valores seguros iniciales)

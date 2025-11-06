@@ -4,6 +4,7 @@ import { offlineDataManager } from "@/services/offlineDataManager";
 import { offlineQueue } from "@/services/offlineQueue";
 import { solicitarAlmacenamientoPersistente } from "./offline"; // Importar nuestra nueva función
 import { serviceWorkerManager } from "@/services/serviceWorkerManager";
+import { robustOfflineInitializer } from "@/services/robustOfflineInit";
 
 // Función para inicializar todos los servicios offline
 export async function initializeOfflineServices() {
@@ -13,18 +14,20 @@ export async function initializeOfflineServices() {
     // 1. Solicitar almacenamiento persistente como primer paso
     await solicitarAlmacenamientoPersistente();
 
-    // 2. Inicializar sistema offline unificado
-    const dbInitialized = await offlineDataManager.initialize();
-    if (!dbInitialized) {
-      throw new Error("Failed to initialize offline data manager");
+    // 2. Inicializar sistema offline robusto
+    const initResult = await robustOfflineInitializer.initialize();
+    if (initResult.success) {
+      console.log(`✅ Sistema offline inicializado - IndexedDB: ${initResult.indexedDBAvailable}, Fallback: ${initResult.fallbackAvailable}`);
+    } else {
+      console.warn("⚠️ [OfflineInit] Sistema offline con funcionalidad limitada:", initResult.errors);
     }
-    console.log("✅ Offline data manager initialized and migrated");
 
     // 3. Registrar Service Worker a través del manager para evitar registros duplicados
+    let swRegistered = false;
     if (typeof (window as Window) !== "undefined" && "serviceWorker" in navigator) {
       try {
-        const registered = await serviceWorkerManager.initialize();
-        if (registered) {
+        swRegistered = await serviceWorkerManager.initialize();
+        if (swRegistered) {
           console.log("✅ Service Worker registrado vía serviceWorkerManager");
 
           // Escuchar actualizaciones mediante navigator.serviceWorker.getRegistration
@@ -55,26 +58,36 @@ export async function initializeOfflineServices() {
           error
         );
       }
+      
       // Registrar handler para que el Service Worker pueda solicitar que la
-      // aplicación procese la cola offline.
-      serviceWorkerManager.onMessage("SYNC_TRIGGER", async (data: any) => {
+      // aplicación procese la cola offline (solo si el SW está activo)
+      if (swRegistered) {
         try {
-          console.log("🔔 [OfflineInit] SW requested sync trigger:", data);
-          const result = await offlineQueue.processQueue();
-          console.log("🔄 [OfflineInit] Queue processed result:", result);
-          // Enviar resultado al SW si es necesario
-          try {
-            await serviceWorkerManager.sendMessage("SYNC_COMPLETE", result);
-          } catch (sendErr) {
-            console.warn("⚠️ No se pudo enviar resultado al SW:", sendErr);
-          }
-        } catch (err) {
-          console.error(
-            "❌ Error processing offline queue after SW trigger:",
-            err
-          );
+          serviceWorkerManager.onMessage("SYNC_TRIGGER", async (data: any) => {
+            try {
+              console.log("🔔 [OfflineInit] SW requested sync trigger:", data);
+              const result = await offlineQueue.processQueue();
+              console.log("🔄 [OfflineInit] Queue processed result:", result);
+              // Enviar resultado al SW si es necesario (con timeout corto)
+              try {
+                await Promise.race([
+                  serviceWorkerManager.sendMessage("SYNC_COMPLETE", result),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error("SW message timeout")), 3000))
+                ]);
+              } catch (sendErr) {
+                console.warn("⚠️ No se pudo enviar resultado al SW:", sendErr);
+              }
+            } catch (err) {
+              console.error(
+                "❌ Error processing offline queue after SW trigger:",
+                err
+              );
+            }
+          });
+        } catch (handlerError) {
+          console.warn("⚠️ No se pudo configurar handler de SW:", handlerError);
         }
-      });
+      }
     }
 
     // 4. Configurar listeners de conectividad
@@ -143,14 +156,38 @@ function setupAutoSync() {
   };
 }
 
+// Variable para controlar sincronización en progreso
+let syncInProgress = false;
+let lastSyncTime = 0;
+const MIN_SYNC_INTERVAL = 30000; // 30 segundos mínimo entre sincronizaciones
+
 // Función para activar sincronización automática
 async function triggerAutoSync() {
+  const now = Date.now();
+  
+  // Evitar múltiples sincronizaciones simultáneas
+  if (syncInProgress) {
+    console.log("⏭️ [OfflineInit] Sincronización ya en progreso, omitiendo...");
+    return;
+  }
+
+  // Evitar sincronizaciones muy frecuentes
+  if (now - lastSyncTime < MIN_SYNC_INTERVAL) {
+    console.log("⏭️ [OfflineInit] Sincronización reciente, omitiendo...");
+    return;
+  }
+
   try {
-    // Esta función se implementará en el servicio de sincronización
-    console.log("🔄 Auto sync triggered");
-    await offlineQueue.processQueue();
+    syncInProgress = true;
+    lastSyncTime = now;
+    console.log("🔄 [OfflineInit] Auto sync triggered");
+    
+    const result = await offlineQueue.processQueue();
+    console.log(`✅ [OfflineInit] Auto sync completado: ${result.processed} procesadas, ${result.errors} errores`);
   } catch (error) {
-    console.error("Error during auto sync:", error);
+    console.error("❌ [OfflineInit] Error during auto sync:", error);
+  } finally {
+    syncInProgress = false;
   }
 }
 

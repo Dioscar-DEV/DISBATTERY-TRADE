@@ -26,6 +26,7 @@ import { Visita, VisitaMerchandising } from '@/types/visitas';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { offlineManager } from '@/services/offlineManager';
 
 // Interfaz extendida para cliente con información de señalización y visitas específicas
 interface ClienteConSeñalizacion extends Cliente {
@@ -750,22 +751,54 @@ export default function GestionClientesPage() {
         gpsRequiredInField: !selectedPosition // Marcar si necesita GPS en campo
       };
 
-      if (currentCliente) {
-        // Actualizar cliente existente
-        const clienteRef = doc(getFirestoreClient(), 'clientes', currentCliente.id);
-        await updateDoc(clienteRef, {
-          ...clienteData,
-          updatedAt: new Date()
-        });
+      // Verificar si estamos offline y usar offlineManager
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        console.log('🔄 Modo Offline: Guardando cliente con offlineManager...');
+        
+        const clienteOfflineData = {
+          tipoVisita: 'Admin - Gestión Cliente',
+          accion: currentCliente ? 'actualizar' : 'crear',
+          clienteData: clienteData,
+          clienteId: currentCliente?.id,
+          timestamp: new Date().toISOString()
+        };
+
+        const saveResult = await offlineManager.saveVisita(clienteOfflineData);
+        
+        if (saveResult.success) {
+          console.log('✅ Cliente guardado offline exitosamente:', saveResult.visitaId);
+          
+          toast({
+            title: 'Cliente Guardado Offline',
+            description: 'Los datos se sincronizarán automáticamente cuando haya conexión.',
+          });
+
+          setIsDialogOpen(false);
+          setCurrentCliente(null);
+          resetForm();
+        } else {
+          throw new Error(saveResult.error || 'Error guardando cliente offline');
+        }
       } else {
-        // Crear nuevo cliente
-        await addDoc(collection(getFirestoreClient(), 'clientes'), clienteData);
+        // Modo online: operación normal
+        if (currentCliente) {
+          // Actualizar cliente existente
+          const clienteRef = doc(getFirestoreClient(), 'clientes', currentCliente.id);
+          await updateDoc(clienteRef, {
+            ...clienteData,
+            updatedAt: new Date()
+          });
+        } else {
+          // Crear nuevo cliente
+          await addDoc(collection(getFirestoreClient(), 'clientes'), clienteData);
+        }
+
+        setIsDialogOpen(false);
+        setCurrentCliente(null);
+        resetForm();
+        loadClientes();
       }
 
-      setIsDialogOpen(false);
-      setCurrentCliente(null);
-      resetForm();
-      loadClientes();
     } catch (error) {
       console.error('Error guardando cliente:', error);
       alert('Error al guardar el cliente');

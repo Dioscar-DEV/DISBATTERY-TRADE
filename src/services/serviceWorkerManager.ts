@@ -140,23 +140,57 @@ class ServiceWorkerManager {
    */
   async sendMessage(type: string, data?: any): Promise<any> {
     if (!this.registration?.active) {
-      throw new Error("Service Worker no está activo");
+      console.warn("⚠️ [ServiceWorkerManager] Service Worker no está activo, omitiendo mensaje");
+      return { success: false, error: "Service Worker no activo" };
     }
 
     return new Promise((resolve, reject) => {
       const messageChannel = new MessageChannel();
+      let timeoutCleared = false;
+      
+      // Timeout para evitar que se cuelgue indefinidamente
+      const timeout = setTimeout(() => {
+        if (!timeoutCleared) {
+          timeoutCleared = true;
+          console.warn("⚠️ [ServiceWorkerManager] Timeout del Service Worker, continuando sin respuesta");
+          resolve({ success: false, error: "Timeout" }); // Resolver en lugar de rechazar
+        }
+      }, 3000); // 3 segundos para mejor UX
 
       messageChannel.port1.onmessage = (event) => {
-        if (event.data.success) {
-          resolve(event.data);
-        } else {
-          reject(new Error(event.data.error || "Error en Service Worker"));
+        if (!timeoutCleared) {
+          timeoutCleared = true;
+          clearTimeout(timeout);
+          if (event.data.success) {
+            resolve(event.data);
+          } else {
+            resolve({ success: false, error: event.data.error || "Error en Service Worker" });
+          }
         }
       };
 
-      this.registration!.active!.postMessage({ type, data }, [
-        messageChannel.port2,
-      ]);
+      // Manejar errores de conexión del puerto
+      messageChannel.port1.onmessageerror = () => {
+        if (!timeoutCleared) {
+          timeoutCleared = true;
+          clearTimeout(timeout);
+          console.warn("⚠️ [ServiceWorkerManager] Error de comunicación con Service Worker");
+          resolve({ success: false, error: "Error de comunicación" });
+        }
+      };
+
+      try {
+        this.registration!.active!.postMessage({ type, data }, [
+          messageChannel.port2,
+        ]);
+      } catch (error) {
+        if (!timeoutCleared) {
+          timeoutCleared = true;
+          clearTimeout(timeout);
+          console.warn("⚠️ [ServiceWorkerManager] Error enviando mensaje:", error);
+          resolve({ success: false, error: `Error enviando mensaje: ${error}` });
+        }
+      }
     });
   }
 
@@ -169,10 +203,33 @@ class ServiceWorkerManager {
       return false;
     }
 
+    // Esperar a que el Service Worker esté activo
+    if (!this.registration?.active) {
+      console.log("⏳ [SWManager] Esperando a que Service Worker esté activo...");
+      
+      // Esperar hasta 5 segundos para que el SW esté activo
+      for (let i = 0; i < 50; i++) {
+        if (this.registration?.active) {
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      if (!this.registration?.active) {
+        console.warn("⚠️ [SWManager] Service Worker no se activó en el tiempo esperado");
+        return false;
+      }
+    }
+
     try {
-      await this.sendMessage("REGISTER_SYNC");
-      console.log("✅ [SWManager] Background sync registrado");
-      return true;
+      const result = await this.sendMessage("REGISTER_SYNC");
+      if (result.success) {
+        console.log("✅ [SWManager] Background sync registrado");
+        return true;
+      } else {
+        console.warn("⚠️ [SWManager] Background sync no pudo ser registrado:", result.error);
+        return false;
+      }
     } catch (error) {
       console.error("❌ [SWManager] Error registrando background sync:", error);
       return false;

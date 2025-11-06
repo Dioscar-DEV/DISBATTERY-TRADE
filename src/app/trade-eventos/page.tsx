@@ -22,6 +22,7 @@ import { setN8NWebhookURL } from '@/services/visitas';
 import { RespuestasTrade } from '@/types/visitas';
 import { getCurrentUser, getUserFromStorage } from '@/services/auth';
 import { getGPSLocation, GPSCoordinates } from '@/services/gpsService';
+import { offlineManager } from '@/services/offlineManager';
 
 
 interface RecursoUsado {
@@ -623,19 +624,40 @@ export default function TradeEventosPage() {
       console.log('🔍 tradeEventoData.videosEvento:', tradeEventoData.videosEvento.length, 'videos');
       console.log('🛰️ tradeEventoData.gpsCoordinates:', tradeEventoData.gpsCoordinates);
 
-      // Guardar en localStorage para usar después
-      localStorage.setItem('datosFormularioCompleto', JSON.stringify(tradeEventoData));
+      // Verificar si estamos offline y usar offlineManager
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        console.log('🔄 Modo Offline: Guardando con offlineManager...');
+        
+        const saveResult = await offlineManager.saveVisita(tradeEventoData);
+        
+        if (saveResult.success) {
+          console.log('✅ Datos guardados offline exitosamente:', saveResult.visitaId);
+          
+          toast({
+            title: 'Datos Guardados Offline',
+            description: 'Los datos se sincronizarán automáticamente cuando haya conexión.',
+          });
 
-      console.log('=== DATOS TRADE EVENTO GUARDADOS LOCALMENTE ===');
-      console.log('Datos guardados:', tradeEventoData);
+          // Redirigir a página de éxito
+          router.push('/registro-exitoso');
+        } else {
+          throw new Error(saveResult.error || 'Error guardando offline');
+        }
+      } else {
+        // Modo online: guardar en localStorage para reportes finales
+        localStorage.setItem('datosFormularioCompleto', JSON.stringify(tradeEventoData));
 
-      toast({
-        title: 'Datos Guardados',
-        description: 'Continuando a reportes finales...',
-      });
+        console.log('=== DATOS TRADE EVENTO GUARDADOS LOCALMENTE ===');
+        console.log('Datos guardados:', tradeEventoData);
 
-      // Ir directamente a reportes finales (sin ventas)
-      router.push('/reportes-finales');
+        toast({
+          title: 'Datos Guardados',
+          description: 'Continuando a reportes finales...',
+        });
+
+        // Ir directamente a reportes finales (sin ventas)
+        router.push('/reportes-finales');
+      }
 
     } catch (error) {
       console.log('=== ERROR GUARDANDO DATOS TRADE EVENTO ===');

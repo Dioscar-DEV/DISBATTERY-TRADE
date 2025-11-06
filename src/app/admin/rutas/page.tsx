@@ -25,6 +25,7 @@ import { getCurrentUserWithPermissions, UserData, UserPermissions, canAccessSede
 import { sendNotificationToUsers } from '@/services/notifications';
 import { sendNuevaRutaEmail } from '@/services/emailNotifications';
 import { PlusCircle, Loader2, Filter, UserCircle, Search, MapPin, Trash2, Edit3, AlertCircle, ChevronUp, ChevronDown, ArrowLeft } from 'lucide-react';
+import { offlineManager } from '@/services/offlineManager';
 
 // Coordenadas por sede para centrar el mapa
 const SEDE_COORDINATES: Record<string, { lat: number; lng: number; zoom: number }> = {
@@ -790,27 +791,61 @@ export default function RutasPage() {
         createdBy: 'admin' // Por ahora hardcodeado
       };
 
-      // Guardar en Firestore
-      const docRef = await addDoc(collection(getFirestoreClient(), 'routes'), routeData);
+      // Verificar si estamos offline y usar offlineManager
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        console.log('🔄 Modo Offline: Guardando ruta con offlineManager...');
+        
+        const rutaOfflineData = {
+          tipoVisita: 'Admin - Gestión Ruta',
+          accion: 'crear',
+          routeData: routeData,
+          timestamp: new Date().toISOString()
+        };
 
-      // ✅ MEJORA: Guardar también en localStorage para uso offline
-      const routeWithId = {
-        ...routeData,
-        id: docRef.id
-      };
+        const saveResult = await offlineManager.saveVisita(rutaOfflineData);
+        
+        if (saveResult.success) {
+          console.log('✅ Ruta guardada offline exitosamente:', saveResult.visitaId);
+          
+          toast({
+            title: 'Ruta Guardada Offline',
+            description: 'La ruta se sincronizará automáticamente cuando haya conexión.',
+          });
 
-      // Guardar en localStorage bajo la clave que usa el merchandiser
-      const savedRoutes = localStorage.getItem('todaysRoutesOffline');
-      let existingRoutes = [];
-      if (savedRoutes) {
-        existingRoutes = JSON.parse(savedRoutes);
+          // Limpiar formulario
+          setNewRoute({
+            mercaderista: '',
+            mercaderistoId: '',
+            date: format(new Date(), 'yyyy-MM-dd'),
+            points: []
+          });
+          setIsDialogOpen(false);
+        } else {
+          throw new Error(saveResult.error || 'Error guardando ruta offline');
+        }
+      } else {
+        // Modo online: operación normal
+        const docRef = await addDoc(collection(getFirestoreClient(), 'routes'), routeData);
+
+        // ✅ MEJORA: Guardar también en localStorage para uso offline
+        const routeWithId = {
+          ...routeData,
+          id: docRef.id
+        };
+
+        // Guardar en localStorage bajo la clave que usa el merchandiser
+        const savedRoutes = localStorage.getItem('todaysRoutesOffline');
+        let existingRoutes = [];
+        if (savedRoutes) {
+          existingRoutes = JSON.parse(savedRoutes);
+        }
+
+        // Agregar la nueva ruta a las existentes
+        existingRoutes.push(routeWithId);
+        localStorage.setItem('todaysRoutesOffline', JSON.stringify(existingRoutes));
+
+        console.log('💾 Ruta guardada en localStorage para uso offline:', routeWithId);
       }
-
-      // Agregar la nueva ruta a las existentes
-      existingRoutes.push(routeWithId);
-      localStorage.setItem('todaysRoutesOffline', JSON.stringify(existingRoutes));
-
-      console.log('💾 Ruta guardada en localStorage para uso offline:', routeWithId);
 
       // 🔔 Enviar notificación al mercaderista
       try {
@@ -1218,26 +1253,58 @@ export default function RutasPage() {
         createdBy: currentUser?.email || 'admin'
       };
 
-      if (isEditingEvent && selectedEvento) {
-        // Actualizar evento existente
-        await updateDoc(doc(getFirestoreClient(), 'eventos', selectedEvento.id), eventoData);
-        toast({
-          title: 'Evento Actualizado',
-          description: `El evento "${newEvent.nombreEvento}" ha sido actualizado exitosamente.`,
-        });
-      } else {
-        // Crear nuevo evento
-        await addDoc(collection(getFirestoreClient(), 'eventos'), eventoData);
-        toast({
-          title: 'Evento Creado',
-          description: `El evento "${newEvent.nombreEvento}" ha sido creado exitosamente.`,
-        });
-      }
+      // Verificar si estamos offline y usar offlineManager
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        console.log('🔄 Modo Offline: Guardando evento con offlineManager...');
+        
+        const eventoOfflineData = {
+          tipoVisita: 'Admin - Gestión Evento',
+          accion: isEditingEvent ? 'actualizar' : 'crear',
+          eventoData: eventoData,
+          eventoId: isEditingEvent ? selectedEvento?.id : undefined,
+          timestamp: new Date().toISOString()
+        };
 
-      resetNewEvent();
-      setIsEventDialogOpen(false);
-      setIsEditingEvent(false);
-      setSelectedEvento(null);
+        const saveResult = await offlineManager.saveVisita(eventoOfflineData);
+        
+        if (saveResult.success) {
+          console.log('✅ Evento guardado offline exitosamente:', saveResult.visitaId);
+          
+          toast({
+            title: 'Evento Guardado Offline',
+            description: 'El evento se sincronizará automáticamente cuando haya conexión.',
+          });
+
+          resetNewEvent();
+          setIsEventDialogOpen(false);
+          setIsEditingEvent(false);
+          setSelectedEvento(null);
+        } else {
+          throw new Error(saveResult.error || 'Error guardando evento offline');
+        }
+      } else {
+        // Modo online: operación normal
+        if (isEditingEvent && selectedEvento) {
+          // Actualizar evento existente
+          await updateDoc(doc(getFirestoreClient(), 'eventos', selectedEvento.id), eventoData);
+          toast({
+            title: 'Evento Actualizado',
+            description: `El evento "${newEvent.nombreEvento}" ha sido actualizado exitosamente.`,
+          });
+        } else {
+          // Crear nuevo evento
+          await addDoc(collection(getFirestoreClient(), 'eventos'), eventoData);
+          toast({
+            title: 'Evento Creado',
+            description: `El evento "${newEvent.nombreEvento}" ha sido creado exitosamente.`,
+          });
+        }
+
+        resetNewEvent();
+        setIsEventDialogOpen(false);
+        setIsEditingEvent(false);
+        setSelectedEvento(null);
+      }
 
     } catch (error) {
       console.error("Error saving event:", error);

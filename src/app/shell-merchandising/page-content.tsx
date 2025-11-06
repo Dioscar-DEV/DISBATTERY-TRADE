@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { crearVisita, setN8NWebhookURL } from '@/services/visitas';
 import { RespuestasMerchandising } from '@/types/visitas';
+import { offlineManager } from '@/services/offlineManager';
 
 export function ShellMerchandisingPage() {
   // Configurar URL del webhook N8N al inicializar
@@ -376,30 +377,52 @@ export function ShellMerchandisingPage() {
       datosAcumulados.cliente = clienteRobusto;
       datosAcumulados.clienteData = clienteRobusto;
 
-      localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosAcumulados));
+      // Verificar si estamos offline y usar offlineManager
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        console.log('🔄 Modo Offline: Guardando con offlineManager...');
+        
+        const saveResult = await offlineManager.saveVisita(datosAcumulados);
+        
+        if (saveResult.success) {
+          console.log('✅ Datos guardados offline exitosamente:', saveResult.visitaId);
+          
+          toast({
+            title: 'Datos Guardados Offline',
+            description: 'Los datos se sincronizarán automáticamente cuando haya conexión.',
+          });
 
-      console.log('🚩🚩🚩 === DEBUGGING SEÑALIZACIÓN EN SHELL-MERCHANDISING ===');
-      console.log('🚩 cliente.hasSignage (original):', cliente.hasSignage);
-      console.log('🚩 cliente.signagePhoto (original):', cliente.signagePhoto ? 'FOTO PRESENTE' : 'NO FOTO');
-      console.log('🚩 clienteRobusto.hasSignage:', clienteRobusto.hasSignage);
-      console.log('🚩 clienteRobusto.signagePhoto:', clienteRobusto.signagePhoto ? 'FOTO PRESENTE' : 'NO FOTO');
-      console.log('🚩 datosAcumulados.cliente.hasSignage:', datosAcumulados.cliente.hasSignage);
-      console.log('🚩 datosAcumulados.clienteData.hasSignage:', datosAcumulados.clienteData.hasSignage);
+          // Redirigir a página de éxito
+          router.push('/registro-exitoso');
+        } else {
+          throw new Error(saveResult.error || 'Error guardando offline');
+        }
+      } else {
+        // Modo online: continuar con el flujo normal
+        localStorage.setItem('datosFormularioCompleto', JSON.stringify(datosAcumulados));
 
-      console.log('=== DATOS ACUMULADOS EXITOSAMENTE ===');
-      console.log('Datos guardados en localStorage:', datosAcumulados);
+        console.log('🚩🚩🚩 === DEBUGGING SEÑALIZACIÓN EN SHELL-MERCHANDISING ===');
+        console.log('🚩 cliente.hasSignage (original):', cliente.hasSignage);
+        console.log('🚩 cliente.signagePhoto (original):', cliente.signagePhoto ? 'FOTO PRESENTE' : 'NO FOTO');
+        console.log('🚩 clienteRobusto.hasSignage:', clienteRobusto.hasSignage);
+        console.log('🚩 clienteRobusto.signagePhoto:', clienteRobusto.signagePhoto ? 'FOTO PRESENTE' : 'NO FOTO');
+        console.log('🚩 datosAcumulados.cliente.hasSignage:', datosAcumulados.cliente.hasSignage);
+        console.log('🚩 datosAcumulados.clienteData.hasSignage:', datosAcumulados.clienteData.hasSignage);
 
-      // 📝 LIMPIAR DEBUG LOG DESPUÉS DE PROCESAR
-      localStorage.removeItem('debugSignageFlow');
-      console.log('📝 Debug log limpiado después de procesar datos');
+        console.log('=== DATOS ACUMULADOS EXITOSAMENTE ===');
+        console.log('Datos guardados en localStorage:', datosAcumulados);
 
-      toast({
-        title: 'Datos Shell guardados',
-        description: 'Progreso guardado. Continuando con el formulario...',
-      });
+        // 📝 LIMPIAR DEBUG LOG DESPUÉS DE PROCESAR
+        localStorage.removeItem('debugSignageFlow');
+        console.log('📝 Debug log limpiado después de procesar datos');
 
-      // Flujo simplificado - continuar con Shell Material Interno
-      router.push('/shell-material-interno');
+        toast({
+          title: 'Datos Shell guardados',
+          description: 'Progreso guardado. Continuando con el formulario...',
+        });
+
+        // Flujo simplificado - continuar con Shell Material Interno
+        router.push('/shell-material-interno');
+      }
 
     } catch (error) {
       console.log('=== ERROR ACUMULANDO DATOS ===');

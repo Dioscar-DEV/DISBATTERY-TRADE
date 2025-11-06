@@ -214,9 +214,9 @@ export default function OfflineStatusManager({
             <Zap className="w-4 h-4 text-gray-500" />
             <span className="text-sm">Service Worker:</span>
             <Badge variant="outline" className={
-              isServiceWorkerReady ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+              isServiceWorkerReady ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
             }>
-              {isServiceWorkerReady ? 'Activo' : 'Inactivo'}
+              {isServiceWorkerReady ? 'Activo' : 'Inicializando...'}
             </Badge>
           </div>
         </div>

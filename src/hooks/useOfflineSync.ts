@@ -6,6 +6,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { serviceWorkerManager } from "@/services/serviceWorkerManager";
 import { syncService } from "@/services/syncService";
 import { offlineService } from "@/services/offlineService";
+import { robustOfflineInitializer } from "@/services/robustOfflineInit";
+import { fallbackStorage } from "@/services/fallbackStorage";
 
 interface OfflineSyncState {
   isOnline: boolean;
@@ -38,14 +40,30 @@ export function useOfflineSync() {
    */
   const updateSyncStatus = useCallback(async () => {
     try {
-      const syncStatus = await offlineService.getSyncStatus();
+      // Intentar obtener de offlineService primero
+      let pendingCount = 0;
+      let lastSync: Date | undefined;
+
+      try {
+        const syncStatus = await offlineService.getSyncStatus();
+        pendingCount += syncStatus.pendingVisitas;
+        if (syncStatus.lastPartialSync) {
+          lastSync = new Date(syncStatus.lastPartialSync);
+        }
+      } catch (offlineServiceError) {
+        console.warn("⚠️ [useOfflineSync] Error accediendo a offlineService:", offlineServiceError);
+      }
+
+      // También verificar fallback storage
+      if (fallbackStorage.isAvailable()) {
+        const fallbackStats = fallbackStorage.getStats();
+        pendingCount += fallbackStats.pending;
+      }
 
       setState((prev) => ({
         ...prev,
-        pendingVisitas: syncStatus.pendingVisitas,
-        lastSyncAttempt: syncStatus.lastPartialSync
-          ? new Date(syncStatus.lastPartialSync)
-          : undefined,
+        pendingVisitas: pendingCount,
+        lastSyncAttempt: lastSync,
       }));
     } catch (error) {
       console.error("❌ Error actualizando estado de sync:", error);
@@ -53,18 +71,49 @@ export function useOfflineSync() {
   }, []);
 
   /**
-   * Inicializa el Service Worker y la sincronización automática
+   * Inicializa el sistema offline robusto y Service Worker
    */
   const initializeServiceWorker = useCallback(async () => {
-    try {
-      console.log("🔧 [useOfflineSync] Inicializando Service Worker...");
+    // Verificar si estamos en un entorno que soporta Service Workers
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      console.log("ℹ️ [useOfflineSync] Service Workers no disponibles en este entorno");
+      return;
+    }
 
+    // En desarrollo, ser más tolerante con errores
+    const isDevelopment = process.env.NODE_ENV === 'development';
+
+    try {
+      console.log("🔧 [useOfflineSync] Inicializando sistema offline robusto...");
+
+      // Primero inicializar el sistema offline robusto
+      const initResult = await robustOfflineInitializer.initialize();
+      if (initResult.success) {
+        console.log(`✅ [useOfflineSync] Sistema offline inicializado - IndexedDB: ${initResult.indexedDBAvailable}, Fallback: ${initResult.fallbackAvailable}`);
+      } else {
+        console.warn("⚠️ [useOfflineSync] Sistema offline con funcionalidad limitada:", initResult.errors);
+      }
+
+      // Luego inicializar Service Worker
       const success = await serviceWorkerManager.initialize();
       if (success) {
         setState((prev) => ({ ...prev, isServiceWorkerReady: true }));
 
-        // Registrar background sync
-        await serviceWorkerManager.registerBackgroundSync();
+        // Registrar background sync (con manejo de errores mejorado)
+        try {
+          const syncRegistered = await serviceWorkerManager.registerBackgroundSync();
+          if (syncRegistered) {
+            console.log("✅ [useOfflineSync] Background sync configurado");
+          } else {
+            console.warn("⚠️ [useOfflineSync] Background sync no pudo ser configurado, pero el SW está activo");
+          }
+        } catch (syncError) {
+          if (isDevelopment) {
+            console.warn("⚠️ [useOfflineSync] Background sync falló en desarrollo:", syncError);
+          } else {
+            console.error("❌ [useOfflineSync] Error configurando background sync:", syncError);
+          }
+        }
 
         // Configurar listeners de mensajes del Service Worker
         serviceWorkerManager.onMessage("sync-complete", (data) => {
@@ -79,15 +128,20 @@ export function useOfflineSync() {
           "✅ [useOfflineSync] Service Worker configurado exitosamente"
         );
       } else {
-        console.warn(
-          "⚠️ [useOfflineSync] Service Worker no pudo ser inicializado"
-        );
+        const message = "⚠️ [useOfflineSync] Service Worker no pudo ser inicializado";
+        if (isDevelopment) {
+          console.warn(message + " (normal en desarrollo)");
+        } else {
+          console.warn(message);
+        }
       }
     } catch (error) {
-      console.error(
-        "❌ [useOfflineSync] Error inicializando Service Worker:",
-        error
-      );
+      const message = "❌ [useOfflineSync] Error inicializando sistema offline:";
+      if (isDevelopment) {
+        console.warn(message, error, "(normal en desarrollo)");
+      } else {
+        console.error(message, error);
+      }
     }
   }, [updateSyncStatus]);
 
@@ -218,6 +272,22 @@ export function useOfflineSync() {
     }
   }, [state.isServiceWorkerReady, updateSyncStatus]);
 
+  /**
+   * Obtiene el estado del sistema offline robusto
+   */
+  const getOfflineSystemStatus = useCallback(async () => {
+    try {
+      return await robustOfflineInitializer.getStatus();
+    } catch (error) {
+      console.error("❌ [useOfflineSync] Error obteniendo estado del sistema:", error);
+      return {
+        indexedDB: false,
+        localStorage: fallbackStorage.isAvailable(),
+        canSaveOffline: fallbackStorage.isAvailable()
+      };
+    }
+  }, []);
+
   // Efectos
   useEffect(() => {
     // Inicializar Service Worker
@@ -257,6 +327,7 @@ export function useOfflineSync() {
     triggerSync,
     forceSyncThroughSW,
     updateSyncStatus,
+    getOfflineSystemStatus,
 
     // Utilidades
     hasServiceWorker: state.isServiceWorkerReady,

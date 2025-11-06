@@ -2,6 +2,7 @@ import { db, type PendingOperation, type OfflineImage } from "@/lib/indexedDB";
 import { uploadImageToStorage, generateFileName } from "@/services/images";
 import { addDoc, collection, doc, updateDoc } from "firebase/firestore";
 import { getFirestoreClient } from "@/firebase/clientApp";
+import { databaseRecovery } from "@/services/databaseRecovery";
 
 type PendingType = PendingOperation["type"];
 
@@ -84,12 +85,13 @@ export async function processQueue(): Promise<{
   processed: number;
   errors: number;
 }> {
-  const pending = await db.pendingOps
-    .where("status")
-    .equals("pending")
-    .sortBy("createdAt");
-  let processed = 0;
-  let errors = 0;
+  const result = await databaseRecovery.executeWithRecovery(async () => {
+    const pending = await db.pendingOps
+      .where("status")
+      .equals("pending")
+      .sortBy("createdAt");
+    let processed = 0;
+    let errors = 0;
 
   for (const op of pending) {
     try {
@@ -193,6 +195,10 @@ export async function processQueue(): Promise<{
   }
 
   return { processed, errors };
+  });
+
+  // Si el resultado es null (error de recuperación), devolver valores por defecto
+  return result || { processed: 0, errors: 1 };
 }
 
 export const offlineQueue = {

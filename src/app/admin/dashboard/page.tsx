@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { Users, ListChecks, BarChart3, MapPinned, UserCircle, ArrowLeft, Menu } from 'lucide-react';
 import { getCurrentUserWithPermissions, UserData, UserPermissions } from '@/services/auth';
 import { LogoutButton } from '@/components/LogoutButton';
+import OfflineStatusManager from '@/components/OfflineStatusManager';
 
 // Constants
 const COLORS = {
@@ -337,6 +338,11 @@ export default function AdminDashboardPage() {
 
             <CardContent className="p-6">
               <FeatureGrid features={availableFeatures} currentUser={currentUser} userPermissions={userPermissions} />
+
+              {/* Panel de gestión offline para administradores */}
+              <div className="mt-8">
+                <OfflineStatusManager />
+              </div>
 
               {userPermissions?.isAdminMaster && <AdminMasterInfo />}
             </CardContent>

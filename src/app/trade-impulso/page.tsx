@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { setN8NWebhookURL } from '@/services/visitas';
 import { RespuestasTrade } from '@/types/visitas';
 import { getCurrentUser, getUserFromStorage } from '@/services/auth';
+import { offlineManager } from '@/services/offlineManager';
 
 interface RecursoUsado {
   tipo: string;
@@ -505,22 +506,43 @@ export default function TradeImpulsoPage() {
       console.log('🔍 tradeImpulsoData.fotoImpulsoQualid existe:', !!tradeImpulsoData.fotoImpulsoQualid);
       console.log('🔍 tradeImpulsoData.fotoPromotorasQualid existe:', !!tradeImpulsoData.fotoPromotorasQualid);
 
-      // Guardar en localStorage para usar después
-      localStorage.setItem('datosFormularioCompleto', JSON.stringify(tradeImpulsoData));
+      // Verificar si estamos offline y usar offlineManager
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        console.log('🔄 Modo Offline: Guardando con offlineManager...');
+        
+        const saveResult = await offlineManager.saveVisita(tradeImpulsoData);
+        
+        if (saveResult.success) {
+          console.log('✅ Datos guardados offline exitosamente:', saveResult.visitaId);
+          
+          toast({
+            title: 'Datos Guardados Offline',
+            description: 'Los datos se sincronizarán automáticamente cuando haya conexión.',
+          });
 
-      console.log('=== DATOS TRADE IMPULSO GUARDADOS LOCALMENTE ===');
-      console.log('Datos guardados:', tradeImpulsoData);
-
-      toast({
-        title: 'Datos Guardados',
-        description: 'Continuando a reportes finales...',
-      });
-
-      // Navegar a ventas detalladas si hay ventas, sino a reportes finales
-      if (huboVentasShell === true || huboVentasQualid === true) {
-        router.push('/ventas-productos');
+          // Redirigir a página de éxito
+          router.push('/registro-exitoso');
+        } else {
+          throw new Error(saveResult.error || 'Error guardando offline');
+        }
       } else {
-        router.push('/reportes-finales');
+        // Modo online: guardar en localStorage para continuar flujo
+        localStorage.setItem('datosFormularioCompleto', JSON.stringify(tradeImpulsoData));
+
+        console.log('=== DATOS TRADE IMPULSO GUARDADOS LOCALMENTE ===');
+        console.log('Datos guardados:', tradeImpulsoData);
+
+        toast({
+          title: 'Datos Guardados',
+          description: 'Continuando a reportes finales...',
+        });
+
+        // Navegar a ventas detalladas si hay ventas, sino a reportes finales
+        if (huboVentasShell === true || huboVentasQualid === true) {
+          router.push('/ventas-productos');
+        } else {
+          router.push('/reportes-finales');
+        }
       }
 
     } catch (error) {

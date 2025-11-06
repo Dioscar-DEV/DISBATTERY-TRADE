@@ -11,6 +11,8 @@ import { ChunkErrorHandler } from '@/components/ChunkErrorHandler';
 import { PermissionInitializer } from '@/components/PermissionInitializer';
 import { PrimeReactProvider } from '@/components/PrimeReactProvider';
 import { PostHogProvider } from './providers';
+import OfflineInitializer from '@/components/OfflineInitializer';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
 
 const montserrat = Montserrat({
   variable: '--font-montserrat',
@@ -120,9 +122,11 @@ export default function RootLayout({
           <PostHogProvider>
             <PermissionInitializer /> {/* Inicializador automático de permisos */}
             <ChunkErrorHandler /> {/* Maneja errores de chunks automáticamente */}
+            <OfflineInitializer /> {/* Inicializador automático de servicios offline */}
             <PWAInstallBanner /> {/* Banner de instalación PWA persistente */}
             <AnalyticsInitializer /> {/* Inicializador de Google Analytics */}
             <UserStatusChecker /> {/* Verificador de status de usuario en tiempo real */}
+            <OfflineIndicator /> {/* Indicador visual de estado offline */}
             {children}
             <Toaster /> {/* Added Toaster component here */}
           </PostHogProvider>

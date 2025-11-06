@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { PermissionChecker } from '@/components/PermissionChecker';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { offlineManager } from '@/services/offlineManager';
 
 function SignageCaptureContent() {
   const router = useRouter();
@@ -187,7 +188,7 @@ function SignageCaptureContent() {
     }
   };
 
-  const handleNextPage = () => {
+  const handleNextPage = async () => {
     if (hasSignage === '') {
       toast({
         variant: 'destructive',
@@ -265,6 +266,36 @@ function SignageCaptureContent() {
     console.log('🚩 signagePhoto:', signagePhoto ? 'FOTO CAPTURADA' : 'NO FOTO');
     console.log('🚩 clienteData.hasSignage:', clienteData.hasSignage);
     console.log('🚩 clienteData.signagePhoto:', clienteData.signagePhoto ? 'FOTO EN clienteData' : 'NO FOTO EN clienteData');
+
+    // Verificar si estamos offline y necesitamos guardar datos de señalización
+    if (typeof window !== 'undefined' && !navigator.onLine && hasSignage === 'Yes' && signagePhoto) {
+      console.log('🔄 Modo Offline: Guardando datos de señalización con offlineManager...');
+      
+      try {
+        // Crear datos mínimos para señalización offline
+        const signageData = {
+          tipoVisita: 'Signage Capture',
+          clienteData: clienteData,
+          hasSignage: true,
+          signagePhoto: signagePhoto,
+          timestamp: new Date().toISOString()
+        };
+
+        const saveResult = await offlineManager.saveVisita(signageData);
+        
+        if (saveResult.success) {
+          console.log('✅ Datos de señalización guardados offline:', saveResult.visitaId);
+          
+          toast({
+            title: 'Señalización Guardada Offline',
+            description: 'Los datos se sincronizarán automáticamente cuando haya conexión.',
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ Error guardando señalización offline:', error);
+        // Continuar con el flujo normal aunque falle el guardado offline
+      }
+    }
 
     localStorage.setItem('clienteData', JSON.stringify(clienteData));
 

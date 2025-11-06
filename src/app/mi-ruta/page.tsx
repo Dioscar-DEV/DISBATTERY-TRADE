@@ -48,6 +48,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PrepareOfflineButton } from '@/components/PrepareOfflineButton';
+import OfflineStatusManager from '@/components/OfflineStatusManager';
 import { LogoutButton } from '@/components/LogoutButton';
 
 // Icons
@@ -1783,7 +1785,7 @@ export default function MyRoutePage() {
                   </CardDescription>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-right space-y-2">
                 <div className="text-sm text-blue-100">
                   {userData?.sede && (
                     <p>📍 {userData.sede}</p>
@@ -1792,6 +1794,8 @@ export default function MyRoutePage() {
                     <p>🗺️ {userData.region}</p>
                   )}
                 </div>
+                {/* 🆕 Botón para preparar datos offline */}
+                <PrepareOfflineButton />
               </div>
             </div>
           </CardHeader>
@@ -1849,6 +1853,11 @@ export default function MyRoutePage() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Estado offline compacto */}
+                      <div className="border-t pt-4">
+                        <OfflineStatusManager compact className="w-full" />
+                      </div>
                     </>
                   ) : (
                     <div className="text-center py-6">
@@ -1857,12 +1866,20 @@ export default function MyRoutePage() {
                       <p className="text-xs text-gray-500">
                         Aún no tienes visitas registradas. ¡Comienza tu primera visita para ver tus métricas!
                       </p>
+                      {/* Estado offline compacto para usuarios sin datos */}
+                      <div className="mt-4">
+                        <OfflineStatusManager compact className="w-full" />
+                      </div>
                     </div>
                   )
                 ) : (
                   <div className="space-y-2">
                     <Skeleton className="h-12 w-full" />
                     <Skeleton className="h-12 w-full" />
+                    {/* Estado offline compacto durante carga */}
+                    <div className="pt-2 border-t">
+                      <OfflineStatusManager compact className="w-full" />
+                    </div>
                   </div>
                 )}
               </CardContent>

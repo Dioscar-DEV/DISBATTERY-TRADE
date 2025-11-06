@@ -47,6 +47,7 @@ import { collection, addDoc, getDocs, doc, deleteDoc, query, orderBy, setDoc, ge
 import { Region, Sede, SEDES_DATA, getSedesByRegion, getCitiesBySede } from '@/types/routes';
 import { UserData } from '@/services/auth';
 import { LogoutButton } from '@/components/LogoutButton';
+import { offlineManager } from '@/services/offlineManager';
 import { obtenerUltimasVisitasUsuarios } from '@/services/visitas';
 import { Visita } from '@/types/visitas';
 import { getCurrentUserWithPermissions, UserPermissions, canAccessSede, isAdminMaster as isUserAdminMaster, ADMIN_MASTER_EMAILS } from '@/services/auth';
@@ -485,34 +486,64 @@ function UserManagementPageContent() {
           approvedBy: null
         };
 
-        await setDoc(doc(getFirestoreClient(), 'users', uid), userData);
-        console.log('✅ Usuario guardado en Firestore con status pending_approval');
+        // Verificar si estamos offline y usar offlineManager
+        if (typeof window !== 'undefined' && !navigator.onLine) {
+          console.log('🔄 Modo Offline: Guardando usuario con offlineManager...');
+          
+          const userOfflineData = {
+            tipoVisita: 'Admin - Gestión Usuario',
+            accion: 'crear',
+            userData: userData,
+            userId: uid,
+            timestamp: new Date().toISOString()
+          };
 
-        // Enviar email de aprobación a AdminMaster
-        const emailData = {
-          usuario_nombre: data.fullName,
-          usuario_email: data.email,
-          usuario_rol: data.role,
-          usuario_telefono: data.phone,
-          usuario_ciudad: data.city,
-          admin_creador: currentUser.fullName,
-          fecha_solicitud: new Date().toLocaleDateString('es-VE'),
-          sede: sedeHeredada,
-          user_id: uid // ✅ Usar UID real de Firebase Auth
-        };
+          const saveResult = await offlineManager.saveVisita(userOfflineData);
+          
+          if (saveResult.success) {
+            console.log('✅ Usuario guardado offline exitosamente:', saveResult.visitaId);
+            
+            toast({
+              title: 'Usuario Guardado Offline',
+              description: 'Los datos se sincronizarán automáticamente cuando haya conexión.',
+            });
 
-        sendNuevoUsuarioAprobacionEmail(emailData).catch(error => {
-          console.error('Error enviando email de aprobación:', error);
-        });
+            resetForm();
+            setIsDialogOpen(false);
+          } else {
+            throw new Error(saveResult.error || 'Error guardando usuario offline');
+          }
+        } else {
+          // Modo online: operación normal
+          await setDoc(doc(getFirestoreClient(), 'users', uid), userData);
+          console.log('✅ Usuario guardado en Firestore con status pending_approval');
 
-        toast({
-          title: "Usuario creado - Pendiente aprobación",
-          description: `Usuario ${data.fullName} creado. Pendiente de aprobación por AdminMaster.`,
-        });
+          // Enviar email de aprobación a AdminMaster
+          const emailData = {
+            usuario_nombre: data.fullName,
+            usuario_email: data.email,
+            usuario_rol: data.role,
+            usuario_telefono: data.phone,
+            usuario_ciudad: data.city,
+            admin_creador: currentUser.fullName,
+            fecha_solicitud: new Date().toLocaleDateString('es-VE'),
+            sede: sedeHeredada,
+            user_id: uid // ✅ Usar UID real de Firebase Auth
+          };
 
-        resetForm();
-        setIsDialogOpen(false);
-        loadUsers();
+          sendNuevoUsuarioAprobacionEmail(emailData).catch(error => {
+            console.error('Error enviando email de aprobación:', error);
+          });
+
+          toast({
+            title: "Usuario creado - Pendiente aprobación",
+            description: `Usuario ${data.fullName} creado. Pendiente de aprobación por AdminMaster.`,
+          });
+
+          resetForm();
+          setIsDialogOpen(false);
+          loadUsers();
+        }
       }
 
     } catch (error: any) {
@@ -555,19 +586,51 @@ function UserManagementPageContent() {
     if (!userToEdit) return;
 
     try {
-      await setDoc(doc(getFirestoreClient(), 'users', userToEdit.id), {
+      const updateData = {
         ...editForm,
         updatedAt: new Date(),
-      }, { merge: true });
+      };
 
-      toast({
-        title: "Usuario actualizado",
-        description: `Usuario ${editForm.fullName} actualizado exitosamente.`,
-      });
+      // Verificar si estamos offline y usar offlineManager
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        console.log('🔄 Modo Offline: Actualizando usuario con offlineManager...');
+        
+        const userOfflineData = {
+          tipoVisita: 'Admin - Gestión Usuario',
+          accion: 'actualizar',
+          userData: updateData,
+          userId: userToEdit.id,
+          timestamp: new Date().toISOString()
+        };
 
-      setEditDialogOpen(false);
-      setUserToEdit(null);
-      loadUsers();
+        const saveResult = await offlineManager.saveVisita(userOfflineData);
+        
+        if (saveResult.success) {
+          console.log('✅ Usuario actualizado offline exitosamente:', saveResult.visitaId);
+          
+          toast({
+            title: 'Usuario Actualizado Offline',
+            description: 'Los cambios se sincronizarán automáticamente cuando haya conexión.',
+          });
+
+          setEditDialogOpen(false);
+          setUserToEdit(null);
+        } else {
+          throw new Error(saveResult.error || 'Error actualizando usuario offline');
+        }
+      } else {
+        // Modo online: operación normal
+        await setDoc(doc(getFirestoreClient(), 'users', userToEdit.id), updateData, { merge: true });
+
+        toast({
+          title: "Usuario actualizado",
+          description: `Usuario ${editForm.fullName} actualizado exitosamente.`,
+        });
+
+        setEditDialogOpen(false);
+        setUserToEdit(null);
+        loadUsers();
+      }
     } catch (error: any) {
       console.error('Error actualizando usuario:', error);
       toast({
