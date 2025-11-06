@@ -88,6 +88,33 @@ const normalizeDate = (v: any): Date | null => {
   return null;
 };
 
+// Utilidades locales para simplificar y unificar lógica repetida
+const parseBoolean = (v: any): boolean | null => {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'boolean') return v;
+  const s = String(v).toLowerCase().trim();
+  if (['true', 'sí', 'si', 'yes', '1'].includes(s)) return true;
+  if (['false', 'no', '0'].includes(s)) return false;
+  return null;
+};
+
+const getDateFromCreatedAt = (item: any): Date | null => {
+  if (!item) return null;
+  if (item.createdAt) return normalizeDate(item.createdAt);
+  if (item.created_at) return normalizeDate(item.created_at);
+  return null;
+};
+
+const isMerchandisingVisit = (visita: any) => {
+  const tv = (visita.tipoVisita || '').toString().toLowerCase();
+  return tv === 'merchandising' || tv === 'qualid-merchandising' || tv === 'shell-merchandising' || tv === 'signage-capture' || tv === 'trade (merchandising)';
+};
+
+const isTradeImpulsoVisit = (visita: any) => {
+  const tv = (visita.tipoVisita || '').toString().toLowerCase();
+  return tv === 'trade (impulso)' || tv === 'trade-impulso' || tv === 'trade (impulso)';
+};
+
 // Constantes para paginación
 const CLIENTS_PER_PAGE = 50;
 const MAX_CLIENTS_LOAD = 200; // Máximo de clientes a cargar inicialmente
@@ -296,36 +323,19 @@ export default function GestionClientesPage() {
 
       // Visitas de merchandising
       const visitasMerchandising = visitas
-        .filter((visita: any) => {
-          const tv = (visita.tipoVisita || '').toString();
-          const tvLower = tv.toLowerCase();
-          // Aceptar tanto variantes antiguas como nuevas
-          return tv === 'Merchandising' ||
-            tvLower === 'merchandising' ||
-            tvLower === 'qualid-merchandising' ||
-            tvLower === 'shell-merchandising' ||
-            tvLower === 'signage-capture' ||
-            tv === 'Trade (Merchandising)' ||
-            tvLower === 'trade (merchandising)';
-        })
+        .filter((visita: any) => isMerchandisingVisit(visita))
         .sort((a: any, b: any) => {
-          const fechaA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt || new Date(0));
-          const fechaB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt || new Date(0));
+          const fechaA = getDateFromCreatedAt(a) || new Date(0);
+          const fechaB = getDateFromCreatedAt(b) || new Date(0);
           return fechaB.getTime() - fechaA.getTime();
         });
 
       // Visitas de trade-impulso
       const visitasTradeImpulso = visitas
-        .filter((visita: any) => {
-          const tv = (visita.tipoVisita || '').toString();
-          const tvLower = tv.toLowerCase();
-          return tv === 'Trade (Impulso)' ||
-            tvLower === 'trade-impulso' ||
-            tvLower === 'trade (impulso)';
-        })
+        .filter((visita: any) => isTradeImpulsoVisit(visita))
         .sort((a: any, b: any) => {
-          const fechaA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt || new Date(0));
-          const fechaB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt || new Date(0));
+          const fechaA = getDateFromCreatedAt(a) || new Date(0);
+          const fechaB = getDateFromCreatedAt(b) || new Date(0);
           return fechaB.getTime() - fechaA.getTime();
         });
 
@@ -341,10 +351,10 @@ export default function GestionClientesPage() {
 
       const resultado = {
         ultimaVisitaMerchandising: visitasMerchandising.length > 0
-          ? (visitasMerchandising[0] as any).createdAt?.toDate ? (visitasMerchandising[0] as any).createdAt.toDate() : (visitasMerchandising[0] as any).createdAt || null
+          ? getDateFromCreatedAt(visitasMerchandising[0])
           : null,
         ultimaVisitaTradeImpulso: visitasTradeImpulso.length > 0
-          ? (visitasTradeImpulso[0] as any).createdAt?.toDate ? (visitasTradeImpulso[0] as any).createdAt.toDate() : (visitasTradeImpulso[0] as any).createdAt || null
+          ? getDateFromCreatedAt(visitasTradeImpulso[0])
           : null
       };
 
@@ -395,20 +405,11 @@ export default function GestionClientesPage() {
       // 🔄 FILTRADO EN MEMORIA: Filtrar y ordenar en JavaScript en lugar de Firestore
       const visitas = visitasSnapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter((visita: any) => {
-          // Solo visitas de merchandising/señalización (aceptar variantes)
-          const tv = (visita.tipoVisita || '').toString();
-          const tvLower = tv.toLowerCase();
-          return tv === 'Merchandising' ||
-            tvLower === 'merchandising' ||
-            tvLower === 'qualid-merchandising' ||
-            tvLower === 'shell-merchandising' ||
-            tvLower === 'signage-capture';
-        })
+        .filter((visita: any) => isMerchandisingVisit(visita))
         .sort((a: any, b: any) => {
           // Ordenar por fecha de creación (más reciente primero)
-          const fechaA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt || new Date(0));
-          const fechaB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt || new Date(0));
+          const fechaA = getDateFromCreatedAt(a) || new Date(0);
+          const fechaB = getDateFromCreatedAt(b) || new Date(0);
           return fechaB.getTime() - fechaA.getTime();
         });
 
@@ -425,7 +426,7 @@ export default function GestionClientesPage() {
       const ultimaVisita = visitas[0] as any;
       console.log(`📊 Última visita de merchandising encontrada:`, {
         id: ultimaVisita.id,
-        fecha: ultimaVisita.createdAt?.toDate ? ultimaVisita.createdAt.toDate() : ultimaVisita.createdAt,
+        fecha: getDateFromCreatedAt(ultimaVisita),
         tipo: ultimaVisita.tipoVisita,
         tieneDatos: !!ultimaVisita.data
       });
@@ -460,54 +461,43 @@ export default function GestionClientesPage() {
 
           // 🎯 BÚSQUEDA DIRECTA EN CAMPOS ESPECÍFICOS (PRIORIDAD ALTA)
           if (data.señalizacion !== undefined) {
-            const valorSeñalizacion = data.señalizacion;
-            console.log(`🎯 Campo directo 'señalizacion' encontrado:`, valorSeñalizacion);
-
-            if (valorSeñalizacion === true || valorSeñalizacion === 'true' ||
-              valorSeñalizacion === 'sí' || valorSeñalizacion === 'si' ||
-              valorSeñalizacion === 'yes' || valorSeñalizacion === '1' ||
-              valorSeñalizacion === 1) {
+            const parsed = parseBoolean(data.señalizacion);
+            console.log(`🎯 Campo directo 'señalizacion' encontrado:`, data.señalizacion, '→ parsed:', parsed);
+            if (parsed === true) {
               tieneSeñalizacion = true;
               estado = 'Con señalización';
-              detalles = `Confirmado: campo 'señalizacion' = ${valorSeñalizacion}`;
-            } else if (valorSeñalizacion === false || valorSeñalizacion === 'false' ||
-              valorSeñalizacion === 'no' || valorSeñalizacion === '0' ||
-              valorSeñalizacion === 0) {
+              detalles = `Confirmado: campo 'señalizacion' = ${data.señalizacion}`;
+            } else if (parsed === false) {
               tieneSeñalizacion = false;
               estado = 'Sin señalización';
-              detalles = `Confirmado: campo 'señalizacion' = ${valorSeñalizacion}`;
+              detalles = `Confirmado: campo 'señalizacion' = ${data.señalizacion}`;
             }
           } else if (data.signage !== undefined) {
-            const valorSignage = data.signage;
-            console.log(`🎯 Campo directo 'signage' encontrado:`, valorSignage);
-
-            if (valorSignage === true || valorSignage === 'true' ||
-              valorSignage === 'sí' || valorSignage === 'si' ||
-              valorSignage === 'yes' || valorSignage === '1' ||
-              valorSignage === 1) {
+            const parsed = parseBoolean(data.signage);
+            console.log(`🎯 Campo directo 'signage' encontrado:`, data.signage, '→ parsed:', parsed);
+            if (parsed === true) {
               tieneSeñalizacion = true;
               estado = 'Con señalización';
-              detalles = `Confirmado: campo 'signage' = ${valorSignage}`;
-            } else if (valorSignage === false || valorSignage === 'false' ||
-              valorSignage === 'no' || valorSignage === '0' ||
-              valorSignage === 0) {
+              detalles = `Confirmado: campo 'signage' = ${data.signage}`;
+            } else if (parsed === false) {
               tieneSeñalizacion = false;
               estado = 'Sin señalización';
-              detalles = `Confirmado: campo 'signage' = ${valorSignage}`;
+              detalles = `Confirmado: campo 'signage' = ${data.signage}`;
             }
           }
 
           // Revisión adicional: algunos formularios guardan 'hasSignage'
           if (estado === 'Sin información' && data.hasSignage !== undefined) {
-            const v = data.hasSignage;
-            if (v === true || v === 'true' || v === 'sí' || v === 'si' || v === 'yes' || v === '1' || v === 1) {
+            const parsed = parseBoolean(data.hasSignage);
+            console.log(`🎯 Campo directo 'hasSignage' encontrado:`, data.hasSignage, '→ parsed:', parsed);
+            if (parsed === true) {
               tieneSeñalizacion = true;
               estado = 'Con señalización';
-              detalles = `Confirmado: campo 'hasSignage' = ${v}`;
-            } else if (v === false || v === 'false' || v === 'no' || v === '0' || v === 0) {
+              detalles = `Confirmado: campo 'hasSignage' = ${data.hasSignage}`;
+            } else if (parsed === false) {
               tieneSeñalizacion = false;
               estado = 'Sin señalización';
-              detalles = `Confirmado: campo 'hasSignage' = ${v}`;
+              detalles = `Confirmado: campo 'hasSignage' = ${data.hasSignage}`;
             }
           }
 
@@ -607,7 +597,7 @@ export default function GestionClientesPage() {
       const resultado = {
         tieneSeñalizacion,
         estado,
-        ultimaVisita: ultimaVisita.createdAt?.toDate ? ultimaVisita.createdAt.toDate() : (ultimaVisita.createdAt || null),
+        ultimaVisita: getDateFromCreatedAt(ultimaVisita),
         detalles
       };
 
@@ -693,7 +683,7 @@ export default function GestionClientesPage() {
       const clientesBasicos = clientesData.map(cliente => ({
         ...cliente,
         tieneSeñalizacion: null,
-        signagePhotoUrl: undefined,
+        signagePhoto: undefined,
         fechaUltimaVisita: null,
         ultimaVisitaMerchandising: null,
         ultimaVisitaTradeImpulso: null,
@@ -754,7 +744,7 @@ export default function GestionClientesPage() {
       // Verificar si estamos offline y usar offlineManager
       if (typeof window !== 'undefined' && !navigator.onLine) {
         console.log('🔄 Modo Offline: Guardando cliente con offlineManager...');
-        
+
         const clienteOfflineData = {
           tipoVisita: 'Admin - Gestión Cliente',
           accion: currentCliente ? 'actualizar' : 'crear',
@@ -764,10 +754,10 @@ export default function GestionClientesPage() {
         };
 
         const saveResult = await offlineManager.saveVisita(clienteOfflineData);
-        
+
         if (saveResult.success) {
           console.log('✅ Cliente guardado offline exitosamente:', saveResult.visitaId);
-          
+
           toast({
             title: 'Cliente Guardado Offline',
             description: 'Los datos se sincronizarán automáticamente cuando haya conexión.',
@@ -867,480 +857,240 @@ export default function GestionClientesPage() {
   };
 
   // ========== FUNCIONES PARA CARGA MASIVA ==========
+  // --- CSV utilities: small, typed helpers ---
 
-  // Función para parsear CSV mejorada - maneja comillas y saltos de línea
-  const parseCSV = (csvText: string): CSVRow[] => {
-    // Función helper para parsear CSV con comillas y comas dentro de campos
-    const parseCSVLine = (line: string): string[] => {
-      const result: string[] = [];
-      let current = '';
-      let inQuotes = false;
-
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        const nextChar = line[i + 1];
-
-        if (char === '"' && !inQuotes) {
-          inQuotes = true;
-        } else if (char === '"' && inQuotes && nextChar === '"') {
-          current += '"';
-          i++; // Skip next quote
-        } else if (char === '"' && inQuotes) {
-          inQuotes = false;
-        } else if (char === ',' && !inQuotes) {
-          result.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
+  // Parse a single CSV line respecting quoted fields
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const nextChar = line[i + 1];
+      if (char === '"' && !inQuotes) {
+        inQuotes = true;
+        continue;
       }
-      result.push(current.trim());
-      return result;
-    };
+      if (char === '"' && inQuotes && nextChar === '"') {
+        current += '"';
+        i++; // skip escaped quote
+        continue;
+      }
+      if (char === '"' && inQuotes) {
+        inQuotes = false;
+        continue;
+      }
+      if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+        continue;
+      }
+      current += char;
+    }
+    result.push(current.trim());
+    return result;
+  };
 
-    // Reconstruir el CSV limpiando saltos de línea problemáticos
-    let cleanedCSV = csvText;
-
-    // Limpiar el header problemático
-    cleanedCSV = cleanedCSV.replace('"nombreVendedor\n"', 'nombreVendedor');
-
-    // Unir líneas que fueron cortadas incorrectamente
-    const lines = cleanedCSV.split('\n');
+  // Normalize and join lines that were broken inside quoted fields
+  const cleanAndSplitLines = (csvText: string): string[] => {
+    let cleanedCSV = csvText.replace('"nombreVendedor\n"', 'nombreVendedor');
+    const rawLines = cleanedCSV.split('\n');
     const cleanedLines: string[] = [];
-    let currentLine = '';
-    let inQuotedField = false;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+    let buffer = '';
+    for (const raw of rawLines) {
+      const line = raw.trim();
       if (!line) continue;
-
-      currentLine += (currentLine ? ' ' : '') + line;
-
-      // Contar comillas para determinar si estamos dentro de un campo quoted
-      const quoteCount = (currentLine.match(/"/g) || []).length;
-      inQuotedField = quoteCount % 2 !== 0;
-
-      // Si no estamos en un campo quoted y la línea tiene el número esperado de comas
-      if (!inQuotedField) {
-        // Verificar que tenga al menos 8 comas (9 campos)
-        const commaCount = (currentLine.match(/,/g) || []).length;
-        if (commaCount >= 8) {
-          cleanedLines.push(currentLine);
-          currentLine = '';
+      buffer += (buffer ? ' ' : '') + line;
+      const quotes = (buffer.match(/"/g) || []).length;
+      const inQuoted = quotes % 2 !== 0;
+      if (!inQuoted) {
+        // Heuristic: accept lines with at least 1 comma (header/data)
+        const commaCount = (buffer.match(/,/g) || []).length;
+        if (commaCount >= 1) {
+          cleanedLines.push(buffer);
+          buffer = '';
         }
       }
     }
+    if (buffer.trim()) cleanedLines.push(buffer);
+    return cleanedLines;
+  };
 
-    // Agregar la última línea si quedó algo
-    if (currentLine.trim()) {
-      cleanedLines.push(currentLine);
-    }
-
-    if (cleanedLines.length < 2) return [];
-
-    // Parsear headers
-    const headers = parseCSVLine(cleanedLines[0]).map(h => h.replace(/"/g, '').trim());
+  // Parse full CSV text into rows (CSVRow[])
+  const parseCSV = (csvText: string): CSVRow[] => {
+    const lines = cleanAndSplitLines(csvText);
+    if (lines.length < 2) return [];
+    const headers = parseCSVLine(lines[0]).map(h => h.replace(/"/g, '').trim());
     const rows: CSVRow[] = [];
-
-    // Parsear datos
-    for (let i = 1; i < cleanedLines.length; i++) {
-      const values = parseCSVLine(cleanedLines[i]).map(v => v.replace(/"/g, '').trim());
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseCSVLine(lines[i]).map(v => v.replace(/"/g, '').trim());
       const row: CSVRow = {};
-
-      headers.forEach((header, index) => {
-        row[header] = values[index] || '';
+      headers.forEach((header, idx) => {
+        row[header] = values[idx] || '';
       });
-
       rows.push(row);
     }
-
     return rows;
   };
 
-  // Función para generar mapeos automáticos de columnas
+  // Autogenerar mapeo de columnas con reglas específicas
   const generateAutoMapping = (csvHeaders: string[]): ColumnMapping[] => {
-    const mappings: ColumnMapping[] = [];
-
-    // Mapeos automáticos basados en nombres comunes - MÁS ESPECÍFICOS
-    const autoMappings: { [key: string]: keyof CreateClienteData } = {
-      // RIF - variaciones comunes
-      'rif': 'rif',
-      'nif': 'rif',
-      'rnc': 'rif',
-      'documento': 'rif',
-      'cedula': 'rif',
-      'cedulajuridica': 'rif',
-
-      // NOMBRE - variaciones comunes
-      'nombre': 'nombre',
-      'nombrecliente': 'nombre',
-      'cliente': 'nombre',
-      'razon_social': 'nombre',
-      'razonsocial': 'nombre',
-      'company': 'nombre',
-      'empresa': 'nombre',
-
-      // DIRECCION - variaciones comunes
-      'direccion': 'direccion',
-      'dirección': 'direccion',
-      'address': 'direccion',
-      'ubicacion': 'direccion',
-      'ubicación': 'direccion',
-      'domicilio': 'direccion',
-
-      // ESTADO GEOGRAFICO - NUEVO CAMPO
-      'estado': 'estadoGeografico',
-      'state': 'estadoGeografico',
-      'provincia': 'estadoGeografico',
-
-      // TELEFONO
-      'telefono': 'telefono',
-      'teléfono': 'telefono',
-      'phone': 'telefono',
-      'celular': 'telefono',
-      'movil': 'telefono',
-
-      // EMAIL
-      'email': 'email',
-      'correo': 'email',
-      'mail': 'email',
-      'correoelectronico': 'email',
-
-      // CONTACTO
-      'contacto': 'contacto',
-      'persona_contacto': 'contacto',
-      'personacontacto': 'contacto',
-      'representante': 'contacto',
-
-      // REGION
-      'region': 'region',
-      'región': 'region',
-      'zone': 'region',
-      'zona': 'region',
-
-      // SEDE
-      'sede': 'sede',
-      'sucursal': 'sede',
-      'branch': 'sede',
-      'oficina': 'sede',
-
-      // CIUDAD
-      'ciudad': 'ciudad',
-      'city': 'ciudad',
-      'municipio': 'ciudad',
-
-      // TIPO
-      'tipo': 'tipo',
-      'type': 'tipo',
-      'categoria': 'tipo',
-      'category': 'tipo',
-
-      // OBSERVACIONES
-      'observaciones': 'observaciones',
-      'notas': 'observaciones',
-      'comments': 'observaciones',
-      'comentarios': 'observaciones',
-      'descripcion': 'observaciones',
-      'detalles': 'observaciones'
+    const autoMappings: Record<string, keyof CreateClienteData> = {
+      rif: 'rif', nif: 'rif', rnc: 'rif', documento: 'rif', cedula: 'rif', cedulajuridica: 'rif',
+      nombre: 'nombre', nombrecliente: 'nombre', cliente: 'nombre', razon_social: 'nombre', razonsocial: 'nombre', company: 'nombre', empresa: 'nombre',
+      direccion: 'direccion', dirección: 'direccion', address: 'direccion', ubicacion: 'direccion', ubicación: 'direccion', domicilio: 'direccion',
+      estado: 'estadoGeografico', state: 'estadoGeografico', provincia: 'estadoGeografico',
+      telefono: 'telefono', teléfono: 'telefono', phone: 'telefono', celular: 'telefono', movil: 'telefono',
+      email: 'email', correo: 'email', mail: 'email', correoelectronico: 'email',
+      contacto: 'contacto', persona_contacto: 'contacto', personacontacto: 'contacto', representante: 'contacto',
+      region: 'region', región: 'region', zone: 'region', zona: 'region',
+      sede: 'sede', sucursal: 'sede', branch: 'sede', oficina: 'sede',
+      ciudad: 'ciudad', city: 'ciudad', municipio: 'ciudad',
+      tipo: 'tipo', type: 'tipo', categoria: 'tipo', category: 'tipo',
+      observaciones: 'observaciones', notas: 'observaciones', comments: 'observaciones', comentarios: 'observaciones', descripcion: 'observaciones', detalles: 'observaciones'
     };
 
-    csvHeaders.forEach((header, index) => {
-      const normalizedHeader = header.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
-      let matchedField = autoMappings[normalizedHeader];
-
-      // LÓGICA ESPECIAL PARA TUS COLUMNAS ESPECÍFICAS DE DISBATTERY
-      // Mapeo exacto para los headers del CSV de Disbattery
-      const originalExact = header.trim();
-
-      if (!matchedField) {
-        // Mapeo específico para el CSV exacto de Disbattery
-        switch (originalExact) {
-          case 'CodigoCliente':
-            matchedField = 'rif'; // CodigoCliente -> RIF
-            break;
-          case 'nombreCliente':
-            matchedField = 'nombre'; // nombreCliente -> nombre
-            break;
-          case 'rif':
-            matchedField = 'rif'; // rif -> rif (ya existe pero por si acaso)
-            break;
-          case 'Direccion':
-            matchedField = 'direccion'; // Direccion -> direccion
-            break;
-          case 'Estado':
-            matchedField = 'estadoGeografico'; // Estado -> estadoGeografico
-            break;
-          case 'Nombresucursal':
-            matchedField = 'sede'; // Nombresucursal -> sede
-            break;
-          case 'nombreVendedor':
-            matchedField = 'contacto'; // nombreVendedor -> contacto
-            break;
-          case 'codigo_sucursal':
-          case 'CodigoVendedor':
-            matchedField = 'skip' as any; // Estos campos no los necesitamos
-            break;
-          default:
-            // Lógica adicional para variaciones
-            const originalLower = originalExact.toLowerCase();
-            if (originalLower.includes('codigo') && originalLower.includes('cliente')) {
-              matchedField = 'rif';
-            } else if (originalLower.includes('nombre') && originalLower.includes('cliente')) {
-              matchedField = 'nombre';
-            } else if (originalLower === 'direccion' || originalLower === 'dirección') {
-              matchedField = 'direccion';
-            } else if (originalLower === 'estado') {
-              matchedField = 'estadoGeografico';
-            } else if (originalLower.includes('sucursal') && originalLower.includes('nombre')) {
-              matchedField = 'sede';
-            } else if (originalLower.includes('vendedor') && originalLower.includes('nombre')) {
-              matchedField = 'contacto';
-            }
-            break;
-        }
+    const mapSpecific = (original: string): keyof CreateClienteData | 'skip' | undefined => {
+      switch (original) {
+        case 'CodigoCliente': return 'rif';
+        case 'nombreCliente': return 'nombre';
+        case 'rif': return 'rif';
+        case 'Direccion': return 'direccion';
+        case 'Estado': return 'estadoGeografico';
+        case 'Nombresucursal': return 'sede';
+        case 'nombreVendedor': return 'contacto';
+        case 'codigo_sucursal':
+        case 'CodigoVendedor': return 'skip';
+        default: return undefined;
       }
+    };
 
-      mappings.push({
+    return csvHeaders.map(header => {
+      const originalExact = header.trim();
+      const normalized = originalExact.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+      const specific = mapSpecific(originalExact);
+      const matched = specific === undefined ? autoMappings[normalized] : specific;
+      const clienteField = matched || 'skip';
+      return {
         csvColumn: header,
-        clienteField: matchedField || 'skip',
-        required: matchedField === 'nombre' || matchedField === 'direccion'
-      });
+        clienteField: clienteField as keyof CreateClienteData | 'skip',
+        required: clienteField === 'nombre' || clienteField === 'direccion'
+      } as ColumnMapping;
     });
-
-    return mappings;
   };
 
-  // Función para validar y procesar datos CSV
+  // Procesa CSV rows en CreateClienteData[], delegando transformaciones a helpers
   const processCSVData = (csvData: CSVRow[], mappings: ColumnMapping[]): CreateClienteData[] => {
-    const processedData: CreateClienteData[] = [];
+    const processed: CreateClienteData[] = [];
 
-    csvData.forEach(row => {
-      const clienteData: Partial<CreateClienteData> = {};
+    const assignRegionBySede = (sede: string | undefined): Region => {
+      const map: Record<string, Region> = {
+        'GRUPO DISBATTERY': 'Centro-capital',
+        'DISBATTERY': 'Oriente',
+        'BLITZ 2000': 'Centro-Los llanos',
+        'GRUPO VICTORIA': 'Oriente'
+      };
+      return map[sede || ''] || 'Centro-capital';
+    };
 
-      // PRIMER PASO: Procesar campos básicos (incluyendo estadoGeografico)
-      mappings.forEach(mapping => {
-        if (mapping.clienteField === 'skip') return;
+    const mapSedeByEstado = (estado?: string): Sede | undefined => {
+      if (!estado) return undefined;
+      const s: Record<string, Sede> = {
+        'distrito capital': 'GRUPO DISBATTERY', miranda: 'GRUPO DISBATTERY', vargas: 'GRUPO DISBATTERY',
+        aragua: 'DISBATTERY', anzoategui: 'DISBATTERY', 'anzoátegui': 'DISBATTERY', bolivar: 'DISBATTERY', 'bolívar': 'DISBATTERY', monagas: 'DISBATTERY', sucre: 'DISBATTERY', 'nueva esparta': 'DISBATTERY',
+        carabobo: 'BLITZ 2000', guarico: 'BLITZ 2000', 'guárico': 'BLITZ 2000', lara: 'BLITZ 2000', yaracuy: 'BLITZ 2000', falcon: 'BLITZ 2000', 'falcón': 'BLITZ 2000', zulia: 'BLITZ 2000', tachira: 'BLITZ 2000', 'táchira': 'BLITZ 2000', merida: 'BLITZ 2000', 'mérida': 'BLITZ 2000', trujillo: 'BLITZ 2000',
+        cojedes: 'GRUPO VICTORIA', portuguesa: 'GRUPO VICTORIA', barinas: 'GRUPO VICTORIA', apure: 'GRUPO VICTORIA', amazonas: 'GRUPO VICTORIA', 'delta amacuro': 'GRUPO VICTORIA'
+      };
+      return s[estado.toLowerCase()];
+    };
 
-        const value = row[mapping.csvColumn]?.trim();
-        if (!value && mapping.required) return; // Skip row if required field is empty
+    const mapTipo = (v?: string) => {
+      if (!v) return 'tienda';
+      const m: Record<string, CreateClienteData['tipo']> = { tienda: 'tienda', store: 'tienda', shop: 'tienda', distribuidor: 'distribuidor', distributor: 'distribuidor', especial: 'cliente_especial', special: 'cliente_especial', cliente_especial: 'cliente_especial' };
+      return m[v.toLowerCase()] || 'tienda';
+    };
 
-        // Procesar campos directos primero (especialmente estadoGeografico)
-        const camposDirectos: string[] = ['rif', 'nombre', 'direccion', 'telefono', 'email', 'contacto', 'observaciones', 'estadoGeografico'];
-        const fieldName: string = mapping.clienteField;
-        if (fieldName !== 'skip' && camposDirectos.includes(fieldName)) {
-          (clienteData as any)[fieldName] = value;
+    const ciudadFallback = (estado?: string) => {
+      if (!estado) return '';
+      const map: Record<string, string> = { aragua: 'Maracay', carabobo: 'Valencia', anzoategui: 'Puerto La Cruz', 'anzoátegui': 'Puerto La Cruz', bolivar: 'Ciudad Bolívar', 'bolívar': 'Ciudad Bolívar', monagas: 'Maturín', lara: 'Barquisimeto', zulia: 'Maracaibo', tachira: 'San Cristóbal', 'táchira': 'San Cristóbal', merida: 'Mérida', 'mérida': 'Mérida', 'distrito capital': 'Caracas', miranda: 'Los Teques', vargas: 'La Guaira' };
+      return map[estado.toLowerCase()] || estado;
+    };
+
+    for (const row of csvData) {
+      const clientePartial: Partial<CreateClienteData> = {};
+      let skipRow = false;
+
+      // Primer paso: campos directos
+      for (const mapping of mappings) {
+        if (mapping.clienteField === 'skip') continue;
+        const raw = row[mapping.csvColumn]?.trim() || '';
+        if (!raw && mapping.required) { skipRow = true; break; }
+        const direct = ['rif', 'nombre', 'direccion', 'telefono', 'email', 'contacto', 'observaciones', 'estadoGeografico'];
+        if (direct.includes(mapping.clienteField as string)) {
+          (clientePartial as any)[mapping.clienteField] = raw;
         }
-      });
+      }
+      if (skipRow) continue;
 
-      // SEGUNDO PASO: Procesar campos que dependen de otros (region, sede, ciudad, tipo)
-      mappings.forEach(mapping => {
-        if (mapping.clienteField === 'skip') return;
-
-        const value = row[mapping.csvColumn]?.trim();
-        if (!value && mapping.required) return; // Skip row if required field is empty
-
-        // Solo procesar campos complejos que requieren transformación
-        const camposDirectosSegundoPaso: string[] = ['rif', 'nombre', 'direccion', 'telefono', 'email', 'contacto', 'observaciones', 'estadoGeografico'];
-        const fieldNameSegundo: string = mapping.clienteField;
-        if (fieldNameSegundo !== 'skip' && camposDirectosSegundoPaso.includes(fieldNameSegundo)) {
-          return; // Ya procesado en el primer paso
-        }
+      // Segundo paso: campos derivados / transformaciones
+      for (const mapping of mappings) {
+        if (mapping.clienteField === 'skip') continue;
+        const raw = row[mapping.csvColumn]?.trim() || '';
+        if (!raw && mapping.required) { skipRow = true; break; }
+        const alreadyHandled = ['rif', 'nombre', 'direccion', 'telefono', 'email', 'contacto', 'observaciones', 'estadoGeografico'];
+        if (alreadyHandled.includes(mapping.clienteField as string)) continue;
 
         switch (mapping.clienteField) {
           case 'region':
-            // La región se determina automáticamente por la sede, no por el estado directamente
-            // Esta lógica se ejecutará DESPUÉS de que se haya determinado la sede
-            if (clienteData.sede) {
-              const regionPorSede: { [sede: string]: Region } = {
-                'GRUPO DISBATTERY': 'Centro-capital',
-                'DISBATTERY': 'Oriente',  // ✅ CORREGIDO: DISBATTERY es Oriente
-                'BLITZ 2000': 'Centro-Los llanos',  // ✅ CORRECTO: Blitz es Centro-Los llanos
-                'GRUPO VICTORIA': 'Oriente'  // ✅ CORRECTO: Victoria es Oriente
-              };
-              clienteData.region = regionPorSede[clienteData.sede] || 'Centro-capital';
-              console.log(`🌍 Región asignada por sede "${clienteData.sede}": ${clienteData.region}`);
-            } else {
-              // Fallback si no hay sede determinada aún
-              clienteData.region = 'Centro-capital';
-            }
+            clientePartial.region = clientePartial.sede ? assignRegionBySede(clientePartial.sede) : 'Centro-capital';
             break;
-
           case 'sede':
-            // Mapear sedes basándose ÚNICAMENTE en el estado geográfico
-            if (clienteData.estadoGeografico) {
-              const sedesPorEstado: { [estado: string]: Sede } = {
-                // GRUPO DISBATTERY - Estados centrales (Caracas y área metropolitana)
-                'distrito capital': 'GRUPO DISBATTERY',
-                'miranda': 'GRUPO DISBATTERY',
-                'vargas': 'GRUPO DISBATTERY',
-
-                // DISBATTERY - Estados de cobertura oriental
-                'aragua': 'DISBATTERY',
-                'anzoategui': 'DISBATTERY',
-                'anzoátegui': 'DISBATTERY',
-                'bolivar': 'DISBATTERY',
-                'bolívar': 'DISBATTERY',
-                'monagas': 'DISBATTERY',
-                'sucre': 'DISBATTERY',
-                'nueva esparta': 'DISBATTERY',
-
-                // BLITZ 2000 - Estados centro-occidentales Y CENTRO-SUR (CORREGIDO)
-                'carabobo': 'BLITZ 2000',  // ✅ CORREGIDO: Carabobo es BLITZ 2000
-                'guarico': 'BLITZ 2000',   // ✅ CORREGIDO: Guárico es BLITZ 2000
-                'guárico': 'BLITZ 2000',   // ✅ CORREGIDO: Guárico con tilde
-                'lara': 'BLITZ 2000',
-                'yaracuy': 'BLITZ 2000',
-                'falcon': 'BLITZ 2000',
-                'falcón': 'BLITZ 2000',
-                'zulia': 'BLITZ 2000',
-                'tachira': 'BLITZ 2000',
-                'táchira': 'BLITZ 2000',
-                'merida': 'BLITZ 2000',
-                'mérida': 'BLITZ 2000',
-                'trujillo': 'BLITZ 2000',
-
-                // GRUPO VICTORIA - Estados llaneros restantes
-                'cojedes': 'GRUPO VICTORIA',
-                'portuguesa': 'GRUPO VICTORIA',
-                'barinas': 'GRUPO VICTORIA',
-                'apure': 'GRUPO VICTORIA',
-                'amazonas': 'GRUPO VICTORIA',
-                'delta amacuro': 'GRUPO VICTORIA'
-              };
-
-              const estadoLower = clienteData.estadoGeografico.toLowerCase();
-              const sedeBasadaEnEstado = sedesPorEstado[estadoLower];
-
-              console.log(`🏢 Mapeo de sede para estado "${clienteData.estadoGeografico}":`, {
-                estadoOriginal: clienteData.estadoGeografico,
-                estadoNormalizado: estadoLower,
-                sedeEncontrada: sedeBasadaEnEstado,
-                nombreSucursalOriginal: value
-              });
-
-              if (sedeBasadaEnEstado) {
-                clienteData.sede = sedeBasadaEnEstado;
-                console.log(`✅ Sede asignada por estado: ${sedeBasadaEnEstado}`);
-                break;
-              }
-            }
-
-            // Si no hay estado o no se encuentra, usar mapeo de nombres como fallback
-            const sedeMap: { [key: string]: Sede } = {
-              // Mapeos generales
-              'disbattery': 'DISBATTERY',
-              'grupo disbattery': 'GRUPO DISBATTERY',
-              'blitz': 'BLITZ 2000',
-              'blitz 2000': 'BLITZ 2000',
-              'victoria': 'GRUPO VICTORIA',
-              'grupo victoria': 'GRUPO VICTORIA',
-              // Mapeos específicos del CSV de Disbattery
-              'disbattery aragua s.a.': 'DISBATTERY',
-              'disbattery aragua, s.a.': 'DISBATTERY',
-              'disbattery oriente s.a.': 'DISBATTERY',
-              'disbattery principal': 'GRUPO DISBATTERY',
-              'oceano pacifico pto. la cruz': 'DISBATTERY',
-              'principal': 'GRUPO DISBATTERY'
-            };
-            const normalizedSede = value.toLowerCase().trim();
-            const sedeEncontrada = sedeMap[normalizedSede] || 'GRUPO DISBATTERY';
-            clienteData.sede = sedeEncontrada;
-
-            console.log(`🔄 Sede asignada por nombre (fallback):`, {
-              nombreOriginal: value,
-              nombreNormalizado: normalizedSede,
-              sedeAsignada: sedeEncontrada,
-              estado: clienteData.estadoGeografico || 'Sin estado'
-            });
-            break;
-
-          case 'tipo':
-            // Mapear tipos de cliente
-            const tipoMap: { [key: string]: 'tienda' | 'distribuidor' | 'cliente_especial' } = {
-              'tienda': 'tienda',
-              'store': 'tienda',
-              'shop': 'tienda',
-              'distribuidor': 'distribuidor',
-              'distributor': 'distribuidor',
-              'especial': 'cliente_especial',
-              'special': 'cliente_especial',
-              'cliente_especial': 'cliente_especial'
-            };
-            clienteData.tipo = tipoMap[value.toLowerCase()] || 'tienda';
-            break;
-
-          case 'ciudad':
-            // Si no hay ciudad específica, usar el estado como ciudad base
-            if (value) {
-              clienteData.ciudad = value;
-            } else if (clienteData.estadoGeografico) {
-              // Mapear estado a ciudad principal
-              const ciudadPorEstado: { [key: string]: string } = {
-                'aragua': 'Maracay',
-                'carabobo': 'Valencia',
-                'anzoategui': 'Puerto La Cruz',
-                'anzoátegui': 'Puerto La Cruz',
-                'bolivar': 'Ciudad Bolívar',
-                'bolívar': 'Ciudad Bolívar',
-                'monagas': 'Maturín',
-                'lara': 'Barquisimeto',
-                'zulia': 'Maracaibo',
-                'tachira': 'San Cristóbal',
-                'táchira': 'San Cristóbal',
-                'merida': 'Mérida',
-                'mérida': 'Mérida',
-                'distrito capital': 'Caracas',
-                'miranda': 'Los Teques',
-                'vargas': 'La Guaira'
-              };
-              clienteData.ciudad = ciudadPorEstado[clienteData.estadoGeografico.toLowerCase()] || clienteData.estadoGeografico;
+            // Preferir sede derivada desde estado
+            const sedeFromEstado = mapSedeByEstado(clientePartial.estadoGeografico);
+            if (sedeFromEstado) {
+              clientePartial.sede = sedeFromEstado;
             } else {
-              clienteData.ciudad = '';
+              const normalized = raw.toLowerCase().trim();
+              const fallbackMap: Record<string, Sede> = { 'disbattery': 'DISBATTERY', 'grupo disbattery': 'GRUPO DISBATTERY', 'blitz': 'BLITZ 2000', 'blitz 2000': 'BLITZ 2000', 'victoria': 'GRUPO VICTORIA', 'grupo victoria': 'GRUPO VICTORIA', 'disbattery aragua s.a.': 'DISBATTERY', 'disbattery aragua, s.a.': 'DISBATTERY', 'disbattery oriente s.a.': 'DISBATTERY', 'disbattery principal': 'GRUPO DISBATTERY', 'oceano pacifico pto. la cruz': 'DISBATTERY', 'principal': 'GRUPO DISBATTERY' };
+              clientePartial.sede = (fallbackMap[normalized] || 'GRUPO DISBATTERY');
             }
             break;
-
+          case 'tipo':
+            clientePartial.tipo = mapTipo(raw);
+            break;
+          case 'ciudad':
+            if (raw) clientePartial.ciudad = raw;
+            else clientePartial.ciudad = clientePartial.estadoGeografico ? ciudadFallback(clientePartial.estadoGeografico) : '';
+            break;
           default:
-            (clienteData as any)[mapping.clienteField] = value;
+            (clientePartial as any)[mapping.clienteField] = raw;
             break;
         }
-      });
+      }
+      if (skipRow) continue;
 
-      // Solo agregar si tiene los campos mínimos requeridos
-      if (clienteData.nombre && clienteData.direccion) {
-        // PASO FINAL: Asegurar que la región esté asignada basándose en la sede
-        const sede = clienteData.sede || 'GRUPO DISBATTERY';
-        let region = clienteData.region;
-
-        if (!region) {
-          const regionPorSede: { [sede: string]: Region } = {
-            'GRUPO DISBATTERY': 'Centro-capital',
-            'DISBATTERY': 'Oriente',  // ✅ CORREGIDO: DISBATTERY es Oriente
-            'BLITZ 2000': 'Centro-Los llanos',  // ✅ CORRECTO: BLITZ 2000 es Centro-Los llanos
-            'GRUPO VICTORIA': 'Oriente'  // ✅ CORRECTO: GRUPO VICTORIA es Oriente
-          };
-          region = regionPorSede[sede] || 'Centro-capital';
-          console.log(`🎯 Región final asignada automáticamente por sede "${sede}": ${region}`);
-        }
-
-        processedData.push({
-          rif: clienteData.rif || '',
-          nombre: clienteData.nombre,
-          direccion: clienteData.direccion,
-          telefono: clienteData.telefono || '',
-          email: clienteData.email || '',
-          contacto: clienteData.contacto || '',
-          region: region,
-          sede: sede,
-          estadoGeografico: clienteData.estadoGeografico || '',
-          ciudad: clienteData.ciudad || '',
-          position: { lat: 0, lng: 0 }, // GPS se capturará en campo
-          tipo: clienteData.tipo || 'tienda',
-          observaciones: clienteData.observaciones || ''
+      if (clientePartial.nombre && clientePartial.direccion) {
+        const sedeFinal = clientePartial.sede || 'GRUPO DISBATTERY';
+        const regionFinal = clientePartial.region || assignRegionBySede(sedeFinal);
+        processed.push({
+          rif: clientePartial.rif || '',
+          nombre: clientePartial.nombre || '',
+          direccion: clientePartial.direccion || '',
+          telefono: clientePartial.telefono || '',
+          email: clientePartial.email || '',
+          contacto: clientePartial.contacto || '',
+          region: regionFinal,
+          sede: sedeFinal,
+          estadoGeografico: clientePartial.estadoGeografico || '',
+          ciudad: clientePartial.ciudad || '',
+          position: { lat: 0, lng: 0 },
+          tipo: clientePartial.tipo || 'tienda',
+          observaciones: clientePartial.observaciones || ''
         });
       }
-    });
+    }
 
-    return processedData;
+    return processed;
   };
 
   // Función para manejar la subida del archivo
