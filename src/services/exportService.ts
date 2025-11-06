@@ -529,17 +529,158 @@ class ExportService {
   private async exportarExcel(
     visitas: VisitaExportData[],
     opciones: ExportOptions
-  ): Promise<any> {
-    // Para Excel necesitaríamos una librería como xlsx
-    // Por ahora retornamos los datos estructurados
-    return {
-      visitas,
-      metadata: {
-        totalRecords: visitas.length,
-        exportDate: new Date().toISOString(),
-        options: opciones,
-      },
-    };
+  ): Promise<string> {
+    // Por ahora generamos CSV con separador de tabulación para Excel
+    if (visitas.length === 0) return "";
+
+    // Crear encabezados
+    const headers = [
+      "ID",
+      "Fecha",
+      "Hora",
+      "Mercaderista",
+      "Correo Mercaderista",
+      "RIF Cliente",
+      "Nombre Establecimiento",
+      "Tipo Visita",
+      "Sucursal",
+      "Latitud",
+      "Longitud",
+      "Dirección",
+      "Sincronizado N8N",
+      "Error Sync",
+      "Observaciones Adicionales",
+    ];
+
+    // Agregar encabezados específicos según el tipo de visita
+    const tiposVisita = [...new Set(visitas.map((v) => v.tipoVisita))];
+
+    if (tiposVisita.includes("Merchandising")) {
+      headers.push(
+        "Cliente Posee Señalización",
+        "Foto Señalización",
+        "Hiciste Planograma Shell",
+        "Foto Antes Shell",
+        "Foto Después Shell",
+        "Total Cenefas Shell",
+        "Total Papel Bobina Shell",
+        "Total Stickers Shell Cambio",
+        "Total Ambientadores Shell",
+        "Total Bolsas Shell",
+        "Afiches Ferrari 2023",
+        "Afiches HX8",
+        "Afiches Productos Premium 2024",
+        "Afiches Shell Familia 2023",
+        "Afiches Shell HX7",
+        "Afiches Tabla Aplicación Shell",
+        "Colocaste Qualid",
+        "Hiciste Planograma Qualid",
+        "Total Cenefas Qualid",
+        "Total Bolsas Qualid",
+        "Afiches Filtros Fluidos 2024",
+        "Afiches Qualid Caucho 2023",
+        "Afiches Qualid Caucho 2024",
+        "Observaciones Shell",
+        "Observaciones Qualid"
+      );
+    }
+
+    if (
+      tiposVisita.includes("Trade (Eventos)") ||
+      tiposVisita.includes("Trade (Impulso)")
+    ) {
+      headers.push(
+        "Marca Seleccionada",
+        "Recursos Utilizados",
+        "Entregables Shell",
+        "Entregables Qualid",
+        "Observaciones"
+      );
+    }
+
+    if (opciones.incluirFotos) {
+      headers.push("Fotos");
+    }
+
+    // Crear filas de datos (igual que CSV pero con tabulaciones)
+    const rows = visitas.map((visita) => {
+      const row = [
+        visita.id,
+        visita.fecha,
+        visita.hora,
+        visita.mercaderista,
+        visita.correoMercaderista,
+        visita.rifCliente,
+        visita.nombreEstablecimiento,
+        visita.tipoVisita,
+        visita.sucursal,
+        visita.latitud,
+        visita.longitud,
+        visita.direccion,
+        visita.sincronizadoN8N ? "Sí" : "No",
+        visita.errorSync || "",
+        visita.observacionesAdicionales || "",
+      ];
+
+      // Agregar datos específicos según tipo
+      if (visita.tipoVisita === "Merchandising") {
+        row.push(
+          visita.datosVisita.clientePoseeSeñalizacion ? "Sí" : "No",
+          visita.datosVisita.fotoSeñalizacion || "",
+          visita.datosVisita.hicistePlanogramaShell ? "Sí" : "No",
+          visita.datosVisita.fotoAntesShell || "",
+          visita.datosVisita.fotoDespuesShell || "",
+          visita.datosVisita.totalCenefasShell || 0,
+          visita.datosVisita.totalPapelBobinaShell || 0,
+          visita.datosVisita.totalStickersShellCambio || 0,
+          visita.datosVisita.totalAmbientadoresShell || 0,
+          visita.datosVisita.totalBolsasShell || 0,
+          visita.datosVisita.afichesFerrari2023 || 0,
+          visita.datosVisita.afichesHX8 || 0,
+          visita.datosVisita.afichesProductosPremium2024 || 0,
+          visita.datosVisita.afichesShellFamilia2023 || 0,
+          visita.datosVisita.afichesShellHX7 || 0,
+          visita.datosVisita.afichesTablaAplicacionShell || 0,
+          visita.datosVisita.colocasteQualid ? "Sí" : "No",
+          visita.datosVisita.hicistePlanogramaQualid ? "Sí" : "No",
+          visita.datosVisita.totalCenefasQualid || 0,
+          visita.datosVisita.totalBolsasQualid || 0,
+          visita.datosVisita.afiches_FiltrosFluidos2024 || 0,
+          visita.datosVisita.afichesQualidCaucho2023 || 0,
+          visita.datosVisita.afichesQualidCaucho2024 || 0,
+          visita.datosVisita.observacionesShell || "",
+          visita.datosVisita.observacionesQualid || ""
+        );
+      }
+
+      if (
+        visita.tipoVisita === "Trade (Eventos)" ||
+        visita.tipoVisita === "Trade (Impulso)"
+      ) {
+        row.push(
+          visita.datosVisita.marcaSeleccionada || "",
+          visita.datosVisita.recursosUtilizados || "",
+          visita.datosVisita.entregablesShell || "",
+          visita.datosVisita.entregablesQualid || "",
+          visita.datosVisita.observaciones || ""
+        );
+      }
+
+      if (opciones.incluirFotos) {
+        row.push(visita.fotos?.join("; ") || "");
+      }
+
+      return row;
+    });
+
+    // Convertir a formato Excel (TSV - Tab Separated Values)
+    const excelContent = [headers, ...rows]
+      .map((row) =>
+        row.map((field) => String(field).replace(/\t/g, " ")).join("\t")
+      )
+      .join("\n");
+
+    return excelContent;
   }
 
   /**
@@ -548,15 +689,17 @@ class ExportService {
   private async exportarJSON(
     visitas: VisitaExportData[],
     opciones: ExportOptions
-  ): Promise<any> {
-    return {
-      visitas,
+  ): Promise<string> {
+    const jsonData = {
       metadata: {
         totalRecords: visitas.length,
         exportDate: new Date().toISOString(),
         options: opciones,
       },
+      data: visitas,
     };
+    
+    return JSON.stringify(jsonData, null, 2);
   }
 
   /**
@@ -565,17 +708,66 @@ class ExportService {
   private async exportarPDF(
     visitas: VisitaExportData[],
     opciones: ExportOptions
-  ): Promise<any> {
-    // Para PDF necesitaríamos una librería como jsPDF
-    // Por ahora retornamos los datos estructurados
-    return {
-      visitas,
-      metadata: {
-        totalRecords: visitas.length,
-        exportDate: new Date().toISOString(),
-        options: opciones,
-      },
-    };
+  ): Promise<string> {
+    // Por ahora generamos un reporte en texto plano que puede ser convertido a PDF
+    if (visitas.length === 0) return "No hay datos para exportar";
+
+    let pdfContent = `REPORTE DE VISITAS\n`;
+    pdfContent += `Fecha de exportación: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}\n`;
+    pdfContent += `Total de registros: ${visitas.length}\n`;
+    pdfContent += `\n${"=".repeat(80)}\n\n`;
+
+    visitas.forEach((visita, index) => {
+      pdfContent += `VISITA ${index + 1}\n`;
+      pdfContent += `${"─".repeat(40)}\n`;
+      pdfContent += `ID: ${visita.id}\n`;
+      pdfContent += `Fecha: ${visita.fecha} ${visita.hora}\n`;
+      pdfContent += `Mercaderista: ${visita.mercaderista}\n`;
+      pdfContent += `Correo: ${visita.correoMercaderista}\n`;
+      pdfContent += `Cliente: ${visita.rifCliente} - ${visita.nombreEstablecimiento}\n`;
+      pdfContent += `Tipo de visita: ${visita.tipoVisita}\n`;
+      pdfContent += `Sucursal: ${visita.sucursal}\n`;
+      pdfContent += `Ubicación: ${visita.latitud}, ${visita.longitud}\n`;
+      pdfContent += `Dirección: ${visita.direccion}\n`;
+      pdfContent += `Sincronizado N8N: ${visita.sincronizadoN8N ? "Sí" : "No"}\n`;
+      
+      if (visita.errorSync) {
+        pdfContent += `Error de sincronización: ${visita.errorSync}\n`;
+      }
+      
+      if (visita.observacionesAdicionales) {
+        pdfContent += `Observaciones: ${visita.observacionesAdicionales}\n`;
+      }
+
+      // Agregar datos específicos según tipo de visita
+      if (visita.tipoVisita === "Merchandising") {
+        pdfContent += `\nDATOS DE MERCHANDISING:\n`;
+        pdfContent += `Cliente posee señalización: ${visita.datosVisita.clientePoseeSeñalizacion ? "Sí" : "No"}\n`;
+        pdfContent += `Planograma Shell: ${visita.datosVisita.hicistePlanogramaShell ? "Sí" : "No"}\n`;
+        pdfContent += `Material Qualid: ${visita.datosVisita.colocasteQualid ? "Sí" : "No"}\n`;
+        pdfContent += `Cenefas Shell: ${visita.datosVisita.totalCenefasShell || 0}\n`;
+        pdfContent += `Cenefas Qualid: ${visita.datosVisita.totalCenefasQualid || 0}\n`;
+      }
+
+      if (visita.tipoVisita === "Trade (Eventos)" || visita.tipoVisita === "Trade (Impulso)") {
+        pdfContent += `\nDATOS DE TRADE:\n`;
+        pdfContent += `Marca seleccionada: ${visita.datosVisita.marcaSeleccionada || "N/A"}\n`;
+        pdfContent += `Recursos utilizados: ${visita.datosVisita.recursosUtilizados || "N/A"}\n`;
+        pdfContent += `Entregables Shell: ${visita.datosVisita.entregablesShell || "N/A"}\n`;
+        pdfContent += `Entregables Qualid: ${visita.datosVisita.entregablesQualid || "N/A"}\n`;
+      }
+
+      if (opciones.incluirFotos && visita.fotos && visita.fotos.length > 0) {
+        pdfContent += `\nFOTOS:\n`;
+        visita.fotos.forEach((foto, fotoIndex) => {
+          pdfContent += `${fotoIndex + 1}. ${foto}\n`;
+        });
+      }
+
+      pdfContent += `\n${"=".repeat(80)}\n\n`;
+    });
+
+    return pdfContent;
   }
 
   /**

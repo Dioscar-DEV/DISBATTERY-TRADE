@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,162 @@ import { ExportDataDialog } from "@/components/ExportDataDialog";
 import { useExportData } from "@/hooks/useExportData";
 import { ExportFilters } from "@/services/exportService";
 
+// Interfaces para mejorar el tipado
+interface StatCardProps {
+    title: string;
+    value: number;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    color?: string;
+}
+
+interface FormatConfig {
+    formato: string;
+    icon: React.ComponentType<{ className?: string }>;
+    color: string;
+    description: string;
+}
+
+interface QuickExportConfig {
+    title: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    tipoVisita?: string;
+}
+
+// Configuraciones extraídas para aplicar DRY
+const EXPORT_FORMATS: FormatConfig[] = [
+    {
+        formato: "csv",
+        icon: FileText,
+        color: "bg-green-100 text-green-800",
+        description: "Compatible con Excel y Google Sheets",
+    },
+    {
+        formato: "excel",
+        icon: FileSpreadsheet,
+        color: "bg-blue-100 text-blue-800",
+        description: "Archivo Excel nativo con formato",
+    },
+    {
+        formato: "json",
+        icon: FileJson,
+        color: "bg-yellow-100 text-yellow-800",
+        description: "Datos estructurados para desarrolladores",
+    },
+    {
+        formato: "pdf",
+        icon: FileImage,
+        color: "bg-red-100 text-red-800",
+        description: "Documento PDF para presentaciones",
+    },
+];
+
+const QUICK_EXPORT_OPTIONS: QuickExportConfig[] = [
+    {
+        title: "Todas las visitas",
+        description: "Exportar todos los registros sin filtros",
+        icon: Calendar,
+    },
+    {
+        title: "Solo Merchandising",
+        description: "Visitas de merchandising únicamente",
+        icon: MapPin,
+        tipoVisita: "Merchandising",
+    },
+    {
+        title: "Solo Eventos",
+        description: "Visitas de eventos únicamente",
+        icon: Users,
+        tipoVisita: "Trade (Eventos)",
+    },
+    {
+        title: "Solo Impulso",
+        description: "Visitas de impulso únicamente",
+        icon: BarChart3,
+        tipoVisita: "Trade (Impulso)",
+    },
+];
+
+const STATS_CONFIG = [
+    { 
+        key: 'totalVisitas' as const, 
+        title: 'Total Visitas', 
+        icon: BarChart3, 
+        description: 'Registros en la base de datos' 
+    },
+    { 
+        key: 'sincronizadas' as const, 
+        title: 'Sincronizadas', 
+        icon: CheckCircle, 
+        description: 'Enviadas a N8N exitosamente', 
+        color: 'text-green-600' 
+    },
+    { 
+        key: 'pendientes' as const, 
+        title: 'Pendientes', 
+        icon: Clock, 
+        description: 'Esperando sincronización', 
+        color: 'text-yellow-600' 
+    },
+    { 
+        key: 'conErrores' as const, 
+        title: 'Con Errores', 
+        icon: XCircle, 
+        description: 'Requieren revisión', 
+        color: 'text-red-600' 
+    },
+];
+
+const EXPORT_TIPS = [
+    { format: "CSV", description: "Ideal para análisis en Excel o Google Sheets" },
+    { format: "Excel", description: "Mejor para presentaciones con formato" },
+    { format: "JSON", description: "Perfecto para integraciones técnicas" },
+    { format: "PDF", description: "Ideal para reportes ejecutivos" },
+];
+
+// Componentes reutilizables aplicando Single Responsibility Principle
+const StatCard: React.FC<StatCardProps> = ({ title, value, description, icon: Icon, color }) => (
+    <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            <Icon className={`h-4 w-4 ${color || 'text-muted-foreground'}`} />
+        </CardHeader>
+        <CardContent>
+            <div className={`text-2xl font-bold ${color || ''}`}>{value}</div>
+            <p className="text-xs text-muted-foreground">{description}</p>
+        </CardContent>
+    </Card>
+);
+
+const FormatCard: React.FC<{ format: FormatConfig; onSelect: () => void }> = ({ format, onSelect }) => (
+    <div
+        className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+        onClick={onSelect}
+    >
+        <div className="flex items-center gap-3 mb-2">
+            <format.icon className="h-6 w-6" />
+            <span className="font-medium capitalize">{format.formato}</span>
+        </div>
+        <p className="text-sm text-muted-foreground mb-3">{format.description}</p>
+        <Badge className={format.color}>{format.formato.toUpperCase()}</Badge>
+    </div>
+);
+
+const QuickExportButton: React.FC<{ config: QuickExportConfig; onExport: (tipo?: string) => void }> = ({ config, onExport }) => (
+    <Button
+        variant="outline"
+        onClick={() => onExport(config.tipoVisita)}
+        className="h-auto p-4 flex flex-col items-start"
+    >
+        <div className="flex items-center gap-2 mb-2">
+            <config.icon className="h-4 w-4" />
+            <span className="font-medium">{config.title}</span>
+        </div>
+        <p className="text-xs text-muted-foreground text-left">{config.description}</p>
+    </Button>
+);
+
 export default function ExportarDatosPage() {
     const {
         isExporting,
@@ -40,45 +196,16 @@ export default function ExportarDatosPage() {
         obtenerEstadisticas();
     }, [obtenerEstadisticas]);
 
-    const formatosDisponibles = [
-        {
-            formato: "csv",
-            icon: FileText,
-            color: "bg-green-100 text-green-800",
-            description: "Compatible con Excel y Google Sheets",
-        },
-        {
-            formato: "excel",
-            icon: FileSpreadsheet,
-            color: "bg-blue-100 text-blue-800",
-            description: "Archivo Excel nativo con formato",
-        },
-        {
-            formato: "json",
-            icon: FileJson,
-            color: "bg-yellow-100 text-yellow-800",
-            description: "Datos estructurados para desarrolladores",
-        },
-        {
-            formato: "pdf",
-            icon: FileImage,
-            color: "bg-red-100 text-red-800",
-            description: "Documento PDF para presentaciones",
-        },
-    ];
-
-    const handleExportarConFiltros = (filtros: ExportFilters) => {
+    // Handlers optimizados con useCallback
+    const handleExportarConFiltros = useCallback((filtros: ExportFilters) => {
         setFiltrosActivos(filtros);
         setShowExportDialog(true);
-    };
+    }, []);
 
-    const handleExportarRapido = (tipoVisita?: string) => {
-        const filtros: ExportFilters = {};
-        if (tipoVisita) {
-            filtros.tipoVisita = tipoVisita as any;
-        }
+    const handleExportarRapido = useCallback((tipoVisita?: string) => {
+        const filtros: ExportFilters = tipoVisita ? { tipoVisita: tipoVisita as any } : {};
         handleExportarConFiltros(filtros);
-    };
+    }, [handleExportarConFiltros]);
 
     return (
         <div className="container mx-auto p-6 space-y-6">
@@ -127,57 +254,16 @@ export default function ExportarDatosPage() {
             {/* Estadísticas generales */}
             {estadisticas && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Visitas</CardTitle>
-                            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{estadisticas.totalVisitas}</div>
-                            <p className="text-xs text-muted-foreground">
-                                Registros en la base de datos
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Sincronizadas</CardTitle>
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-green-600">{estadisticas.sincronizadas}</div>
-                            <p className="text-xs text-muted-foreground">
-                                Enviadas a N8N exitosamente
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-                            <Clock className="h-4 w-4 text-yellow-600" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-yellow-600">{estadisticas.pendientes}</div>
-                            <p className="text-xs text-muted-foreground">
-                                Esperando sincronización
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Con Errores</CardTitle>
-                            <XCircle className="h-4 w-4 text-red-600" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-red-600">{estadisticas.conErrores}</div>
-                            <p className="text-xs text-muted-foreground">
-                                Requieren revisión
-                            </p>
-                        </CardContent>
-                    </Card>
+                    {STATS_CONFIG.map((stat) => (
+                        <StatCard
+                            key={stat.key}
+                            title={stat.title}
+                            value={estadisticas[stat.key]}
+                            description={stat.description}
+                            icon={stat.icon}
+                            color={stat.color}
+                        />
+                    ))}
                 </div>
             )}
 
@@ -216,23 +302,12 @@ export default function ExportarDatosPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {formatosDisponibles.map((formato) => (
-                            <div
-                                key={formato.formato}
-                                className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
-                                onClick={() => handleExportarRapido()}
-                            >
-                                <div className="flex items-center gap-3 mb-2">
-                                    <formato.icon className="h-6 w-6" />
-                                    <span className="font-medium capitalize">{formato.formato}</span>
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-3">
-                                    {formato.description}
-                                </p>
-                                <Badge className={formato.color}>
-                                    {formato.formato.toUpperCase()}
-                                </Badge>
-                            </div>
+                        {EXPORT_FORMATS.map((format) => (
+                            <FormatCard
+                                key={format.formato}
+                                format={format}
+                                onSelect={() => handleExportarRapido()}
+                            />
                         ))}
                     </div>
                 </CardContent>
@@ -248,61 +323,13 @@ export default function ExportarDatosPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Button
-                            variant="outline"
-                            onClick={() => handleExportarRapido()}
-                            className="h-auto p-4 flex flex-col items-start"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <Calendar className="h-4 w-4" />
-                                <span className="font-medium">Todas las visitas</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground text-left">
-                                Exportar todos los registros sin filtros
-                            </p>
-                        </Button>
-
-                        <Button
-                            variant="outline"
-                            onClick={() => handleExportarRapido("Merchandising")}
-                            className="h-auto p-4 flex flex-col items-start"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <MapPin className="h-4 w-4" />
-                                <span className="font-medium">Solo Merchandising</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground text-left">
-                                Visitas de merchandising únicamente
-                            </p>
-                        </Button>
-
-                        <Button
-                            variant="outline"
-                            onClick={() => handleExportarRapido("Trade (Eventos)")}
-                            className="h-auto p-4 flex flex-col items-start"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <Users className="h-4 w-4" />
-                                <span className="font-medium">Solo Eventos</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground text-left">
-                                Visitas de eventos únicamente
-                            </p>
-                        </Button>
-
-                        <Button
-                            variant="outline"
-                            onClick={() => handleExportarRapido("Trade (Impulso)")}
-                            className="h-auto p-4 flex flex-col items-start"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <BarChart3 className="h-4 w-4" />
-                                <span className="font-medium">Solo Impulso</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground text-left">
-                                Visitas de impulso únicamente
-                            </p>
-                        </Button>
+                        {QUICK_EXPORT_OPTIONS.map((option) => (
+                            <QuickExportButton
+                                key={option.title}
+                                config={option}
+                                onExport={handleExportarRapido}
+                            />
+                        ))}
                     </div>
                 </CardContent>
             </Card>
@@ -313,10 +340,9 @@ export default function ExportarDatosPage() {
                     <div className="space-y-2">
                         <p className="font-medium">💡 Consejos para la exportación:</p>
                         <ul className="text-sm space-y-1 ml-4">
-                            <li>• <strong>CSV:</strong> Ideal para análisis en Excel o Google Sheets</li>
-                            <li>• <strong>Excel:</strong> Mejor para presentaciones con formato</li>
-                            <li>• <strong>JSON:</strong> Perfecto para integraciones técnicas</li>
-                            <li>• <strong>PDF:</strong> Ideal para reportes ejecutivos</li>
+                            {EXPORT_TIPS.map((tip) => (
+                                <li key={tip.format}>• <strong>{tip.format}:</strong> {tip.description}</li>
+                            ))}
                         </ul>
                     </div>
                 </AlertDescription>

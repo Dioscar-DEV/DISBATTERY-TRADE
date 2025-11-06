@@ -100,8 +100,8 @@ export function ExportDataDialog({ isOpen, onClose, initialFilters = {} }: Expor
                 if (resultado.data && resultado.filename) {
                     let mimeType = "text/csv";
                     if (opciones.formato === "json") mimeType = "application/json";
-                    if (opciones.formato === "excel") mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-                    if (opciones.formato === "pdf") mimeType = "application/pdf";
+                    if (opciones.formato === "excel") mimeType = "text/tab-separated-values";
+                    if (opciones.formato === "pdf") mimeType = "text/plain";
 
                     exportService.descargarArchivo(resultado.data, resultado.filename, mimeType);
 
@@ -245,14 +245,14 @@ export function ExportDataDialog({ isOpen, onClose, initialFilters = {} }: Expor
                             <div className="space-y-2">
                                 <Label htmlFor="tipoVisita">Tipo de visita</Label>
                                 <Select
-                                    value={filtros.tipoVisita || ""}
-                                    onValueChange={(value) => handleFiltroChange("tipoVisita", value || undefined)}
+                                    value={filtros.tipoVisita || "todos"}
+                                    onValueChange={(value) => handleFiltroChange("tipoVisita", value === "todos" ? undefined : value)}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Seleccionar tipo" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">Todos los tipos</SelectItem>
+                                        <SelectItem value="todos">Todos los tipos</SelectItem>
                                         <SelectItem value="Merchandising">Merchandising</SelectItem>
                                         <SelectItem value="Trade (Eventos)">Trade (Eventos)</SelectItem>
                                         <SelectItem value="Trade (Impulso)">Trade (Impulso)</SelectItem>
@@ -286,14 +286,14 @@ export function ExportDataDialog({ isOpen, onClose, initialFilters = {} }: Expor
                             <div className="space-y-2">
                                 <Label htmlFor="sincronizadoN8N">Estado de sincronización</Label>
                                 <Select
-                                    value={filtros.sincronizadoN8N === undefined ? "" : filtros.sincronizadoN8N.toString()}
-                                    onValueChange={(value) => handleFiltroChange("sincronizadoN8N", value === "" ? undefined : value === "true")}
+                                    value={filtros.sincronizadoN8N === undefined ? "todos" : filtros.sincronizadoN8N.toString()}
+                                    onValueChange={(value) => handleFiltroChange("sincronizadoN8N", value === "todos" ? undefined : value === "true")}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Todos los estados" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">Todos los estados</SelectItem>
+                                        <SelectItem value="todos">Todos los estados</SelectItem>
                                         <SelectItem value="true">Sincronizadas</SelectItem>
                                         <SelectItem value="false">No sincronizadas</SelectItem>
                                     </SelectContent>
