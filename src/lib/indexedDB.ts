@@ -1,5 +1,12 @@
 import Dexie, { Table } from "dexie";
 
+// --- Configuration Constants ---
+// Centralize DB name and version to prevent inconsistencies.
+const DB_NAME = "DisbatteryOfflineDB_v3";
+// Increment this version ONLY when you change the schema below.
+const DB_VERSION = 3;
+// ---
+
 // Esquemas de datos para IndexedDB
 export interface VisitDraft {
   id: string;
@@ -138,12 +145,11 @@ class DisbatteryDB extends Dexie {
 
   constructor() {
     // Nombre fijo de la base para evitar recreaciones innecesarias
-    super("DisbatteryOfflineDB_v3");
+    super(DB_NAME);
 
     // Usar una versión fija y controlada. Incrementar manualmente cuando
     // se necesite una migración (NO usar Date.now()).
-    const DB_VERSION = 3;
-
+    
     // Definir stores y proporcionar un handler de migración minimalista.
     // Añadir nuevas versiones con this.version(n).stores(...).upgrade(tx => { ... })
     this.version(DB_VERSION)
@@ -300,21 +306,32 @@ export async function initializeOfflineDB() {
     
     // Si es un error de versión, intentar limpiar y reinicializar
     if (error instanceof Error && (error.name === 'VersionError' || error.message.includes('version'))) {
-      console.log("🔄 Detected version conflict, attempting to resolve...");
+      console.warn("🔄 Detected IndexedDB version conflict. Attempting automatic recovery...");
       try {
-        // Cerrar la conexión actual
+        // Cerrar la conexión actual para liberar el bloqueo
         db.close();
         
         // Eliminar la base de datos problemática
-        await Dexie.delete("DisbatteryOfflineDB_v3");
+        console.log(`Deleting database '${DB_NAME}' to resolve conflict...`);
+        await Dexie.delete(DB_NAME);
+        console.log("Database deleted successfully.");
         
-        // Intentar abrir nuevamente
+        // Opcional: Limpiar flags de migración para forzar una nueva migración si es necesario
+        localStorage.removeItem("indexeddb_migration_completed");
+        
+        // Intentar abrir nuevamente. Esto creará la DB desde cero.
+        console.log("Re-opening the database...");
         await db.open();
         
-        console.log("✅ Database recreated successfully after version conflict");
+        console.log("✅ Database recreated successfully after version conflict.");
         return true;
       } catch (retryError) {
-        console.error("❌ Failed to resolve version conflict:", retryError);
+        console.error("❌ Failed to resolve version conflict automatically.", retryError);
+        // Informar al usuario que se requiere una acción manual
+        alert(
+          "No se pudo resolver un problema con la base de datos local. " +
+          "Por favor, limpie los datos de navegación de este sitio e intente de nuevo."
+        );
         return false;
       }
     }
