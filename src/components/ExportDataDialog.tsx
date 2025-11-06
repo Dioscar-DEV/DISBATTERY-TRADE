@@ -100,8 +100,8 @@ export function ExportDataDialog({ isOpen, onClose, initialFilters = {} }: Expor
                 if (resultado.data && resultado.filename) {
                     let mimeType = "text/csv";
                     if (opciones.formato === "json") mimeType = "application/json";
-                    if (opciones.formato === "excel") mimeType = "text/tab-separated-values";
-                    if (opciones.formato === "pdf") mimeType = "text/plain";
+                    if (opciones.formato === "excel") mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                    if (opciones.formato === "pdf") mimeType = "application/pdf";
 
                     exportService.descargarArchivo(resultado.data, resultado.filename, mimeType);
 

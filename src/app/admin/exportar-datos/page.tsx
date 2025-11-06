@@ -338,7 +338,7 @@ export default function ExportarDatosPage() {
             <Alert>
                 <AlertDescription>
                     <div className="space-y-2">
-                        <p className="font-medium">💡 Consejos para la exportación:</p>
+                        <span className="font-medium">💡 Consejos para la exportación:</span>
                         <ul className="text-sm space-y-1 ml-4">
                             {EXPORT_TIPS.map((tip) => (
                                 <li key={tip.format}>• <strong>{tip.format}:</strong> {tip.description}</li>

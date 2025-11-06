@@ -2294,12 +2294,12 @@ export default function RutasPage() {
             <DialogDescription className="text-base text-gray-600">
               Busca y selecciona clientes de tu base de datos para agregarlos a la ruta.
               Usa los filtros para encontrar rápidamente lo que necesitas.
-              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800 font-medium">
-                  💡 <strong>Tip:</strong> Puedes agregar el mismo cliente múltiples veces para diferentes marcas (Shell/Qualid) o tipos de visita.
-                </p>
-              </div>
             </DialogDescription>
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800 font-medium">
+                💡 <strong>Tip:</strong> Puedes agregar el mismo cliente múltiples veces para diferentes marcas (Shell/Qualid) o tipos de visita.
+              </p>
+            </div>
           </DialogHeader>
 
           <div className="flex-1 flex flex-col overflow-hidden">

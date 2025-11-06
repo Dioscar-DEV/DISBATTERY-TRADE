@@ -16,6 +16,9 @@ import {
 import { getFirestoreClient } from "@/firebase/clientApp";
 import { Visita } from "@/types/visitas";
 import { format } from "date-fns";
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Tipos para exportación
 export interface ExportFilters {
@@ -71,6 +74,18 @@ export interface VisitaExportData {
 
 class ExportService {
   private readonly BATCH_SIZE = 100; // Procesar en lotes para evitar timeouts
+  private readonly EXCEL_CELL_LIMIT = 32767; // Límite de caracteres por celda en Excel
+
+  /**
+   * Trunca texto para que no exceda el límite de Excel
+   */
+  private truncateForExcel(text: any): string {
+    const str = String(text || '');
+    if (str.length <= this.EXCEL_CELL_LIMIT) {
+      return str;
+    }
+    return str.substring(0, this.EXCEL_CELL_LIMIT - 3) + '...';
+  }
 
   /**
    * Exporta visitas con filtros y opciones específicas
@@ -529,9 +544,14 @@ class ExportService {
   private async exportarExcel(
     visitas: VisitaExportData[],
     opciones: ExportOptions
-  ): Promise<string> {
-    // Por ahora generamos CSV con separador de tabulación para Excel
-    if (visitas.length === 0) return "";
+  ): Promise<ArrayBuffer> {
+    if (visitas.length === 0) {
+      // Crear un workbook vacío
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([['No hay datos para exportar']]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Visitas');
+      return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    }
 
     // Crear encabezados
     const headers = [
@@ -602,34 +622,34 @@ class ExportService {
       headers.push("Fotos");
     }
 
-    // Crear filas de datos (igual que CSV pero con tabulaciones)
+    // Crear filas de datos
     const rows = visitas.map((visita) => {
       const row = [
-        visita.id,
-        visita.fecha,
-        visita.hora,
-        visita.mercaderista,
-        visita.correoMercaderista,
-        visita.rifCliente,
-        visita.nombreEstablecimiento,
-        visita.tipoVisita,
-        visita.sucursal,
+        this.truncateForExcel(visita.id),
+        this.truncateForExcel(visita.fecha),
+        this.truncateForExcel(visita.hora),
+        this.truncateForExcel(visita.mercaderista),
+        this.truncateForExcel(visita.correoMercaderista),
+        this.truncateForExcel(visita.rifCliente),
+        this.truncateForExcel(visita.nombreEstablecimiento),
+        this.truncateForExcel(visita.tipoVisita),
+        this.truncateForExcel(visita.sucursal),
         visita.latitud,
         visita.longitud,
-        visita.direccion,
+        this.truncateForExcel(visita.direccion),
         visita.sincronizadoN8N ? "Sí" : "No",
-        visita.errorSync || "",
-        visita.observacionesAdicionales || "",
+        this.truncateForExcel(visita.errorSync || ""),
+        this.truncateForExcel(visita.observacionesAdicionales || ""),
       ];
 
       // Agregar datos específicos según tipo
       if (visita.tipoVisita === "Merchandising") {
         row.push(
           visita.datosVisita.clientePoseeSeñalizacion ? "Sí" : "No",
-          visita.datosVisita.fotoSeñalizacion || "",
+          this.truncateForExcel(visita.datosVisita.fotoSeñalizacion || ""),
           visita.datosVisita.hicistePlanogramaShell ? "Sí" : "No",
-          visita.datosVisita.fotoAntesShell || "",
-          visita.datosVisita.fotoDespuesShell || "",
+          this.truncateForExcel(visita.datosVisita.fotoAntesShell || ""),
+          this.truncateForExcel(visita.datosVisita.fotoDespuesShell || ""),
           visita.datosVisita.totalCenefasShell || 0,
           visita.datosVisita.totalPapelBobinaShell || 0,
           visita.datosVisita.totalStickersShellCambio || 0,
@@ -648,8 +668,8 @@ class ExportService {
           visita.datosVisita.afiches_FiltrosFluidos2024 || 0,
           visita.datosVisita.afichesQualidCaucho2023 || 0,
           visita.datosVisita.afichesQualidCaucho2024 || 0,
-          visita.datosVisita.observacionesShell || "",
-          visita.datosVisita.observacionesQualid || ""
+          this.truncateForExcel(visita.datosVisita.observacionesShell || ""),
+          this.truncateForExcel(visita.datosVisita.observacionesQualid || "")
         );
       }
 
@@ -658,29 +678,41 @@ class ExportService {
         visita.tipoVisita === "Trade (Impulso)"
       ) {
         row.push(
-          visita.datosVisita.marcaSeleccionada || "",
-          visita.datosVisita.recursosUtilizados || "",
-          visita.datosVisita.entregablesShell || "",
-          visita.datosVisita.entregablesQualid || "",
-          visita.datosVisita.observaciones || ""
+          this.truncateForExcel(visita.datosVisita.marcaSeleccionada || ""),
+          this.truncateForExcel(visita.datosVisita.recursosUtilizados || ""),
+          this.truncateForExcel(visita.datosVisita.entregablesShell || ""),
+          this.truncateForExcel(visita.datosVisita.entregablesQualid || ""),
+          this.truncateForExcel(visita.datosVisita.observaciones || "")
         );
       }
 
       if (opciones.incluirFotos) {
-        row.push(visita.fotos?.join("; ") || "");
+        row.push(this.truncateForExcel(visita.fotos?.join("; ") || ""));
       }
 
       return row;
     });
 
-    // Convertir a formato Excel (TSV - Tab Separated Values)
-    const excelContent = [headers, ...rows]
-      .map((row) =>
-        row.map((field) => String(field).replace(/\t/g, " ")).join("\t")
-      )
-      .join("\n");
+    // Crear el workbook y worksheet
+    const wb = XLSX.utils.book_new();
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-    return excelContent;
+    // Configurar el ancho de las columnas
+    const colWidths = headers.map((header, index) => {
+      const maxLength = Math.max(
+        header.length,
+        ...rows.map(row => String(row[index] || '').length)
+      );
+      return { wch: Math.min(maxLength + 2, 50) }; // Máximo 50 caracteres
+    });
+    ws['!cols'] = colWidths;
+
+    // Agregar la hoja al workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Visitas');
+
+    // Generar el archivo Excel como ArrayBuffer
+    return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   }
 
   /**
@@ -708,66 +740,129 @@ class ExportService {
   private async exportarPDF(
     visitas: VisitaExportData[],
     opciones: ExportOptions
-  ): Promise<string> {
-    // Por ahora generamos un reporte en texto plano que puede ser convertido a PDF
-    if (visitas.length === 0) return "No hay datos para exportar";
+  ): Promise<ArrayBuffer> {
+    const doc = new jsPDF();
+    
+    if (visitas.length === 0) {
+      doc.text('No hay datos para exportar', 20, 20);
+      return doc.output('arraybuffer');
+    }
 
-    let pdfContent = `REPORTE DE VISITAS\n`;
-    pdfContent += `Fecha de exportación: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}\n`;
-    pdfContent += `Total de registros: ${visitas.length}\n`;
-    pdfContent += `\n${"=".repeat(80)}\n\n`;
+    // Configurar el documento
+    doc.setFontSize(16);
+    doc.text('REPORTE DE VISITAS', 20, 20);
+    
+    doc.setFontSize(10);
+    doc.text(`Fecha de exportación: ${format(new Date(), "dd/MM/yyyy HH:mm:ss")}`, 20, 30);
+    doc.text(`Total de registros: ${visitas.length}`, 20, 40);
 
-    visitas.forEach((visita, index) => {
-      pdfContent += `VISITA ${index + 1}\n`;
-      pdfContent += `${"─".repeat(40)}\n`;
-      pdfContent += `ID: ${visita.id}\n`;
-      pdfContent += `Fecha: ${visita.fecha} ${visita.hora}\n`;
-      pdfContent += `Mercaderista: ${visita.mercaderista}\n`;
-      pdfContent += `Correo: ${visita.correoMercaderista}\n`;
-      pdfContent += `Cliente: ${visita.rifCliente} - ${visita.nombreEstablecimiento}\n`;
-      pdfContent += `Tipo de visita: ${visita.tipoVisita}\n`;
-      pdfContent += `Sucursal: ${visita.sucursal}\n`;
-      pdfContent += `Ubicación: ${visita.latitud}, ${visita.longitud}\n`;
-      pdfContent += `Dirección: ${visita.direccion}\n`;
-      pdfContent += `Sincronizado N8N: ${visita.sincronizadoN8N ? "Sí" : "No"}\n`;
-      
-      if (visita.errorSync) {
-        pdfContent += `Error de sincronización: ${visita.errorSync}\n`;
+    // Preparar datos para la tabla
+    const headers = [
+      'ID', 'Fecha', 'Hora', 'Mercaderista', 'Cliente', 'Tipo Visita', 
+      'Sucursal', 'Sincronizado'
+    ];
+
+    const data = visitas.map(visita => [
+      visita.id.substring(0, 8) + '...', // Acortar ID
+      visita.fecha,
+      visita.hora,
+      visita.mercaderista.substring(0, 15) + (visita.mercaderista.length > 15 ? '...' : ''),
+      visita.nombreEstablecimiento.substring(0, 20) + (visita.nombreEstablecimiento.length > 20 ? '...' : ''),
+      visita.tipoVisita,
+      visita.sucursal.substring(0, 15) + (visita.sucursal.length > 15 ? '...' : ''),
+      visita.sincronizadoN8N ? 'Sí' : 'No'
+    ]);
+
+    // Generar tabla principal
+    autoTable(doc, {
+      head: [headers],
+      body: data,
+      startY: 50,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245]
+      },
+      margin: { top: 50, left: 10, right: 10 },
+      tableWidth: 'auto',
+      columnStyles: {
+        0: { cellWidth: 20 }, // ID
+        1: { cellWidth: 25 }, // Fecha
+        2: { cellWidth: 20 }, // Hora
+        3: { cellWidth: 30 }, // Mercaderista
+        4: { cellWidth: 35 }, // Cliente
+        5: { cellWidth: 25 }, // Tipo
+        6: { cellWidth: 25 }, // Sucursal
+        7: { cellWidth: 20 }  // Sincronizado
       }
-      
-      if (visita.observacionesAdicionales) {
-        pdfContent += `Observaciones: ${visita.observacionesAdicionales}\n`;
-      }
+    });
 
-      // Agregar datos específicos según tipo de visita
-      if (visita.tipoVisita === "Merchandising") {
-        pdfContent += `\nDATOS DE MERCHANDISING:\n`;
-        pdfContent += `Cliente posee señalización: ${visita.datosVisita.clientePoseeSeñalizacion ? "Sí" : "No"}\n`;
-        pdfContent += `Planograma Shell: ${visita.datosVisita.hicistePlanogramaShell ? "Sí" : "No"}\n`;
-        pdfContent += `Material Qualid: ${visita.datosVisita.colocasteQualid ? "Sí" : "No"}\n`;
-        pdfContent += `Cenefas Shell: ${visita.datosVisita.totalCenefasShell || 0}\n`;
-        pdfContent += `Cenefas Qualid: ${visita.datosVisita.totalCenefasQualid || 0}\n`;
-      }
+    // Si hay datos específicos por tipo de visita, agregar páginas adicionales
+    if (opciones.incluirObservaciones) {
+      const merchandisingVisitas = visitas.filter(v => v.tipoVisita === 'Merchandising');
+      const tradeVisitas = visitas.filter(v => v.tipoVisita.includes('Trade'));
 
-      if (visita.tipoVisita === "Trade (Eventos)" || visita.tipoVisita === "Trade (Impulso)") {
-        pdfContent += `\nDATOS DE TRADE:\n`;
-        pdfContent += `Marca seleccionada: ${visita.datosVisita.marcaSeleccionada || "N/A"}\n`;
-        pdfContent += `Recursos utilizados: ${visita.datosVisita.recursosUtilizados || "N/A"}\n`;
-        pdfContent += `Entregables Shell: ${visita.datosVisita.entregablesShell || "N/A"}\n`;
-        pdfContent += `Entregables Qualid: ${visita.datosVisita.entregablesQualid || "N/A"}\n`;
-      }
+      if (merchandisingVisitas.length > 0) {
+        doc.addPage();
+        doc.setFontSize(14);
+        doc.text('DETALLES DE MERCHANDISING', 20, 20);
+        
+        const merchHeaders = ['Cliente', 'Señalización', 'Planograma Shell', 'Material Qualid'];
+        const merchData = merchandisingVisitas.map(visita => [
+          visita.nombreEstablecimiento.substring(0, 30),
+          visita.datosVisita.clientePoseeSeñalizacion ? 'Sí' : 'No',
+          visita.datosVisita.hicistePlanogramaShell ? 'Sí' : 'No',
+          visita.datosVisita.colocasteQualid ? 'Sí' : 'No'
+        ]);
 
-      if (opciones.incluirFotos && visita.fotos && visita.fotos.length > 0) {
-        pdfContent += `\nFOTOS:\n`;
-        visita.fotos.forEach((foto, fotoIndex) => {
-          pdfContent += `${fotoIndex + 1}. ${foto}\n`;
+        autoTable(doc, {
+          head: [merchHeaders],
+          body: merchData,
+          startY: 30,
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [46, 204, 113] }
         });
       }
 
-      pdfContent += `\n${"=".repeat(80)}\n\n`;
-    });
+      if (tradeVisitas.length > 0) {
+        doc.addPage();
+        doc.setFontSize(14);
+        doc.text('DETALLES DE TRADE', 20, 20);
+        
+        const tradeHeaders = ['Cliente', 'Marca', 'Recursos', 'Entregables'];
+        const tradeData = tradeVisitas.map(visita => [
+          visita.nombreEstablecimiento.substring(0, 30),
+          visita.datosVisita.marcaSeleccionada || 'N/A',
+          (visita.datosVisita.recursosUtilizados || 'N/A').substring(0, 20),
+          (visita.datosVisita.entregablesShell || 'N/A').substring(0, 20)
+        ]);
 
-    return pdfContent;
+        autoTable(doc, {
+          head: [tradeHeaders],
+          body: tradeData,
+          startY: 30,
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [231, 76, 60] }
+        });
+      }
+    }
+
+    // Agregar pie de página
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+    }
+
+    return doc.output('arraybuffer');
   }
 
   /**
@@ -829,7 +924,17 @@ class ExportService {
    * Descarga un archivo
    */
   descargarArchivo(data: any, filename: string, mimeType: string): void {
-    const blob = new Blob([data], { type: mimeType });
+    let blob: Blob;
+    
+    // Manejar diferentes tipos de datos
+    if (data instanceof ArrayBuffer) {
+      blob = new Blob([data], { type: mimeType });
+    } else if (typeof data === 'string') {
+      blob = new Blob([data], { type: mimeType });
+    } else {
+      blob = new Blob([JSON.stringify(data)], { type: mimeType });
+    }
+    
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
