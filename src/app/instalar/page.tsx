@@ -62,8 +62,6 @@ const INSTALLATION_INSTRUCTIONS = {
   }
 } as const;
 
-const router = useRouter();
-
 const UI_TEXTS = {
   installButton: {
     canInstall: '📱 INSTALAR APP AHORA',
@@ -401,6 +399,7 @@ const MainInstallationScreen: React.FC<MainInstallationScreenProps> = ({
 export default function InstalarPage() {
   const [showPermissions, setShowPermissions] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const router = useRouter();
 
   const { isInstalled, canInstall, installApp } = useAppInstallation();
   const { shareApp, navigateToApp } = useAppActions();

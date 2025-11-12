@@ -1,10 +1,8 @@
 "use client";
 
-import { offlineDataManager } from "@/services/offlineDataManager";
-import { offlineQueue } from "@/services/offlineQueue";
-import { solicitarAlmacenamientoPersistente } from "./offline"; // Importar nuestra nueva función
+import { offlineManager } from "@/services/offlineManager";
+import { solicitarAlmacenamientoPersistente } from "./offline";
 import { serviceWorkerManager } from "@/services/serviceWorkerManager";
-import { robustOfflineInitializer } from "@/services/robustOfflineInit";
 
 // Función para inicializar todos los servicios offline
 export async function initializeOfflineServices() {
@@ -14,8 +12,8 @@ export async function initializeOfflineServices() {
     // 1. Solicitar almacenamiento persistente como primer paso
     await solicitarAlmacenamientoPersistente();
 
-    // 2. Inicializar sistema offline robusto
-    const initResult = await robustOfflineInitializer.initialize();
+    // 2. Inicializar sistema offline consolidado
+    const initResult = await offlineManager.initializeOfflineSystem();
     if (initResult.success) {
       console.log(`✅ Sistema offline inicializado - IndexedDB: ${initResult.indexedDBAvailable}, Fallback: ${initResult.fallbackAvailable}`);
     } else {
@@ -66,8 +64,8 @@ export async function initializeOfflineServices() {
           serviceWorkerManager.onMessage("SYNC_TRIGGER", async (data: any) => {
             try {
               console.log("🔔 [OfflineInit] SW requested sync trigger:", data);
-              const result = await offlineQueue.processQueue();
-              console.log("🔄 [OfflineInit] Queue processed result:", result);
+              const result = await offlineManager.forceSync();
+              console.log("🔄 [OfflineInit] Sync result:", result);
               // Enviar resultado al SW si es necesario (con timeout corto)
               try {
                 await Promise.race([
@@ -161,7 +159,7 @@ let syncInProgress = false;
 let lastSyncTime = 0;
 const MIN_SYNC_INTERVAL = 30000; // 30 segundos mínimo entre sincronizaciones
 
-// Función para activar sincronización automática
+// Función para activar sincronización automática (delegada a offlineManager)
 async function triggerAutoSync() {
   const now = Date.now();
   
@@ -180,9 +178,10 @@ async function triggerAutoSync() {
   try {
     syncInProgress = true;
     lastSyncTime = now;
-    console.log("🔄 [OfflineInit] Auto sync triggered");
+    console.log("🔄 [OfflineInit] Auto sync triggered - delegando a offlineManager");
     
-    const result = await offlineQueue.processQueue();
+    // Delegar a offlineManager consolidado
+    const result = await offlineManager.forceSync();
     console.log(`✅ [OfflineInit] Auto sync completado: ${result.processed} procesadas, ${result.errors} errores`);
   } catch (error) {
     console.error("❌ [OfflineInit] Error during auto sync:", error);

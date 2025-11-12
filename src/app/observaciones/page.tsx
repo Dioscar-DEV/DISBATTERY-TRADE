@@ -19,7 +19,6 @@ import { RespuestasMerchandising } from '@/types/visitas';
 import { getCurrentUser, getUserFromStorage } from '@/services/auth';
 import { uploadMultipleImages } from '@/services/images';
 import { useVisitDraft } from '@/hooks/useVisitDraft';
-import { offlineQueue } from '@/services/offlineQueue';
 import { offlineManager } from '@/services/offlineManager';
 
 export default function ObservacionesPage() {
@@ -902,24 +901,8 @@ export default function ObservacionesPage() {
           sincronizadoN8N: false,
         };
 
-        // Encolar imágenes base64 primero (si existen en datosN8N)
-        const fotosBase64: string[] = Array.isArray(datosDetalladosN8N?.fotos)
-          ? (datosDetalladosN8N.fotos as string[])
-          : [];
-        for (let i = 0; i < fotosBase64.length; i++) {
-          const base64 = fotosBase64[i];
-          if (base64 && base64.startsWith('data:image/')) {
-            await offlineQueue.queueUploadImage({
-              draftId: draft.draftId || 'draft-temp',
-              fieldKey: `foto_${i + 1}`,
-              base64,
-              storagePath: `visitas/offline/${rifCliente}`,
-            });
-          }
-        }
-
-        // Encolar creación de visita
-        await offlineQueue.queueCreateVisita({
+        // Encolar creación de visita offline
+        await offlineManager.queueCreateVisita({
           draftId: draft.draftId || 'draft-temp',
           collection: coll,
           data: payload,

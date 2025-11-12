@@ -1,15 +1,17 @@
 /**
- * 🚀 SERVICIO UNIFICADO DE GESTIÓN OFFLINE
+ * 🚀 SERVICIO UNIFICADO DE GESTIÓN OFFLINE - VERSIÓN CONSOLIDADA
  * 
- * Este servicio centraliza toda la lógica de guardado offline y sincronización
- * para resolver los problemas de "atascamiento" después del guardado.
- * 
- * Características principales:
+ * Este servicio centraliza TODA la lógica offline de la aplicación:
+ * - Guardado offline/online unificado
+ * - Sincronización automática robusta
+ * - Manejo de IndexedDB + fallback a localStorage
+ * - Eliminación de servicios duplicados
  * - Sistema de cola unificado
- * - Manejo robusto de errores
- * - Feedback visual mejorado
- * - Sincronización automática cuando hay conexión
- * - Limpieza automática de datos
+ * 
+ * REEMPLAZA A:
+ * - syncService.ts (eliminado)
+ * - sync.ts (eliminado) 
+ * - Lógica duplicada en offlineService.ts
  */
 
 import { db } from "@/db/database";
@@ -19,6 +21,9 @@ import { getCurrentUser, getUserFromStorage } from "./auth";
 import { updateRoutePointStatus } from "./routes";
 import { format } from "date-fns";
 import { fallbackStorage } from '@/services/fallbackStorage';
+import { robustOfflineInitializer } from '@/services/robustOfflineInit';
+import { databaseRecovery } from '@/services/databaseRecovery';
+import { db as indexedDB } from "@/lib/indexedDB";
 
 // Tipos para el manejo de datos offline
 export interface OfflineVisitaData {
@@ -47,6 +52,28 @@ export interface SaveResult {
   visitaId?: string;
   error?: string;
   isOffline?: boolean;
+}
+
+export interface SyncResult {
+  success: boolean;
+  processed: number;
+  errors: number;
+}
+
+// Tipos para el sistema de cola consolidado
+export interface QueueOperation {
+  id: string;
+  type: 'uploadImage' | 'createVisita' | 'webhook' | 'updateCliente' | 'updateRoute';
+  payload: any;
+  dependencies: string[];
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  retries: number;
+  maxRetries: number;
+  lastError?: string;
+  idempotencyKey: string;
+  createdAt: number;
+  updatedAt: number;
+  draftId?: string;
 }
 
 class OfflineManager {
@@ -1182,6 +1209,422 @@ class OfflineManager {
     } catch (error) {
       console.error('❌ [OfflineManager] Error limpiando datos:', error);
     }
+  }
+
+  /**
+   * 🔧 MÉTODOS CONSOLIDADOS - Reemplazan funcionalidad de servicios eliminados
+   */
+
+  /**
+   * ⚡ Inicialización robusta del sistema offline
+   * Reemplaza: robustOfflineInitializer.initialize()
+   */
+  async initializeOfflineSystem(): Promise<{
+    success: boolean;
+    indexedDBAvailable: boolean;
+    fallbackAvailable: boolean;
+    errors: string[];
+  }> {
+    console.log('🚀 [OfflineManager] Inicializando sistema offline consolidado...');
+    
+    const result = await robustOfflineInitializer.initialize();
+    
+    if (result.success) {
+      console.log(`✅ [OfflineManager] Sistema offline inicializado - IndexedDB: ${result.indexedDBAvailable}, Fallback: ${result.fallbackAvailable}`);
+      
+      // Configurar listeners de conectividad
+      this.setupConnectivityListeners();
+      
+      // Iniciar sincronización automática
+      this.setupAutoSync();
+    }
+    
+    return result;
+  }
+
+  /**
+   * 🌐 Configurar listeners de conectividad
+   */
+  private setupConnectivityListeners(): void {
+    if (typeof window === 'undefined') return;
+
+    const handleOnline = () => {
+      console.log('🌐 [OfflineManager] Conexión restaurada - iniciando sincronización');
+      this.syncPendingVisitas();
+    };
+
+    const handleOffline = () => {
+      console.log('📱 [OfflineManager] Conexión perdida - modo offline activado');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+  }
+
+  /**
+   * ⏰ Configurar sincronización automática
+   */
+  private setupAutoSync(): void {
+    if (typeof window === 'undefined') return;
+
+    // Sincronización cada 5 minutos si hay conexión
+    setInterval(() => {
+      if (navigator.onLine && !this.syncInProgress) {
+        console.log('⏰ [OfflineManager] Sincronización automática programada');
+        this.syncPendingVisitas();
+      }
+    }, 5 * 60 * 1000); // 5 minutos
+
+    // Sincronización al ganar foco
+    window.addEventListener('focus', () => {
+      if (navigator.onLine && !this.syncInProgress) {
+        console.log('👁️ [OfflineManager] Sincronización por foco de ventana');
+        this.syncPendingVisitas();
+      }
+    });
+
+    // Sincronización cuando la página se vuelve visible
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && navigator.onLine && !this.syncInProgress) {
+        console.log('👀 [OfflineManager] Sincronización por visibilidad');
+        this.syncPendingVisitas();
+      }
+    });
+
+    // Sincronización inicial después de 10 segundos
+    setTimeout(() => {
+      if (navigator.onLine && !this.syncInProgress) {
+        console.log('🚀 [OfflineManager] Sincronización inicial');
+        this.syncPendingVisitas();
+      }
+    }, 10000);
+  }
+
+  /**
+   * 🔄 Forzar sincronización inmediata
+   * Reemplaza: syncService.forcSync()
+   */
+  async forceSync(): Promise<SyncResult> {
+    console.log('🔄 [OfflineManager] Forzando sincronización inmediata...');
+    
+    if (this.syncInProgress) {
+      console.log('⏭️ [OfflineManager] Sincronización ya en progreso');
+      return { success: false, processed: 0, errors: 0 };
+    }
+
+    const isOnline = await this.checkConnection();
+    if (!isOnline) {
+      console.log('❌ [OfflineManager] Sin conexión - no se puede sincronizar');
+      return { success: false, processed: 0, errors: 0 };
+    }
+
+    await this.syncPendingVisitas();
+    
+    const stats = await this.getSyncStats();
+    return {
+      success: stats.errors === 0,
+      processed: stats.synced,
+      errors: stats.errors
+    };
+  }
+
+  /**
+   * 📊 Verificar si hay visitas pendientes
+   * Reemplaza: syncService.hasPendingVisitas()
+   */
+  async hasPendingVisitas(): Promise<boolean> {
+    try {
+      const stats = await this.getSyncStats();
+      return stats.pending > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 📈 Obtener estado del sistema offline
+   * Reemplaza: robustOfflineInitializer.getStatus()
+   */
+  async getOfflineSystemStatus(): Promise<{
+    indexedDB: boolean;
+    localStorage: boolean;
+    canSaveOffline: boolean;
+  }> {
+    try {
+      return await robustOfflineInitializer.getStatus();
+    } catch (error) {
+      console.error('❌ [OfflineManager] Error obteniendo estado del sistema:', error);
+      return {
+        indexedDB: false,
+        localStorage: fallbackStorage.isAvailable(),
+        canSaveOffline: fallbackStorage.isAvailable()
+      };
+    }
+  }
+
+  /**
+   * 🧹 Limpiar todos los datos offline
+   */
+  async clearAllOfflineData(): Promise<void> {
+    try {
+      console.log('🧹 [OfflineManager] Limpiando todos los datos offline...');
+      
+      // Limpiar IndexedDB
+      try {
+        await db.visitas.clear();
+        console.log('✅ [OfflineManager] IndexedDB limpiado');
+      } catch (dbError) {
+        console.warn('⚠️ [OfflineManager] Error limpiando IndexedDB:', dbError);
+      }
+      
+      // Limpiar fallback storage
+      if (fallbackStorage.isAvailable()) {
+        fallbackStorage.clear();
+        console.log('✅ [OfflineManager] Fallback storage limpiado');
+      }
+      
+      // Limpiar datos temporales
+      this.cleanupAfterSave();
+      
+      console.log('✅ [OfflineManager] Limpieza completa finalizada');
+    } catch (error) {
+      console.error('❌ [OfflineManager] Error durante limpieza:', error);
+    }
+  }
+
+  /**
+   * SISTEMA DE COLA CONSOLIDADO - Migrado de offlineQueue.ts
+   */
+
+  /**
+   * 🆔 Generar UUID para operaciones
+   */
+  private generateUUID(prefix: string): string {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  /**
+   * ➕ Agregar operación a la cola
+   */
+  async queueOperation(op: Omit<QueueOperation, "id" | "status" | "retries" | "maxRetries" | "createdAt" | "updatedAt">): Promise<string> {
+    const now = Date.now();
+    const operation: QueueOperation = {
+      id: this.generateUUID("op"),
+      type: op.type,
+      payload: op.payload,
+      dependencies: op.dependencies || [],
+      status: "pending",
+      retries: 0,
+      maxRetries: 5,
+      lastError: undefined,
+      idempotencyKey: op.idempotencyKey || this.generateUUID("idem"),
+      createdAt: now,
+      updatedAt: now,
+      draftId: op.draftId,
+    };
+
+    return await databaseRecovery.executeWithRecovery(async () => {
+      await indexedDB.pendingOps.put(operation);
+      console.log(`✅ [OfflineManager] Operación encolada: ${operation.type} (${operation.id})`);
+      return operation.id;
+    }) || operation.id;
+  }
+
+  /**
+   * 📤 Encolar subida de imagen
+   */
+  async queueUploadImage(params: {
+    draftId: string;
+    fieldKey: string;
+    base64: string;
+    storagePath: string;
+  }): Promise<string> {
+    const { draftId, fieldKey, base64, storagePath } = params;
+    return this.queueOperation({
+      type: "uploadImage",
+      payload: { draftId, fieldKey, base64, storagePath },
+      dependencies: [],
+      draftId,
+      idempotencyKey: `${draftId}:${fieldKey}`,
+    });
+  }
+
+  /**
+   * 📝 Encolar creación de visita
+   */
+  async queueCreateVisita(params: {
+    draftId: string;
+    collection: string;
+    data: any;
+  }): Promise<string> {
+    const { draftId, collection: coll, data } = params;
+    return this.queueOperation({
+      type: "createVisita",
+      payload: { coll, data },
+      dependencies: [],
+      draftId,
+      idempotencyKey: `${draftId}:createVisita`,
+    });
+  }
+
+  /**
+   * 🌐 Encolar webhook N8N
+   */
+  async queueWebhookN8N(params: {
+    draftId: string;
+    url: string;
+    body: any;
+  }): Promise<string> {
+    const { draftId, url, body } = params;
+    return this.queueOperation({
+      type: "webhook",
+      payload: { url, body },
+      dependencies: [],
+      draftId,
+      idempotencyKey: `${draftId}:webhook`,
+    });
+  }
+
+  /**
+   * ⚙️ Procesar cola de operaciones
+   */
+  async processOperationQueue(): Promise<{ processed: number; errors: number }> {
+    return await databaseRecovery.executeWithRecovery(async () => {
+      console.log('🔄 [OfflineManager] Procesando cola de operaciones...');
+      
+      const pending = await indexedDB.pendingOps
+        .where("status")
+        .equals("pending")
+        .sortBy("createdAt");
+
+      let processed = 0;
+      let errors = 0;
+
+      for (const op of pending) {
+        try {
+          await indexedDB.pendingOps.update(op.id, {
+            status: "processing",
+            updatedAt: Date.now(),
+          });
+
+          switch (op.type) {
+            case "uploadImage": {
+              const { draftId, fieldKey, base64, storagePath } = op.payload || {};
+              const { uploadImageToStorage, generateFileName } = await import("@/services/images");
+              const fileName = generateFileName(`${draftId}_${fieldKey}`);
+              const url = await uploadImageToStorage(base64, storagePath, fileName);
+              
+              // Guardar URL vinculada al draft
+              await indexedDB.images.put({
+                id: this.generateUUID("img"),
+                draftId,
+                fieldKey,
+                blob: new Blob(),
+                base64,
+                filename: fileName,
+                size: base64?.length || 0,
+                type: "image/jpeg",
+                compressed: true,
+                uploadedUrl: url,
+                createdAt: Date.now(),
+              } as any);
+
+              await indexedDB.pendingOps.update(op.id, {
+                status: "completed",
+                updatedAt: Date.now(),
+              });
+              processed++;
+              break;
+            }
+            case "createVisita": {
+              const { coll, data } = op.payload || {};
+              const { getFirestoreClient } = await import('@/firebase/clientApp');
+              const { collection, addDoc } = await import('firebase/firestore');
+              const fs = getFirestoreClient();
+              await addDoc(collection(fs, coll), data);
+              
+              await indexedDB.pendingOps.update(op.id, {
+                status: "completed",
+                updatedAt: Date.now(),
+              });
+              processed++;
+              break;
+            }
+            case "updateCliente": {
+              const { path, data } = op.payload || {};
+              const { getFirestoreClient } = await import('@/firebase/clientApp');
+              const { doc, updateDoc } = await import('firebase/firestore');
+              const fs = getFirestoreClient();
+              await updateDoc(doc(fs, path), data);
+              
+              await indexedDB.pendingOps.update(op.id, {
+                status: "completed",
+                updatedAt: Date.now(),
+              });
+              processed++;
+              break;
+            }
+            case "updateRoute": {
+              const { path, data } = op.payload || {};
+              const { getFirestoreClient } = await import('@/firebase/clientApp');
+              const { doc, updateDoc } = await import('firebase/firestore');
+              const fs = getFirestoreClient();
+              await updateDoc(doc(fs, path), data);
+              
+              await indexedDB.pendingOps.update(op.id, {
+                status: "completed",
+                updatedAt: Date.now(),
+              });
+              processed++;
+              break;
+            }
+            case "webhook": {
+              const { url, body } = op.payload || {};
+              await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              });
+              
+              await indexedDB.pendingOps.update(op.id, {
+                status: "completed",
+                updatedAt: Date.now(),
+              });
+              processed++;
+              break;
+            }
+            default: {
+              await indexedDB.pendingOps.update(op.id, {
+                status: "failed",
+                updatedAt: Date.now(),
+                lastError: "Tipo no soportado",
+              });
+              errors++;
+            }
+          }
+        } catch (e: any) {
+          const retries = (op.retries || 0) + 1;
+          const failed = retries >= (op.maxRetries || 5);
+          
+          await indexedDB.pendingOps.update(op.id, {
+            status: failed ? "failed" : "pending",
+            retries,
+            lastError: e?.message || String(e),
+            updatedAt: Date.now(),
+          });
+          
+          if (failed) {
+            console.error(`❌ [OfflineManager] Operación ${op.id} falló después de ${retries} intentos:`, e);
+            errors++;
+          } else {
+            console.warn(`⚠️ [OfflineManager] Operación ${op.id} falló, reintentando (${retries}/${op.maxRetries}):`, e);
+          }
+        }
+      }
+
+      console.log(`✅ [OfflineManager] Cola procesada: ${processed} exitosas, ${errors} errores`);
+      return { processed, errors };
+    }) || { processed: 0, errors: 1 };
   }
 }
 

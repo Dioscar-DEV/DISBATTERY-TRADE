@@ -1,12 +1,11 @@
 /**
  * Hook para manejar funcionalidad offline y sincronización automática
+ * VERSIÓN CONSOLIDADA - Usa offlineManager unificado
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { serviceWorkerManager } from "@/services/serviceWorkerManager";
-import { syncService } from "@/services/syncService";
-import { offlineService } from "@/services/offlineService";
-import { robustOfflineInitializer } from "@/services/robustOfflineInit";
+import { offlineManager } from "@/services/offlineManager";
 import { fallbackStorage } from "@/services/fallbackStorage";
 
 interface OfflineSyncState {
@@ -40,30 +39,13 @@ export function useOfflineSync() {
    */
   const updateSyncStatus = useCallback(async () => {
     try {
-      // Intentar obtener de offlineService primero
-      let pendingCount = 0;
-      let lastSync: Date | undefined;
-
-      try {
-        const syncStatus = await offlineService.getSyncStatus();
-        pendingCount += syncStatus.pendingVisitas;
-        if (syncStatus.lastPartialSync) {
-          lastSync = new Date(syncStatus.lastPartialSync);
-        }
-      } catch (offlineServiceError) {
-        console.warn("⚠️ [useOfflineSync] Error accediendo a offlineService:", offlineServiceError);
-      }
-
-      // También verificar fallback storage
-      if (fallbackStorage.isAvailable()) {
-        const fallbackStats = fallbackStorage.getStats();
-        pendingCount += fallbackStats.pending;
-      }
-
+      // Usar offlineManager consolidado
+      const stats = await offlineManager.getSyncStats();
+      
       setState((prev) => ({
         ...prev,
-        pendingVisitas: pendingCount,
-        lastSyncAttempt: lastSync,
+        pendingVisitas: stats.pending,
+        lastSyncAttempt: stats.lastSync,
       }));
     } catch (error) {
       console.error("❌ Error actualizando estado de sync:", error);
@@ -71,7 +53,7 @@ export function useOfflineSync() {
   }, []);
 
   /**
-   * Inicializa el sistema offline robusto y Service Worker
+   * Inicializa el sistema offline consolidado y Service Worker
    */
   const initializeServiceWorker = useCallback(async () => {
     // Verificar si estamos en un entorno que soporta Service Workers
@@ -84,17 +66,17 @@ export function useOfflineSync() {
     const isDevelopment = process.env.NODE_ENV === 'development';
 
     try {
-      console.log("🔧 [useOfflineSync] Inicializando sistema offline robusto...");
+      console.log("🔧 [useOfflineSync] Inicializando sistema offline consolidado...");
 
-      // Primero inicializar el sistema offline robusto
-      const initResult = await robustOfflineInitializer.initialize();
+      // Inicializar sistema offline usando offlineManager consolidado
+      const initResult = await offlineManager.initializeOfflineSystem();
       if (initResult.success) {
         console.log(`✅ [useOfflineSync] Sistema offline inicializado - IndexedDB: ${initResult.indexedDBAvailable}, Fallback: ${initResult.fallbackAvailable}`);
       } else {
         console.warn("⚠️ [useOfflineSync] Sistema offline con funcionalidad limitada:", initResult.errors);
       }
 
-      // Luego inicializar Service Worker
+      // Inicializar Service Worker
       const success = await serviceWorkerManager.initialize();
       if (success) {
         setState((prev) => ({ ...prev, isServiceWorkerReady: true }));
@@ -158,7 +140,7 @@ export function useOfflineSync() {
       setState((prev) => ({ ...prev, isSyncing: true, syncError: undefined }));
       console.log("🚀 [useOfflineSync] Iniciando sincronización manual...");
 
-      const result = await syncService.syncPendingVisitas();
+      const result = await offlineManager.forceSync();
 
       setState((prev) => ({
         ...prev,
@@ -173,11 +155,7 @@ export function useOfflineSync() {
         `✅ [useOfflineSync] Sincronización completada: ${result.processed} procesadas, ${result.errors} errores`
       );
 
-      return {
-        success: result.success,
-        processed: result.processed,
-        errors: result.errors,
-      };
+      return result;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Error desconocido";
@@ -273,11 +251,11 @@ export function useOfflineSync() {
   }, [state.isServiceWorkerReady, updateSyncStatus]);
 
   /**
-   * Obtiene el estado del sistema offline robusto
+   * Obtiene el estado del sistema offline consolidado
    */
   const getOfflineSystemStatus = useCallback(async () => {
     try {
-      return await robustOfflineInitializer.getStatus();
+      return await offlineManager.getOfflineSystemStatus();
     } catch (error) {
       console.error("❌ [useOfflineSync] Error obteniendo estado del sistema:", error);
       return {

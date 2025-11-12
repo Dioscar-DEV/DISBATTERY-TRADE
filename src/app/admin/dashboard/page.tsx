@@ -15,6 +15,8 @@ import { Users, ListChecks, BarChart3, MapPinned, UserCircle, ArrowLeft, Menu } 
 import { getCurrentUserWithPermissions, UserData, UserPermissions } from '@/services/auth';
 import { LogoutButton } from '@/components/LogoutButton';
 import OfflineStatusManager from '@/components/OfflineStatusManager';
+import { PageWrapper } from '@/components/PageWrapper';
+import { usePageState } from '@/hooks/usePageState';
 
 // Constants
 const COLORS = {
@@ -265,40 +267,29 @@ const Footer: React.FC = () => (
   </footer>
 );
 
-export default function AdminDashboardPage() {
+export default function AdminDashboard() {
   const router = useRouter();
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { loading, executeAsync } = usePageState({ initialLoading: true });
+
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermissions | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const loadUserData = async () => {
-      if (typeof window === 'undefined') return;
-
-      const isAdmin = localStorage.getItem('isAdminLoggedIn');
-      if (isAdmin !== 'true') {
-        router.push('/');
-        return;
-      }
-
-      try {
-        const result = await getCurrentUserWithPermissions();
-        if (result) {
-          setCurrentUser(result.user);
-          setUserPermissions(result.permissions);
+      const result = await executeAsync(async () => {
+        const authResult = await getCurrentUserWithPermissions();
+        if (authResult) {
+          setCurrentUser(authResult.user);
+          setUserPermissions(authResult.permissions);
+          return authResult;
         }
-      } catch (error) {
-        console.error('Error cargando datos del usuario:', error);
-      } finally {
-        setLoading(false);
-      }
+        throw new Error('No se pudieron cargar los datos del usuario');
+      }, 'Error cargando datos del dashboard');
     };
 
     loadUserData();
-  }, [router]);
-
-  if (loading) return <LoadingSpinner />;
+  }, [executeAsync]);
 
   const availableFeatures = getAvailableFeatures(userPermissions);
 

@@ -6,6 +6,7 @@ import { Wifi, WifiOff } from 'lucide-react';
 export function OfflineIndicator() {
   const [isOnline, setIsOnline] = useState(true);
   const [showOfflineMessage, setShowOfflineMessage] = useState(false);
+  const [pendingData, setPendingData] = useState(0);
 
   useEffect(() => {
     // Función para verificar conectividad real
@@ -27,18 +28,32 @@ export function OfflineIndicator() {
       }
     };
 
+    // Función para verificar datos pendientes
+    const checkPendingData = async () => {
+      try {
+        const { offlineManager } = await import('@/services/offlineManager');
+        const stats = await offlineManager.getSyncStats();
+        setPendingData(stats.pending);
+      } catch (error) {
+        console.warn('Error checking pending data:', error);
+      }
+    };
+
     // Verificar al cargar
     checkConnectivity();
+    checkPendingData();
 
     // Escuchar eventos de conexión del navegador
     const handleOnline = () => {
       checkConnectivity();
+      checkPendingData();
       setShowOfflineMessage(false);
     };
 
     const handleOffline = () => {
       setIsOnline(false);
       setShowOfflineMessage(true);
+      checkPendingData();
 
       // Ocultar mensaje después de 5 segundos
       setTimeout(() => {
@@ -50,7 +65,10 @@ export function OfflineIndicator() {
     window.addEventListener('offline', handleOffline);
 
     // Verificar conectividad cada 30 segundos
-    const interval = setInterval(checkConnectivity, 30000);
+    const interval = setInterval(() => {
+      checkConnectivity();
+      checkPendingData();
+    }, 30000);
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -59,8 +77,8 @@ export function OfflineIndicator() {
     };
   }, []);
 
-  // Solo mostrar cuando está offline
-  if (isOnline && !showOfflineMessage) {
+  // Solo mostrar cuando está offline o hay datos pendientes
+  if (isOnline && !showOfflineMessage && pendingData === 0) {
     return null;
   }
 
@@ -68,9 +86,13 @@ export function OfflineIndicator() {
     <>
       {/* Indicador fijo en la esquina */}
       <div className="fixed bottom-4 right-4 z-40">
-        <div className="bg-orange-500 text-white px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm">
-          <WifiOff className="h-4 w-4" />
-          <span>Modo Offline</span>
+        <div className={`text-white px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm ${
+          !isOnline ? 'bg-orange-500' : 'bg-blue-500'
+        }`}>
+          {!isOnline ? <WifiOff className="h-4 w-4" /> : <Wifi className="h-4 w-4" />}
+          <span>
+            {!isOnline ? 'Modo Offline' : `${pendingData} pendientes`}
+          </span>
         </div>
       </div>
 

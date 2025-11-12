@@ -13,6 +13,7 @@ import { PrimeReactProvider } from '@/components/PrimeReactProvider';
 import { PostHogProvider } from './providers';
 import OfflineInitializer from '@/components/OfflineInitializer';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 const montserrat = Montserrat({
   variable: '--font-montserrat',
@@ -118,19 +119,21 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />
       </head>
       <body className={`${montserrat.variable} font-sans antialiased`}>
-        <PrimeReactProvider>
-          <PostHogProvider>
-            <PermissionInitializer /> {/* Inicializador automático de permisos */}
-            <ChunkErrorHandler /> {/* Maneja errores de chunks automáticamente */}
-            <OfflineInitializer /> {/* Inicializador automático de servicios offline */}
-            <PWAInstallBanner /> {/* Banner de instalación PWA persistente */}
-            <AnalyticsInitializer /> {/* Inicializador de Google Analytics */}
-            <UserStatusChecker /> {/* Verificador de status de usuario en tiempo real */}
-            <OfflineIndicator /> {/* Indicador visual de estado offline */}
-            {children}
-            <Toaster /> {/* Added Toaster component here */}
-          </PostHogProvider>
-        </PrimeReactProvider>
+        <ErrorBoundary>
+          <PrimeReactProvider>
+            <PostHogProvider>
+              <PermissionInitializer /> {/* Inicializador automático de permisos */}
+              <ChunkErrorHandler /> {/* Maneja errores de chunks automáticamente */}
+              <OfflineInitializer /> {/* Inicializador automático de servicios offline */}
+              <PWAInstallBanner /> {/* Banner de instalación PWA persistente */}
+              <AnalyticsInitializer /> {/* Inicializador de Google Analytics */}
+              <UserStatusChecker /> {/* Verificador de status de usuario en tiempo real */}
+              <OfflineIndicator /> {/* Indicador visual de estado offline */}
+              {children}
+              <Toaster /> {/* Added Toaster component here */}
+            </PostHogProvider>
+          </PrimeReactProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
