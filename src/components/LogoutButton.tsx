@@ -12,7 +12,7 @@ export function LogoutButton({ className = '' }: LogoutButtonProps) {
 
   const handleLogout = async () => {
     try {
-      console.log('🚪 Iniciando proceso de logout...');
+      console.log('Iniciando proceso de logout...');
 
       // Marcar que es un logout reciente para evitar loops
       sessionStorage.setItem('recentLogout', 'true');
@@ -54,15 +54,14 @@ export function LogoutButton({ className = '' }: LogoutButtonProps) {
   const baseClasses =
     'logout-button bg-red-800 hover:bg-red-900 text-white border-0 px-3 py-1 text-sm font-bold rounded';
 
+  // Usar exactamente la clase provista por el padre cuando exista
+  const classes = className && className.trim().length > 0 ? className.trim() : baseClasses;
+
   // Texto estable para evitar desincronizaciones entre SSR y cliente
   const label = 'Cerrar Sesión';
 
   return (
-    <button
-      onClick={handleLogout}
-      className={`${baseClasses} ${className}`.trim()}
-      suppressHydrationWarning={true}
-    >
+    <button onClick={handleLogout} className={classes} suppressHydrationWarning={true}>
       {label}
     </button>
   );
