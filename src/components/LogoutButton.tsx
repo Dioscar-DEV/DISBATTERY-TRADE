@@ -54,9 +54,16 @@ export function LogoutButton({ className = '' }: LogoutButtonProps) {
   const baseClasses =
     'logout-button bg-red-800 hover:bg-red-900 text-white border-0 px-3 py-1 text-sm font-bold rounded';
 
+  // Texto estable para evitar desincronizaciones entre SSR y cliente
+  const label = 'Cerrar Sesión';
+
   return (
-    <button onClick={handleLogout} className={`${baseClasses} ${className}`.trim()}>
-      Cerrar Sesión
+    <button
+      onClick={handleLogout}
+      className={`${baseClasses} ${className}`.trim()}
+      suppressHydrationWarning={true}
+    >
+      {label}
     </button>
   );
 }
