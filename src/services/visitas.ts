@@ -327,8 +327,8 @@ export const crearVisita = async (data: CreateVisitaData): Promise<string> => {
     // 2.2. Actualizar estado del punto específico en la ruta del mercaderista
     if (data.rifCliente && data.correoMercaderista) {
       try {
-        // Obtener el UID del mercaderista desde localStorage
-        const currentUser = localStorage.getItem("currentUser");
+        // Obtener el UID del mercaderista desde localStorage (solo en cliente)
+        const currentUser = typeof window !== 'undefined' ? localStorage.getItem("currentUser") : null;
         let mercaderistoId = "";
 
         if (currentUser) {
@@ -337,7 +337,7 @@ export const crearVisita = async (data: CreateVisitaData): Promise<string> => {
         }
 
         // ✅ CRÍTICO: Obtener pointId específico desde localStorage
-        const clienteDataString = localStorage.getItem("clienteData");
+        const clienteDataString = typeof window !== 'undefined' ? localStorage.getItem("clienteData") : null;
         let pointId = "";
 
         if (clienteDataString) {

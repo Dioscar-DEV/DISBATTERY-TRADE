@@ -31,8 +31,8 @@ class RobustOfflineInitializer {
 
     console.log("🚀 [RobustInit] Iniciando inicialización robusta de servicios offline...");
 
-    // 1. Verificar disponibilidad de fallback storage
-    result.fallbackAvailable = fallbackStorage.isAvailable();
+    // 1. Verificar disponibilidad de fallback storage (solo en cliente)
+    result.fallbackAvailable = typeof window !== 'undefined' && fallbackStorage.isAvailable();
     if (result.fallbackAvailable) {
       console.log("✅ [RobustInit] Fallback storage (localStorage) disponible");
     } else {
@@ -127,17 +127,19 @@ class RobustOfflineInitializer {
         }
       }
 
-      // Limpiar localStorage relacionado
-      const keysToRemove = Object.keys(localStorage).filter(key => 
-        key.includes('indexeddb') || 
-        key.includes('offline') ||
-        key.includes('migration')
-      );
+      // Limpiar localStorage relacionado (solo si está disponible)
+      if (typeof window !== 'undefined' && fallbackStorage.isAvailable()) {
+        const keysToRemove = Object.keys(localStorage).filter(key => 
+          key.includes('indexeddb') || 
+          key.includes('offline') ||
+          key.includes('migration')
+        );
 
-      keysToRemove.forEach(key => {
-        localStorage.removeItem(key);
-        console.log(`🗑️ [RobustInit] localStorage limpiado: ${key}`);
-      });
+        keysToRemove.forEach(key => {
+          localStorage.removeItem(key);
+          console.log(`🗑️ [RobustInit] localStorage limpiado: ${key}`);
+        });
+      }
 
       // Esperar un poco para asegurar que la limpieza se complete
       await this.delay(500);

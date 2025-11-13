@@ -343,23 +343,24 @@ export default function RutasPage() {
     const routesCollectionRef = collection(getFirestoreClient(), 'routes');
     const q = query(routesCollectionRef, orderBy('date', 'desc'));
 
-    const unsubscribe = onSnapshot(q,
-      (querySnapshot) => {
-        console.log(`📊 Rutas encontradas en base de datos: ${querySnapshot.docs.length}`);
-
-        const fetchedRoutes: Route[] = [];
+    const unsubscribe = onSnapshot(q, { includeMetadataChanges: true }, (querySnapshot) => {
+      try {
         const allowedMercaderistasIds = new Set(mercaderistas.map(m => m.id));
 
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
+        // Procesar cambios incrementales para evitar condiciones de carrera y stale data
+        const changes = querySnapshot.docChanges();
+        if (changes.length > 0) {
+          console.log(`📣 Listener de rutas: ${changes.length} cambios (incluye metadata=${querySnapshot.metadata.fromCache})`);
+        }
 
-          // ✅ FILTRO CRÍTICO: Solo incluir rutas de mercaderistas que el usuario puede gestionar
-          const canIncludeRoute = userPermissions.isAdminMaster || allowedMercaderistasIds.has(data.mercaderistoId);
+        setRoutes(prevRoutes => {
+          // Copiar estado actual para mutar
+          const map = new Map(prevRoutes.map(r => [r.id, r]));
 
-          console.log(`🔍 Evaluando ruta: ${data.mercaderista} (ID: ${data.mercaderistoId}) - ${canIncludeRoute ? 'INCLUIDA' : 'EXCLUIDA'}`);
-
-          if (canIncludeRoute) {
-            fetchedRoutes.push({
+          changes.forEach(change => {
+            const doc = change.doc;
+            const data = doc.data();
+            const routeObj: Route = {
               id: doc.id,
               mercaderista: data.mercaderista,
               mercaderistoId: data.mercaderistoId,
@@ -370,22 +371,69 @@ export default function RutasPage() {
               totalTime: data.totalTime || 0,
               createdAt: data.createdAt?.toDate(),
               createdBy: data.createdBy
-            });
-          }
-        });
+            };
 
-        setRoutes(fetchedRoutes);
-        console.log(`✅ ${fetchedRoutes.length} rutas cargadas tras filtro de sede`);
-      },
-      (error) => {
-        console.error('❌ Error en listener de rutas:', error);
+            const canIncludeRoute = userPermissions.isAdminMaster || allowedMercaderistasIds.has(data.mercaderistoId);
+
+            console.log(`🔁 Ruta change (${change.type}): id=${doc.id} mercaderista=${data.mercaderista} include=${canIncludeRoute}`);
+
+            if (change.type === 'added' || change.type === 'modified') {
+              if (canIncludeRoute) {
+                map.set(doc.id, routeObj);
+              } else {
+                map.delete(doc.id);
+              }
+            } else if (change.type === 'removed') {
+              map.delete(doc.id);
+            }
+          });
+
+          // Convertir map a array y ordenar por date desc (manteniendo comportamiento previo)
+          const convertToISO = (val: unknown) => {
+            if (!val) return '';
+            if (typeof val === 'string') return val;
+            // Firestore Timestamp-like
+            const anyVal = val as any;
+            if (anyVal && typeof anyVal.seconds === 'number') {
+              return new Date(anyVal.seconds * 1000).toISOString();
+            }
+            // If it has a toDate() (e.g. Timestamp), use it
+            if (anyVal && typeof anyVal.toDate === 'function') {
+              try {
+                return anyVal.toDate().toISOString();
+              } catch (e) {
+                return String(anyVal);
+              }
+            }
+            return String(val);
+          };
+
+          const newRoutes = Array.from(map.values()).sort((a, b) => {
+            if (a.date === b.date) return 0;
+            const aDate = convertToISO(a.date);
+            const bDate = convertToISO(b.date);
+            return bDate.localeCompare(aDate);
+          });
+
+          console.log(`✅ Rutas actualizadas en estado: ${newRoutes.length}`);
+          return newRoutes;
+        });
+      } catch (err) {
+        console.error('❌ Error procesando snapshot de rutas:', err);
         toast({
           variant: 'destructive',
           title: 'Error en Tiempo Real',
-          description: 'No se pudieron cargar las rutas en tiempo real.',
+          description: 'No se pudieron procesar los cambios en rutas en tiempo real.',
         });
       }
-    );
+    }, (error) => {
+      console.error('❌ Error en listener de rutas:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error en Tiempo Real',
+        description: 'No se pudieron cargar las rutas en tiempo real.',
+      });
+    });
 
     // Cleanup listener cuando el componente se desmonte
     return () => {

@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { useRouter } from 'next/navigation';
 import { getAuthClient } from '@/firebase/clientApp';
 
@@ -52,22 +51,12 @@ export function LogoutButton({ className = '' }: LogoutButtonProps) {
     }
   };
 
+  const baseClasses =
+    'logout-button bg-red-800 hover:bg-red-900 text-white border-0 px-3 py-1 text-sm font-bold rounded';
+
   return (
-    <button
-      onClick={handleLogout}
-      className={`logout-button ${className}`}
-      style={{
-        background: '#D50000',
-        color: 'white',
-        border: 'none',
-        padding: '8px 16px',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        fontSize: '14px',
-        fontWeight: 'bold'
-      }}
-    >
-      🚪 Cerrar Sesión
+    <button onClick={handleLogout} className={`${baseClasses} ${className}`.trim()}>
+      Cerrar Sesión
     </button>
   );
 }

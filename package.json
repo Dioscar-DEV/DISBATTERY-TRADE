@@ -95,7 +95,6 @@
     "@lhci/cli": "^0.12.0",
     "@next/bundle-analyzer": "^14.2.33",
     "@types/google.maps": "^3.58.1",
-    "@types/xlsx": "^0.0.36",
     "artillery": "^2.0.26",
     "autoprefixer": "^10.4.21",
     "clinic": "^11.1.2",

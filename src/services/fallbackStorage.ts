@@ -133,6 +133,7 @@ class FallbackStorage {
    */
   private getStoredVisitas(): VisitaOffline[] {
     try {
+      if (typeof window === 'undefined') return [];
       const stored = localStorage.getItem(this.STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
@@ -146,6 +147,7 @@ class FallbackStorage {
    */
   isAvailable(): boolean {
     try {
+      if (typeof window === 'undefined') return false;
       const testKey = 'test_storage';
       localStorage.setItem(testKey, 'test');
       localStorage.removeItem(testKey);

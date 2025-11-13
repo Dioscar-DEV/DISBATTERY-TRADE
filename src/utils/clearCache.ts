@@ -6,7 +6,7 @@
  * Limpia todos los caches del service worker
  */
 export async function clearAllCaches(): Promise<void> {
-  if (!("caches" in window)) {
+  if (typeof window === 'undefined' || !("caches" in window)) {
     console.warn("Cache API no disponible");
     return;
   }
@@ -27,7 +27,7 @@ export async function clearAllCaches(): Promise<void> {
  * Limpia solo los caches de chunks y estáticos
  */
 export async function clearStaticCaches(): Promise<void> {
-  if (!("caches" in window)) {
+  if (typeof window === 'undefined' || !("caches" in window)) {
     console.warn("Cache API no disponible");
     return;
   }
@@ -57,7 +57,7 @@ export async function clearStaticCaches(): Promise<void> {
  * Fuerza la actualización del service worker
  */
 export async function updateServiceWorker(): Promise<void> {
-  if (!("serviceWorker" in navigator)) {
+  if (typeof window === 'undefined' || !("serviceWorker" in navigator)) {
     console.warn("Service Worker no disponible");
     return;
   }
@@ -96,6 +96,6 @@ export async function fixChunkError(): Promise<void> {
   // 3. Esperar un poco y recargar
   setTimeout(() => {
     console.log("🔄 Recargando página...");
-    window.location.reload();
+    if (typeof window !== 'undefined') window.location.reload();
   }, 1000);
 }

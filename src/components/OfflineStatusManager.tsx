@@ -2,6 +2,8 @@
  * Componente para mostrar el estado offline y gestionar sincronización
  */
 
+"use client";
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -62,6 +64,12 @@ export default function OfflineStatusManager({
   });
 
   const [isRefreshingData, setIsRefreshingData] = useState(false);
+
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Cargar estadísticas offline
   useEffect(() => {
@@ -127,6 +135,10 @@ export default function OfflineStatusManager({
   };
 
   const getConnectionIcon = () => {
+    if (!mounted) {
+      return <Wifi className="w-4 h-4 text-gray-400" />;
+    }
+
     if (isOnline) {
       return <Wifi className="w-4 h-4 text-green-500" />;
     } else {
@@ -135,6 +147,10 @@ export default function OfflineStatusManager({
   };
 
   const getConnectionStatus = () => {
+    if (!mounted) {
+      return { text: 'Conexión...', color: 'bg-gray-100 text-gray-800' };
+    }
+
     if (isOnline) {
       return { text: 'Conectado', color: 'bg-green-100 text-green-800' };
     } else {
@@ -234,7 +250,7 @@ export default function OfflineStatusManager({
               {offlineStats.lastSync && (
                 <div className="col-span-2">
                   <Clock className="w-3 h-3 inline mr-1" />
-                  Última actualización: {offlineStats.dataAge || 'reciente'}
+                  Última actualización: {mounted ? (offlineStats.dataAge || 'reciente') : 'reciente'}
                 </div>
               )}
             </div>
@@ -268,7 +284,7 @@ export default function OfflineStatusManager({
 
           {lastSyncAttempt && (
             <p className="text-xs text-gray-500">
-              Último intento: {lastSyncAttempt.toLocaleString()}
+              Último intento: {mounted ? lastSyncAttempt.toLocaleString() : lastSyncAttempt.toISOString()}
             </p>
           )}
         </div>
