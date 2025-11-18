@@ -1,8 +1,8 @@
 // Shared status constants and types for routes, points and sync
 export const RouteStatus = {
-  PLANNED: "planificada" as const,
-  IN_PROGRESS: "en_progreso" as const,
-  COMPLETED: "completada" as const,
+  PLANNED: "pending" as const,
+  IN_PROGRESS: "started" as const,
+  COMPLETED: "completed" as const,
 };
 
 export type RouteStatusType = (typeof RouteStatus)[keyof typeof RouteStatus];
@@ -11,6 +11,7 @@ export const PointStatus = {
   PENDING: "pendiente" as const,
   VISITED: "visitado" as const,
   OMITTED: "omitido" as const,
+  CLOSED: "cerrado" as const,
 };
 
 export type PointStatusType = (typeof PointStatus)[keyof typeof PointStatus];

@@ -157,17 +157,41 @@ export async function uploadMultipleImages(
 ): Promise<string[]> {
   try {
     const uploadPromises = images.map(async (image) => {
-      if (!image.base64) return null;
-
-      const fileName = generateFileName(image.prefix);
-      return await uploadImageToStorage(image.base64, image.path, fileName);
+      if (!image.base64) {
+        console.warn(`⚠️ [ImageService] Imagen omitida: ${image.prefix} (base64 vacío)`);
+        return null;
+      }
+      try {
+        const fileName = generateFileName(image.prefix);
+        return await uploadImageToStorage(image.base64, image.path, fileName);
+      } catch (innerError) {
+        console.error(`❌ [ImageService] Error subiendo imagen ${image.prefix}:`, innerError);
+        return null; // Devolver null para esta imagen fallida
+      }
     });
 
-    const results = await Promise.all(uploadPromises);
-    return results.filter(Boolean) as string[];
+    const results = await Promise.allSettled(uploadPromises);
+    const urls: string[] = [];
+    let failedUploads = 0;
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value !== null) {
+        urls.push(result.value);
+      } else {
+        failedUploads++;
+        const imageInfo = images[index] ? `(${images[index].prefix})` : '';
+        console.error(`❌ [ImageService] Falló la subida de la imagen ${index + 1}${imageInfo}. Razón: ${result.status === 'rejected' ? result.reason : 'Valor nulo'}`);
+      }
+    });
+
+    if (failedUploads > 0) {
+      console.warn(`⚠️ [ImageService] ${failedUploads} imágenes no se pudieron subir.`);
+    }
+
+    return urls;
   } catch (error) {
-    console.error("❌ Error subiendo múltiples imágenes:", error);
-    throw error;
+    console.error("❌ [ImageService] Error general en uploadMultipleImages:", error);
+    throw error; // Re-lanzar el error general si lo hay
   }
 }
 

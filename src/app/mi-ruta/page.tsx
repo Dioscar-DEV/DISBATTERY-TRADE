@@ -1307,8 +1307,7 @@ export default function MyRoutePage() {
         // Track route completion
         await analytics.trackRouteActivity(
           userData?.sede || 'unknown_route',
-          'complete',
-          100 // 100% progress on completion
+          'complete'
         );
 
         await analytics.logEvent('route_completed', {

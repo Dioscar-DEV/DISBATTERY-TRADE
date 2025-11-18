@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { SyncService } from "@/services/sync";
+import { offlineManager } from "@/services/offlineManager";
 
 export default async function handler(
   req: NextApiRequest,
@@ -10,7 +10,7 @@ export default async function handler(
       console.log(
         "/api/sync: Iniciando sincronización de visitas pendientes..."
       );
-      await SyncService.syncPendingVisitas();
+      await offlineManager.syncPendingVisitas();
       console.log("/api/sync: Sincronización completada con éxito.");
       res
         .status(200)

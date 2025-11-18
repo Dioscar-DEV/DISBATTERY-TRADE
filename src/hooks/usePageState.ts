@@ -97,23 +97,35 @@ export function usePageState(options: UsePageStateOptions = {}) {
   }, [state.error, autoRetry, retryCount, maxRetries, retryDelay, clearError]);
 
   // Navigation helpers
-  const safeNavigate = useCallback((path: string, fallback?: string) => {
+  const safeNavigate = useCallback(async (path: string, description = '', fallback?: string) => {
+    setLoading(true); // Siempre activar loading antes de navegar
+    console.log(`🔄 [NAVIGATION] Intentando navegar a ${path}${description ? ` - ${description}` : ''}...`);
     try {
-      router.push(path);
+      await router.push(path);
+      console.log(`✅ [NAVIGATION] Navegación exitosa a ${path}`);
     } catch (error) {
-      console.error('Error navegando:', error);
-      if (fallback) {
+      console.error(`❌ [NAVIGATION ERROR] Error navegando a ${path}:`, error);
+      if (fallback && path !== fallback) {
+        console.log(`🔄 [NAVIGATION FALLBACK] Usando window.location.href para ${fallback}`);
+        // Pequeño retraso para que el mensaje de carga sea visible
+        await new Promise(resolve => setTimeout(resolve, 300)); 
         window.location.href = fallback;
+      } else if (path !== '/') {
+        console.log(`🔄 [NAVIGATION FALLBACK] Fallback a /`);
+        await new Promise(resolve => setTimeout(resolve, 300)); 
+        window.location.href = '/'; // Fallback a la raíz si no hay otro fallback
       }
+    } finally {
+      setLoading(false); // Desactivar loading después de intentar navegar
     }
-  }, [router]);
+  }, [router, setLoading]);
 
-  const navigateWithLoading = useCallback(async (path: string, delay = 0) => {
+  const navigateWithLoading = useCallback(async (path: string, delay = 0, description = '') => {
     setLoading(true);
     if (delay > 0) {
       await new Promise(resolve => setTimeout(resolve, delay));
     }
-    safeNavigate(path);
+    await safeNavigate(path, description);
   }, [setLoading, safeNavigate]);
 
   return {

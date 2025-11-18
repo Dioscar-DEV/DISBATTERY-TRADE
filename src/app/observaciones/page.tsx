@@ -427,22 +427,9 @@ export default function ObservacionesPage() {
       let fotosUrls: string[] = [];
 
       if (imagesToUpload.length > 0) {
-        try {
-          console.log(`📤 Subiendo ${imagesToUpload.length} imágenes a Firebase Storage...`);
-          fotosUrls = await uploadMultipleImages(imagesToUpload);
-          console.log(`✅ ${fotosUrls.length} imágenes subidas exitosamente`);
-        } catch (error) {
-          console.error('❌ Error subiendo imágenes:', error);
-
-          // 🚨 SOLUCIÓN TEMPORAL: Continuar sin imágenes pero guardar datos
-          console.log('🔄 Continuando sin imágenes debido a error CORS/Firebase Storage');
-
-          toast({
-            variant: 'destructive',
-            title: 'Error subiendo imágenes',
-            description: 'Se guardará la visita sin imágenes debido a problema técnico. Los datos están seguros.',
-          });
-        }
+        console.log(`📤 Subiendo ${imagesToUpload.length} imágenes a Firebase Storage...`);
+        fotosUrls = await uploadMultipleImages(imagesToUpload);
+        console.log(`✅ ${fotosUrls.length} imágenes subidas exitosamente`);
       }
 
       // Mapear URLs a los campos correspondientes (en lugar de base64)

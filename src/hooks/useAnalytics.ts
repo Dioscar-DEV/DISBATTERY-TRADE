@@ -69,12 +69,12 @@ export function useAnalytics() {
     async (
       routeId: string,
       activity: "start" | "complete" | "pause",
-      progress?: number
+      additionalData?: Record<string, any>
     ) => {
       await analyticsService.logEvent("route_activity", {
         route_id: routeId,
         activity,
-        progress,
+        ...additionalData,
         timestamp: new Date().toISOString(),
       });
     },

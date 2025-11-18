@@ -197,153 +197,155 @@ export default function OfflineStatusManager({
   }
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center space-x-2">
-            <Smartphone className="w-5 h-5" />
-            <span>Estado Offline</span>
-          </CardTitle>
-          <div className="flex items-center space-x-2">
-            {getConnectionIcon()}
-            <Badge className={getConnectionStatus().color}>
-              {getConnectionStatus().text}
-            </Badge>
-          </div>
-        </div>
-        <CardDescription>
-          Gestión de datos offline y sincronización automática
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        {/* Estado de conexión y Service Worker */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex items-center space-x-2">
-            <Globe className="w-4 h-4 text-gray-500" />
-            <span className="text-sm">Conexión:</span>
-            <Badge variant="outline" className={getConnectionStatus().color}>
-              {getConnectionStatus().text}
-            </Badge>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Zap className="w-4 h-4 text-gray-500" />
-            <span className="text-sm">Service Worker:</span>
-            <Badge variant="outline" className={
-              isServiceWorkerReady ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-            }>
-              {isServiceWorkerReady ? 'Activo' : 'Inicializando...'}
-            </Badge>
-          </div>
-        </div>
-
-        {/* Datos offline disponibles */}
-        {offlineStats.hasData && (
-          <div className="bg-blue-50 p-3 rounded-md">
-            <div className="flex items-center space-x-2 mb-2">
-              <Database className="w-4 h-4 text-blue-500" />
-              <span className="text-sm font-medium text-blue-800">Datos Offline Disponibles</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs text-blue-700">
-              <div>📍 {offlineStats.routesCount} rutas</div>
-              <div>👥 {offlineStats.clientesCount} clientes</div>
-              {offlineStats.lastSync && (
-                <div className="col-span-2">
-                  <Clock className="w-3 h-3 inline mr-1" />
-                  Última actualización: {mounted ? (offlineStats.dataAge || 'reciente') : 'reciente'}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Estado de sincronización */}
-        <div className="space-y-2">
+    !isOnline && mounted ? (
+      <Card className={className}>
+        <CardHeader>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Sincronización</span>
-            <Badge className={getSyncStatus().color}>
-              {getSyncStatus().text}
-            </Badge>
+            <CardTitle className="flex items-center space-x-2">
+              <Smartphone className="w-5 h-5" />
+              <span>Estado Offline</span>
+            </CardTitle>
+            <div className="flex items-center space-x-2">
+              {getConnectionIcon()}
+              <Badge className={getConnectionStatus().color}>
+                {getConnectionStatus().text}
+              </Badge>
+            </div>
+          </div>
+          <CardDescription>
+            Gestión de datos offline y sincronización automática
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {/* Estado de conexión y Service Worker */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center space-x-2">
+              <Globe className="w-4 h-4 text-gray-500" />
+              <span className="text-sm">Conexión:</span>
+              <Badge variant="outline" className={getConnectionStatus().color}>
+                {getConnectionStatus().text}
+              </Badge>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Zap className="w-4 h-4 text-gray-500" />
+              <span className="text-sm">Service Worker:</span>
+              <Badge variant="outline" className={
+                isServiceWorkerReady ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+              }>
+                {isServiceWorkerReady ? 'Activo' : 'Inicializando...'}
+              </Badge>
+            </div>
           </div>
 
-          {isSyncing && (
-            <div className="space-y-1">
-              <Progress value={undefined} className="w-full h-2" />
-              <p className="text-xs text-gray-500">Subiendo visitas pendientes...</p>
+          {/* Datos offline disponibles */}
+          {offlineStats.hasData && (
+            <div className="bg-blue-50 p-3 rounded-md">
+              <div className="flex items-center space-x-2 mb-2">
+                <Database className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-medium text-blue-800">Datos Offline Disponibles</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-blue-700">
+                <div>📍 {offlineStats.routesCount} rutas</div>
+                <div>👥 {offlineStats.clientesCount} clientes</div>
+                {offlineStats.lastSync && (
+                  <div className="col-span-2">
+                    <Clock className="w-3 h-3 inline mr-1" />
+                    Última actualización: {mounted ? (offlineStats.dataAge || 'reciente') : 'reciente'}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {syncError && (
-            <Alert>
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                {syncError}
-              </AlertDescription>
-            </Alert>
-          )}
+          {/* Estado de sincronización */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Sincronización</span>
+              <Badge className={getSyncStatus().color}>
+                {getSyncStatus().text}
+              </Badge>
+            </div>
 
-          {lastSyncAttempt && (
-            <p className="text-xs text-gray-500">
-              Último intento: {mounted ? lastSyncAttempt.toLocaleString() : lastSyncAttempt.toISOString()}
-            </p>
-          )}
-        </div>
+            {isSyncing && (
+              <div className="space-y-1">
+                <Progress value={undefined} className="w-full h-2" />
+                <p className="text-xs text-gray-500">Subiendo visitas pendientes...</p>
+              </div>
+            )}
 
-        {/* Acciones */}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleManualSync}
-            disabled={isSyncing || !canSync}
-            className="flex-1"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            {isSyncing ? 'Sincronizando...' : 'Sincronizar Ahora'}
-          </Button>
+            {syncError && (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  {syncError}
+                </AlertDescription>
+              </Alert>
+            )}
 
-          {isServiceWorkerReady && (
+            {lastSyncAttempt && (
+              <p className="text-xs text-gray-500">
+                Último intento: {mounted ? lastSyncAttempt.toLocaleString() : lastSyncAttempt.toISOString()}
+              </p>
+            )}
+          </div>
+
+          {/* Acciones */}
+          <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
               variant="outline"
-              onClick={handleForceSyncThroughSW}
-              disabled={isSyncing}
+              onClick={handleManualSync}
+              disabled={isSyncing || !canSync}
+              className="flex-1"
             >
-              <Zap className="w-4 h-4 mr-2" />
-              Forzar SW
+              <Upload className="w-4 h-4 mr-2" />
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar Ahora'}
             </Button>
-          )}
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleRefreshOfflineData}
-            disabled={isRefreshingData || !isOnline}
-            className="flex-1"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            {isRefreshingData ? 'Actualizando...' : 'Actualizar Datos'}
-          </Button>
-        </div>
+            {isServiceWorkerReady && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleForceSyncThroughSW}
+                disabled={isSyncing}
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                Forzar SW
+              </Button>
+            )}
 
-        {/* Información adicional */}
-        <div className="text-xs text-gray-500 space-y-1">
-          <div className="flex items-center space-x-1">
-            <CheckCircle className="w-3 h-3" />
-            <span>La sincronización es automática cuando hay conexión</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRefreshOfflineData}
+              disabled={isRefreshingData || !isOnline}
+              className="flex-1"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {isRefreshingData ? 'Actualizando...' : 'Actualizar Datos'}
+            </Button>
           </div>
-          <div className="flex items-center space-x-1">
-            <Database className="w-3 h-3" />
-            <span>Los datos se almacenan localmente para uso offline</span>
-          </div>
-          {!offlineStats.hasData && isOnline && (
-            <div className="flex items-center space-x-1 text-blue-600">
-              <Download className="w-3 h-3" />
-              <span>Actualiza los datos para habilitar funcionalidad offline</span>
+
+          {/* Información adicional */}
+          <div className="text-xs text-gray-500 space-y-1">
+            <div className="flex items-center space-x-1">
+              <CheckCircle className="w-3 h-3" />
+              <span>La sincronización es automática cuando hay conexión</span>
             </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            <div className="flex items-center space-x-1">
+              <Database className="w-3 h-3" />
+              <span>Los datos se almacenan localmente para uso offline</span>
+            </div>
+            {!offlineStats.hasData && isOnline && (
+              <div className="flex items-center space-x-1 text-blue-600">
+                <Download className="w-3 h-3" />
+                <span>Actualiza los datos para habilitar funcionalidad offline</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    ) : null
   );
 }

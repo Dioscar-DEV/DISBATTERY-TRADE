@@ -13,7 +13,7 @@ export interface Ruta {
   id?: number;
   fecha: string;
   puntos: Cliente[];
-  estado: "planificada" | "en_progreso" | "completada";
+  estado: "pending" | "started" | "completed";
   syncStatus: "synced" | "pending" | "error";
 }
 
