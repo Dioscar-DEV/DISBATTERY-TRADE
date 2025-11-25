@@ -11,7 +11,7 @@ import {
   DocumentData,
 } from "firebase/firestore";
 import { getFirestoreClient } from "@/firebase/clientApp";
-import { offlineService } from "./offlineService";
+import { offlineManager } from "./offlineManager";
 import type { Route, RoutePoint } from "@/types/routes";
 import { format } from "date-fns";
 import { sendNotificationToAdmins } from "./notifications";
@@ -109,7 +109,7 @@ export const updateRouteStatus = async (
     await updateDoc(routeRef, updateData);
     // ✅ Mantener coherencia local en IndexedDB para estrategia offline-first
     try {
-      await offlineService.updateOfflineRouteStatus(routeId, newStatus);
+      await offlineManager.updateOfflineRouteStatus(routeId, newStatus);
     } catch {}
     console.log(`✅ [RouteService] Status actualizado a: ${newStatus}`);
   } catch (error: any) {

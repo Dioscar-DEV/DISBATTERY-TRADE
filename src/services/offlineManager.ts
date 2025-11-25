@@ -5,13 +5,15 @@
  * - Guardado offline/online unificado
  * - Sincronización automática robusta
  * - Manejo de IndexedDB + fallback a localStorage
- * - Eliminación de servicios duplicados
- * - Sistema de cola unificado
+ * - Gestión de rutas y clientes offline
+ * - Validación GPS
+ * - Cola de visitas para sincronización
+ * - Sistema de cola de operaciones unificado
  *
- * REEMPLAZA A:
+ * CONSOLIDA Y REEMPLAZA:
  * - syncService.ts (eliminado)
  * - sync.ts (eliminado)
- * - Lógica duplicada en offlineService.ts
+ * - offlineService.ts (deprecado - usar offlineManager)
  */
 
 import { db } from "@/db/database";
@@ -24,6 +26,8 @@ import { fallbackStorage } from "@/services/fallbackStorage";
 import { robustOfflineInitializer } from "@/services/robustOfflineInit";
 import { databaseRecovery } from "@/services/databaseRecovery";
 import { db as indexedDB } from "@/lib/indexedDB";
+import { Route, RoutePoint, Cliente } from "@/types/routes";
+import { UserData } from "./auth";
 
 // Tipos para el manejo de datos offline
 export interface OfflineVisitaData {
@@ -79,6 +83,44 @@ export interface QueueOperation {
   createdAt: number;
   updatedAt: number;
   draftId?: string;
+}
+
+// Tipos compatibles con offlineService para migración
+export interface OfflineRoute extends Route {
+  downloadedAt: number;
+  lastSyncedAt?: number;
+}
+
+export interface OfflineCliente extends Cliente {
+  downloadedAt: number;
+  lastSyncedAt?: number;
+}
+
+export interface SyncStatus {
+  lastFullSync?: number;
+  lastPartialSync?: number;
+  pendingVisitas: number;
+  isOnline: boolean;
+  isSyncing: boolean;
+}
+
+// Interface compatible con la cola de visitas de offlineService
+export interface OfflineVisita {
+  id: string;
+  routeId: string;
+  pointId: string;
+  clienteId: string;
+  mercaderistoId: string;
+  timestamp: number;
+  gpsLocation: { lat: number; lng: number };
+  formData: any;
+  photos: File[];
+  tipoVisita: "Merchandising" | "Trade (Eventos)" | "Trade (Impulso)";
+  marcaTrabajada?: "Shell" | "Qualid";
+  status: "pending" | "syncing" | "synced" | "error";
+  syncAttempts: number;
+  lastSyncAttempt?: number;
+  errorMessage?: string;
 }
 
 class OfflineManager {
@@ -1981,8 +2023,375 @@ class OfflineManager {
       })) || { processed: 0, errors: 1 }
     );
   }
+
+  /**
+   * ========================================================================
+   * MÉTODOS DE COMPATIBILIDAD CON offlineService
+   * ========================================================================
+   */
+
+  /**
+   * 📦 Almacena rutas del mercaderista para uso offline
+   */
+  async storeRoutes(routes: Route[]): Promise<void> {
+    try {
+      console.log(`💾 [OfflineManager] Almacenando ${routes.length} rutas...`);
+
+      if (routes.length === 0) {
+        console.log("ℹ️ [OfflineManager] No hay rutas para almacenar");
+        return;
+      }
+
+      const offlineRoutes: OfflineRoute[] = routes.map((route) => ({
+        ...route,
+        downloadedAt: Date.now(),
+        lastSyncedAt: Date.now(),
+      }));
+
+      for (const route of offlineRoutes) {
+        await indexedDB.offlineRoutes.put(route as any);
+      }
+
+      console.log(`✅ [OfflineManager] ${routes.length} rutas almacenadas`);
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error almacenando rutas:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * 📱 Obtiene rutas del mercaderista desde almacenamiento local
+   */
+  async getOfflineRoutes(mercaderistoId: string): Promise<OfflineRoute[]> {
+    try {
+      console.log(
+        `📱 [OfflineManager] Buscando rutas para mercaderista: ${mercaderistoId}`
+      );
+
+      const routes = await indexedDB.offlineRoutes
+        .where("mercaderistoId")
+        .equals(mercaderistoId)
+        .toArray();
+
+      console.log(`📱 [OfflineManager] ${routes.length} rutas encontradas`);
+      return routes as unknown as OfflineRoute[];
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error obteniendo rutas:", error);
+      return [];
+    }
+  }
+
+  /**
+   * 🔄 Actualiza el status de una ruta en IndexedDB
+   */
+  async updateOfflineRouteStatus(
+    routeId: string,
+    newStatus: Route["status"]
+  ): Promise<void> {
+    try {
+      const route = await indexedDB.offlineRoutes.get(routeId);
+      if (!route) {
+        console.warn(`⚠️ [OfflineManager] Ruta ${routeId} no encontrada`);
+        return;
+      }
+
+      await indexedDB.offlineRoutes.update(routeId, {
+        status: newStatus,
+        lastSyncedAt: Date.now(),
+      });
+
+      console.log(
+        `✅ [OfflineManager] Ruta ${routeId} actualizada a ${newStatus}`
+      );
+    } catch (error) {
+      console.warn(
+        "[OfflineManager] No se pudo actualizar status de ruta:",
+        error
+      );
+    }
+  }
+
+  /**
+   * 📦 Almacena clientes para uso offline
+   */
+  async storeClientes(clientes: Cliente[]): Promise<void> {
+    try {
+      const offlineClientes: OfflineCliente[] = clientes.map((cliente) => ({
+        ...cliente,
+        downloadedAt: Date.now(),
+        lastSyncedAt: Date.now(),
+      }));
+
+      for (const cliente of offlineClientes) {
+        await indexedDB.clientSnapshots.put(cliente as any);
+      }
+
+      console.log(
+        `✅ [OfflineManager] ${clientes.length} clientes almacenados`
+      );
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error almacenando clientes:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🔍 Obtiene cliente específico desde almacenamiento local
+   */
+  async getOfflineCliente(clienteId: string): Promise<OfflineCliente | null> {
+    try {
+      const cliente = await indexedDB.clientSnapshots.get(clienteId);
+      return (cliente as unknown as OfflineCliente) || null;
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error obteniendo cliente:", error);
+      return null;
+    }
+  }
+
+  /**
+   * 📍 Valida si el usuario está cerca de un punto de la ruta (GPS offline)
+   */
+  async validateProximity(
+    currentLocation: { lat: number; lng: number },
+    pointId: string,
+    routeId: string,
+    toleranceMeters: number = 500
+  ): Promise<{ isValid: boolean; distance?: number; point?: RoutePoint }> {
+    try {
+      const route = await indexedDB.offlineRoutes.get(routeId);
+      if (!route) {
+        return { isValid: false };
+      }
+
+      const point = route.points.find((p) => p.id === pointId);
+      if (!point) {
+        return { isValid: false };
+      }
+
+      const distance = this.calculateDistance(
+        currentLocation.lat,
+        currentLocation.lng,
+        (point as any).position.lat,
+        (point as any).position.lng
+      );
+
+      const isValid = distance <= toleranceMeters;
+
+      console.log(
+        `📍 [OfflineManager] Validación GPS: ${isValid ? "✅" : "❌"} (${distance.toFixed(0)}m)`
+      );
+
+      return { isValid, distance, point: point as unknown as RoutePoint };
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error en validación GPS:", error);
+      return { isValid: false };
+    }
+  }
+
+  /**
+   * 📐 Calcula la distancia entre dos puntos GPS (Haversine)
+   */
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const R = 6371e3; // Radio de la Tierra en metros
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distancia en metros
+  }
+
+  /**
+   * 🔧 Función de debugging para diagnosticar problemas offline
+   */
+  async debugOfflineData(mercaderistoId: string): Promise<{
+    dbInitialized: boolean;
+    totalRoutes: number;
+    todayRoutes: number;
+    mercaderistaRoutes: number;
+    routeDetails: Array<{
+      id: string;
+      date: string;
+      status: Route["status"];
+      pointsCount: number;
+      downloadedAt: string;
+      lastSyncedAt: string;
+    }>;
+    indexedDBError?: string;
+  }> {
+    const debug = {
+      dbInitialized: true,
+      totalRoutes: 0,
+      todayRoutes: 0,
+      mercaderistaRoutes: 0,
+      routeDetails: [] as Array<{
+        id: string;
+        date: string;
+        status: Route["status"];
+        pointsCount: number;
+        downloadedAt: string;
+        lastSyncedAt: string;
+      }>,
+      indexedDBError: undefined as string | undefined,
+    };
+
+    try {
+      console.log(
+        `🔧 [OfflineManager] Debugging para mercaderista: ${mercaderistoId}`
+      );
+
+      const allRoutes = await indexedDB.offlineRoutes.toArray();
+      debug.totalRoutes = allRoutes.length;
+
+      const mercaderistaRoutes = allRoutes.filter(
+        (route: any) => route.mercaderistoId === mercaderistoId
+      );
+      debug.mercaderistaRoutes = mercaderistaRoutes.length;
+
+      const today = new Date().toISOString().split("T")[0];
+      const todayRoutes = mercaderistaRoutes.filter(
+        (route: any) => route.date === today
+      );
+      debug.todayRoutes = todayRoutes.length;
+
+      debug.routeDetails = mercaderistaRoutes.map((route: any) => ({
+        id: route.id,
+        date: route.date,
+        status: route.status,
+        pointsCount: route.points?.length || 0,
+        downloadedAt: new Date(route.downloadedAt).toLocaleString(),
+        lastSyncedAt: route.lastSyncedAt
+          ? new Date(route.lastSyncedAt).toLocaleString()
+          : "N/A",
+      }));
+
+      console.log("🔧 [OfflineManager] Debug info:", debug);
+      return debug;
+    } catch (error) {
+      debug.indexedDBError =
+        error instanceof Error ? error.message : "Error desconocido";
+      console.error("❌ [OfflineManager] Error en debugging:", error);
+      return debug;
+    }
+  }
+
+  /**
+   * 🧹 Limpia todos los datos offline (logout o reset)
+   */
+  async clearOfflineData(): Promise<void> {
+    try {
+      await Promise.all([
+        indexedDB.visitDrafts.clear(),
+        indexedDB.pendingOps.clear(),
+        indexedDB.images.clear(),
+        indexedDB.offlineRoutes.clear(),
+        indexedDB.clientSnapshots.clear(),
+        indexedDB.visitas.clear(),
+      ]);
+
+      console.log("🧹 [OfflineManager] Datos offline limpiados completamente");
+    } catch (error) {
+      console.error(
+        "❌ [OfflineManager] Error limpiando datos offline:",
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * ✅ Verifica si el usuario debe usar modo offline-first
+   */
+  shouldUseOfflineMode(user: UserData): boolean {
+    return user.role === "Mercaderista";
+  }
+
+  /**
+   * 📋 Cola una visita para sincronización (compatibilidad con offlineService)
+   */
+  async queueVisitaForSync(
+    visita: Omit<OfflineVisita, "id" | "status" | "syncAttempts">
+  ): Promise<string> {
+    const visitaCompleta: OfflineVisita = {
+      ...visita,
+      id: `visita_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      status: "pending",
+      syncAttempts: 0,
+    };
+
+    // Guardar usando la estructura de Dexie
+    await indexedDB.visitas.add({
+      id: visitaCompleta.id,
+      visitaId: visitaCompleta.id,
+      clienteRif: visitaCompleta.clienteId || "unknown",
+      data: visitaCompleta.formData,
+      fotos: {},
+      timestamp: visitaCompleta.timestamp,
+      syncStatus: "pending",
+    });
+
+    console.log(`✅ [OfflineManager] Visita ${visitaCompleta.id} encolada`);
+    return visitaCompleta.id;
+  }
+
+  /**
+   * 🔄 Actualiza el estado de una visita en la cola (compatibilidad)
+   */
+  async updateVisitaSyncStatus(
+    visitaId: string,
+    status: OfflineVisita["status"],
+    errorMessage?: string
+  ): Promise<void> {
+    try {
+      const updates: any = {
+        syncStatus: status,
+      };
+
+      if (errorMessage) {
+        updates.lastError = errorMessage;
+      }
+
+      await indexedDB.visitas.update(visitaId, updates);
+      console.log(
+        `✅ [OfflineManager] Visita ${visitaId} actualizada a ${status}`
+      );
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error actualizando visita:", error);
+    }
+  }
+
+  /**
+   * 🗑️ Elimina una visita ya sincronizada (compatibilidad)
+   */
+  async removeSyncedVisita(visitaId: string): Promise<void> {
+    try {
+      await indexedDB.visitas.delete(visitaId);
+      console.log(`✅ [OfflineManager] Visita ${visitaId} eliminada tras sync`);
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error eliminando visita:", error);
+    }
+  }
+
+  /**
+   * 📊 Inicializa IndexedDB (compatibilidad con offlineService)
+   */
+  async initDB(): Promise<void> {
+    // Dexie se auto-inicializa, este método es solo para compatibilidad
+    console.log("✅ [OfflineManager] IndexedDB ya inicializada (Dexie)");
+  }
 }
 
 // Exportar instancia singleton
 export const offlineManager = new OfflineManager();
+
 export default offlineManager;

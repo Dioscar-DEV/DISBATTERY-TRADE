@@ -3,7 +3,7 @@
  * Valida proximidad a puntos de ruta usando datos almacenados localmente
  */
 
-import { offlineService } from "./offlineService";
+import { offlineManager } from "./offlineManager";
 import { RoutePoint } from "@/types/routes";
 
 export interface GpsLocation {
@@ -153,7 +153,7 @@ class OfflineGpsValidation {
       const userLocation = await this.getCurrentLocation();
 
       // Validar proximidad usando datos offline
-      const validation = await offlineService.validateProximity(
+      const validation = await offlineManager.validateProximity(
         { lat: userLocation.lat, lng: userLocation.lng },
         pointId,
         routeId,
@@ -213,7 +213,7 @@ class OfflineGpsValidation {
     mercaderistoId: string
   ): Promise<RoutePoint[]> {
     try {
-      const routes = await offlineService.getOfflineRoutes(mercaderistoId);
+      const routes = await offlineManager.getOfflineRoutes(mercaderistoId);
       const route = routes.find((r) => r.id === routeId);
 
       if (!route) {

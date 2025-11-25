@@ -15,7 +15,7 @@ import {
 import { getFirestoreClient } from "@/firebase/clientApp";
 import { Route, RoutePoint } from "@/types/routes";
 import { UserData } from "./auth";
-import { offlineService, OfflineRoute } from "./offlineService";
+import { offlineManager, OfflineRoute } from "./offlineManager";
 import { format } from "date-fns";
 
 interface RouteLoadOptions {
@@ -193,8 +193,8 @@ class DualRouteLoader {
     options: RouteLoadOptions
   ): Promise<OfflineRoute[]> {
     try {
-      await offlineService.initDB();
-      let routes = await offlineService.getOfflineRoutes(user.uid);
+      await offlineManager.initDB();
+      let routes = await offlineManager.getOfflineRoutes(user.uid);
 
       // Filtrar por rango de fechas si se especifica
       if (options.dateRange) {
@@ -407,7 +407,7 @@ class DualRouteLoader {
     try {
       // Si es mercaderista, intentar desde offline primero
       if (this.shouldUseOfflineStrategy(user)) {
-        const offlineRoutes = await offlineService.getOfflineRoutes(user.uid);
+        const offlineRoutes = await offlineManager.getOfflineRoutes(user.uid);
         const offlineRoute = offlineRoutes.find(
           (route) => route.id === routeId
         );

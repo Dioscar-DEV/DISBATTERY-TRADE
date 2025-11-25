@@ -13,7 +13,7 @@ import {
 import { getFirestoreClient } from "@/firebase/clientApp";
 import { Route, Cliente, RoutePoint } from "@/types/routes";
 import { UserData } from "./auth";
-import { offlineService } from "./offlineService";
+import { offlineManager } from "./offlineManager";
 import { format } from "date-fns";
 
 interface PreloadProgress {
@@ -98,7 +98,7 @@ class DataPreloadService {
         "Inicializando base de datos offline..."
       );
       try {
-        await offlineService.initDB();
+        await offlineManager.initDB();
         console.log("✅ [DataPreload] IndexedDB inicializada correctamente");
       } catch (dbError) {
         console.error(
@@ -149,8 +149,8 @@ class DataPreloadService {
       // Paso 4: Almacenar datos en IndexedDB (siempre intentar, incluso con arrays vacíos)
       this.reportProgress("storage", 3, 4, "Almacenando datos localmente...");
       try {
-        await offlineService.storeRoutes(routes);
-        await offlineService.storeClientes(clientes);
+        await offlineManager.storeRoutes(routes);
+        await offlineManager.storeClientes(clientes);
         console.log("✅ [DataPreload] Datos almacenados en IndexedDB");
       } catch (storageError) {
         console.error(
@@ -209,8 +209,8 @@ class DataPreloadService {
 
       // ✅ INTENTAR ALMACENAR AL MENOS DATOS PARCIALES
       try {
-        await offlineService.storeRoutes(routes);
-        await offlineService.storeClientes(clientes);
+        await offlineManager.storeRoutes(routes);
+        await offlineManager.storeClientes(clientes);
         console.log("✅ [DataPreload] Datos parciales almacenados tras error");
       } catch (finalError) {
         console.error(
@@ -581,8 +581,8 @@ class DataPreloadService {
    */
   async hasOfflineData(userId: string): Promise<boolean> {
     try {
-      await offlineService.initDB();
-      const routes = await offlineService.getOfflineRoutes(userId);
+      await offlineManager.initDB();
+      const routes = await offlineManager.getOfflineRoutes(userId);
       return routes.length > 0;
     } catch {
       return false;
@@ -599,8 +599,8 @@ class DataPreloadService {
     dataAge?: number;
   }> {
     try {
-      await offlineService.initDB();
-      const routes = await offlineService.getOfflineRoutes(userId);
+      await offlineManager.initDB();
+      const routes = await offlineManager.getOfflineRoutes(userId);
 
       let clientesCount = 0;
       let lastSync = 0;

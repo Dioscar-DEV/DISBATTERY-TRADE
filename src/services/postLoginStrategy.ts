@@ -5,7 +5,7 @@
 
 import { UserData } from "./auth";
 import { dataPreloadService } from "./dataPreloadService";
-import { offlineService } from "./offlineService";
+import { offlineManager } from "./offlineManager";
 
 interface LoginRedirect {
   path: string;
@@ -256,7 +256,7 @@ class PostLoginStrategy {
     try {
       // Los administradores no deben tener datos offline
       // para garantizar que siempre trabajen con información actualizada
-      await offlineService.clearOfflineData();
+      await offlineManager.clearOfflineData();
       console.log(
         `🧹 [PostLogin] Datos offline limpiados para usuario administrativo`
       );
@@ -280,7 +280,7 @@ class PostLoginStrategy {
     dataAge?: string;
   }> {
     try {
-      if (!offlineService.shouldUseOfflineMode(user)) {
+      if (!offlineManager.shouldUseOfflineMode(user)) {
         return {
           hasData: false,
           routesCount: 0,
@@ -328,7 +328,7 @@ class PostLoginStrategy {
     user: UserData,
     onProgress?: (progress: PreloadProgress) => void
   ): Promise<PostLoginResult> {
-    if (!offlineService.shouldUseOfflineMode(user)) {
+    if (!offlineManager.shouldUseOfflineMode(user)) {
       return {
         success: false,
         redirect: this.getLoginStrategy(user),
@@ -343,7 +343,7 @@ class PostLoginStrategy {
 
     try {
       // Limpiar datos existentes
-      await offlineService.clearOfflineData();
+      await offlineManager.clearOfflineData();
 
       // Configurar callback de progreso
       if (onProgress) {
@@ -351,9 +351,8 @@ class PostLoginStrategy {
       }
 
       // Ejecutar nueva precarga
-      const preloadResult = await dataPreloadService.preloadDataForMercaderista(
-        user
-      );
+      const preloadResult =
+        await dataPreloadService.preloadDataForMercaderista(user);
 
       return {
         success: preloadResult.success,
