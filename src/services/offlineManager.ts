@@ -23,7 +23,6 @@ import { getCurrentUser, getUserFromStorage } from "./auth";
 import { updateRoutePointStatus } from "./routes";
 import { format } from "date-fns";
 import { fallbackStorage } from "@/services/fallbackStorage";
-import { robustOfflineInitializer } from "@/services/robustOfflineInit";
 import { databaseRecovery } from "@/services/databaseRecovery";
 import { db as indexedDB } from "@/lib/indexedDB";
 import { Route, RoutePoint, Cliente } from "@/types/routes";
@@ -123,9 +122,49 @@ export interface OfflineVisita {
   errorMessage?: string;
 }
 
+// Interface para resultado de inicialización
+export interface InitResult {
+  success: boolean;
+  indexedDBAvailable: boolean;
+  fallbackAvailable: boolean;
+  errors: string[];
+}
+
+// Configuración para inicialización y sincronización
+const INIT_CONFIG = {
+  MAX_RETRIES: 3,
+  RETRY_DELAY_MS: 1000,
+  VERSION_ERROR_NAMES: [
+    "VersionError",
+    "version",
+    "Version",
+    "existing version",
+  ],
+  DB_NAMES_TO_CLEANUP: [
+    "DisbatteryOfflineDB",
+    "DisbatteryOfflineDB_v3",
+    "RouteOfflineDB",
+    "VisitOfflineDB",
+    "ClientOfflineDB",
+    "OfflineDataDB",
+  ],
+} as const;
+
+const SYNC_CONFIG = {
+  MIN_SYNC_INTERVAL_MS: 30000, // 30 segundos
+  AUTO_SYNC_INTERVAL_MS: 5 * 60 * 1000, // 5 minutos
+  SW_MESSAGE_TIMEOUT_MS: 3000,
+} as const;
+
 class OfflineManager {
   private syncInProgress = false;
   private progressCallbacks: ((progress: SyncProgress) => void)[] = [];
+
+  // Variables para control de auto-sync
+  private autoSyncInProgress = false;
+  private lastAutoSyncTime = 0;
+  private autoSyncInterval: NodeJS.Timeout | null = null;
+  private isInitialized = false;
 
   /**
    * 🎯 MÉTODO PRINCIPAL: Guardar visita (online u offline)
@@ -1560,132 +1599,6 @@ class OfflineManager {
    */
 
   /**
-   * ⚡ Inicialización robusta del sistema offline
-   * Reemplaza: robustOfflineInitializer.initialize()
-   */
-  async initializeOfflineSystem(): Promise<{
-    success: boolean;
-    indexedDBAvailable: boolean;
-    fallbackAvailable: boolean;
-    errors: string[];
-  }> {
-    console.log(
-      "🚀 [OfflineManager] Inicializando sistema offline consolidado..."
-    );
-
-    const result = await robustOfflineInitializer.initialize();
-
-    if (result.success) {
-      console.log(
-        `✅ [OfflineManager] Sistema offline inicializado - IndexedDB: ${result.indexedDBAvailable}, Fallback: ${result.fallbackAvailable}`
-      );
-
-      // Configurar listeners de conectividad
-      this.setupConnectivityListeners();
-
-      // Iniciar sincronización automática
-      this.setupAutoSync();
-    }
-
-    return result;
-  }
-
-  /**
-   * 🌐 Configurar listeners de conectividad
-   */
-  private setupConnectivityListeners(): void {
-    if (typeof window === "undefined") return;
-
-    const handleOnline = () => {
-      console.log(
-        "🌐 [OfflineManager] Conexión restaurada - iniciando sincronización"
-      );
-      this.syncPendingVisitas();
-    };
-
-    const handleOffline = () => {
-      console.log(
-        "📱 [OfflineManager] Conexión perdida - modo offline activado"
-      );
-    };
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-  }
-
-  /**
-   * ⏰ Configurar sincronización automática
-   */
-  private setupAutoSync(): void {
-    if (typeof window === "undefined") return;
-
-    // Sincronización cada 5 minutos si hay conexión
-    setInterval(
-      () => {
-        if (navigator.onLine && !this.syncInProgress) {
-          console.log(
-            "⏰ [OfflineManager] Sincronización automática programada"
-          );
-          this.syncPendingVisitas();
-        }
-      },
-      5 * 60 * 1000
-    ); // 5 minutos
-
-    // Sincronización al ganar foco
-    window.addEventListener("focus", () => {
-      if (navigator.onLine && !this.syncInProgress) {
-        console.log("👁️ [OfflineManager] Sincronización por foco de ventana");
-        this.syncPendingVisitas();
-      }
-    });
-
-    // Sincronización cuando la página se vuelve visible
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden && navigator.onLine && !this.syncInProgress) {
-        console.log("👀 [OfflineManager] Sincronización por visibilidad");
-        this.syncPendingVisitas();
-      }
-    });
-
-    // Sincronización inicial después de 10 segundos
-    setTimeout(() => {
-      if (navigator.onLine && !this.syncInProgress) {
-        console.log("🚀 [OfflineManager] Sincronización inicial");
-        this.syncPendingVisitas();
-      }
-    }, 10000);
-  }
-
-  /**
-   * 🔄 Forzar sincronización inmediata
-   * Reemplaza: syncService.forcSync()
-   */
-  async forceSync(): Promise<SyncResult> {
-    console.log("🔄 [OfflineManager] Forzando sincronización inmediata...");
-
-    if (this.syncInProgress) {
-      console.log("⏭️ [OfflineManager] Sincronización ya en progreso");
-      return { success: false, processed: 0, errors: 0 };
-    }
-
-    const isOnline = await this.checkConnection();
-    if (!isOnline) {
-      console.log("❌ [OfflineManager] Sin conexión - no se puede sincronizar");
-      return { success: false, processed: 0, errors: 0 };
-    }
-
-    await this.syncPendingVisitas();
-
-    const stats = await this.getSyncStats();
-    return {
-      success: stats.errors === 0,
-      processed: stats.synced,
-      errors: stats.errors,
-    };
-  }
-
-  /**
    * 📊 Verificar si hay visitas pendientes
    * Reemplaza: syncService.hasPendingVisitas()
    */
@@ -1708,7 +1621,13 @@ class OfflineManager {
     canSaveOffline: boolean;
   }> {
     try {
-      return await robustOfflineInitializer.getStatus();
+      const status = await this.getOfflineStatus();
+      return {
+        indexedDB: status.indexedDBAvailable,
+        localStorage: status.localStorageAvailable,
+        canSaveOffline:
+          status.indexedDBAvailable || status.localStorageAvailable,
+      };
     } catch (error) {
       console.error(
         "❌ [OfflineManager] Error obteniendo estado del sistema:",
@@ -2388,6 +2307,572 @@ class OfflineManager {
   async initDB(): Promise<void> {
     // Dexie se auto-inicializa, este método es solo para compatibilidad
     console.log("✅ [OfflineManager] IndexedDB ya inicializada (Dexie)");
+  }
+
+  /**
+   * ========================================================================
+   * MÓDULO DE INICIALIZACIÓN ROBUSTA (CONSOLIDADO)
+   * Funcionalidades de offlineInitializer.ts y robustOfflineInit.ts
+   * ========================================================================
+   */
+
+  /**
+   * 🚀 Inicializa el sistema offline completo de forma robusta
+   * Aplica SRP: Coordina la inicialización pero delega a métodos específicos
+   */
+  async initializeOfflineSystem(): Promise<InitResult> {
+    const result: InitResult = {
+      success: false,
+      indexedDBAvailable: false,
+      fallbackAvailable: false,
+      errors: [],
+    };
+
+    try {
+      console.log("🚀 [OfflineManager] Iniciando sistema offline robusto...");
+
+      // 1. Verificar fallback storage (localStorage)
+      result.fallbackAvailable = this.checkFallbackAvailability();
+
+      // 2. Inicializar IndexedDB con reintentos automáticos
+      result.indexedDBAvailable = await this.initializeIndexedDBWithRetries();
+
+      // 3. Determinar éxito general
+      result.success = result.indexedDBAvailable || result.fallbackAvailable;
+
+      if (result.success) {
+        this.isInitialized = true;
+        console.log(
+          `✅ [OfflineManager] Sistema inicializado - IndexedDB: ${result.indexedDBAvailable}, Fallback: ${result.fallbackAvailable}`
+        );
+      } else {
+        result.errors.push("Todos los sistemas de almacenamiento fallaron");
+        console.error("❌ [OfflineManager] Falló inicialización completa");
+      }
+
+      return result;
+    } catch (error) {
+      console.error(
+        "❌ [OfflineManager] Error fatal en inicialización:",
+        error
+      );
+      result.errors.push(
+        error instanceof Error ? error.message : "Error desconocido"
+      );
+      return result;
+    }
+  }
+
+  /**
+   * Verifica disponibilidad de fallback storage
+   * Aplica SRP: Solo verifica, no modifica estado
+   */
+  private checkFallbackAvailability(): boolean {
+    const available =
+      typeof window !== "undefined" && fallbackStorage.isAvailable();
+
+    if (available) {
+      console.log("✅ [OfflineManager] Fallback storage disponible");
+    } else {
+      console.warn("⚠️ [OfflineManager] Fallback storage no disponible");
+    }
+
+    return available;
+  }
+
+  /**
+   * Inicializa IndexedDB con reintentos automáticos
+   * Aplica Clean Code: Función enfocada, lógica clara
+   */
+  private async initializeIndexedDBWithRetries(): Promise<boolean> {
+    for (let attempt = 1; attempt <= INIT_CONFIG.MAX_RETRIES; attempt++) {
+      console.log(
+        `🔄 [OfflineManager] Intento ${attempt}/${INIT_CONFIG.MAX_RETRIES} de inicialización`
+      );
+
+      try {
+        const success = await this.attemptIndexedDBInit();
+        if (success) {
+          console.log("✅ [OfflineManager] IndexedDB inicializado");
+          return true;
+        }
+      } catch (error) {
+        console.warn(`⚠️ [OfflineManager] Intento ${attempt} falló:`, error);
+
+        if (error instanceof Error && this.isVersionError(error)) {
+          console.log("🔄 [OfflineManager] Error de versión, limpiando...");
+          await this.cleanupVersionConflicts();
+        }
+      }
+
+      // Delay antes del siguiente intento (exponential backoff)
+      if (attempt < INIT_CONFIG.MAX_RETRIES) {
+        await this.delay(INIT_CONFIG.RETRY_DELAY_MS * attempt);
+      }
+    }
+
+    console.warn("⚠️ [OfflineManager] IndexedDB no disponible tras reintentos");
+    return false;
+  }
+
+  /**
+   * Intenta inicializar IndexedDB
+   * Aplica SRP: Solo inicializa, no maneja reintentos
+   */
+  private async attemptIndexedDBInit(): Promise<boolean> {
+    const { initializeOfflineDB } = await import("@/lib/indexedDB");
+    return await initializeOfflineDB();
+  }
+
+  /**
+   * Verifica si un error es de versión de DB
+   * Aplica Clean Code: Nombre descriptivo, lógica clara
+   */
+  private isVersionError(error: Error): boolean {
+    return INIT_CONFIG.VERSION_ERROR_NAMES.some(
+      (name) => error.name === name || error.message.includes(name)
+    );
+  }
+
+  /**
+   * Limpia conflictos de versión de IndexedDB
+   * Aplica DRY: Centraliza lógica de limpieza
+   */
+  private async cleanupVersionConflicts(): Promise<void> {
+    try {
+      console.log("🗑️ [OfflineManager] Limpiando conflictos...");
+
+      const Dexie = (await import("dexie")).default;
+
+      // Eliminar bases de datos conflictivas
+      for (const dbName of INIT_CONFIG.DB_NAMES_TO_CLEANUP) {
+        try {
+          await Dexie.delete(dbName);
+          console.log(`🗑️ [OfflineManager] Eliminada: ${dbName}`);
+        } catch {
+          // DB puede no existir, continuar
+        }
+      }
+
+      // Limpiar localStorage relacionado
+      if (typeof window !== "undefined" && fallbackStorage.isAvailable()) {
+        this.cleanupOfflineLocalStorage();
+      }
+
+      await this.delay(500); // Asegurar que limpieza se complete
+      console.log("✅ [OfflineManager] Limpieza completada");
+    } catch (error) {
+      console.warn("⚠️ [OfflineManager] Error en limpieza:", error);
+    }
+  }
+
+  /**
+   * Limpia keys de localStorage relacionadas con offline
+   * Aplica SRP: Solo limpia localStorage
+   */
+  private cleanupOfflineLocalStorage(): void {
+    const keysToRemove = Object.keys(localStorage).filter(
+      (key) =>
+        key.includes("indexeddb") ||
+        key.includes("offline") ||
+        key.includes("migration")
+    );
+
+    keysToRemove.forEach((key) => {
+      localStorage.removeItem(key);
+      console.log(`🗑️ [OfflineManager] localStorage limpiado: ${key}`);
+    });
+  }
+
+  /**
+   * Delay helper para reintentos
+   * Aplica Clean Code: Función pequeña y reutilizable
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * ========================================================================
+   * MÓDULO DE AUTO-SYNC Y CONECTIVIDAD
+   * ========================================================================
+   */
+
+  /**
+   * Configura listeners de conectividad
+   * Aplica OCP: Extensible sin modificar código existente
+   */
+  setupConnectivityListeners(): () => void {
+    if (typeof window === "undefined") {
+      return () => {}; // No-op en servidor
+    }
+
+    const handleOnline = () => {
+      console.log("🌐 [OfflineManager] Conexión restaurada");
+      this.triggerAutoSync();
+    };
+
+    const handleOffline = () => {
+      console.log("📱 [OfflineManager] Modo offline activado");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    // Retornar función de cleanup
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }
+
+  /**
+   * Configura sincronización automática
+   * Aplica SRP: Solo setup, no ejecuta sync
+   */
+  setupAutoSync(): () => void {
+    if (typeof window === "undefined") {
+      return () => {}; // No-op en servidor
+    }
+
+    // Auto-sync cada 5 minutos si hay conexión
+    this.autoSyncInterval = setInterval(() => {
+      if (navigator.onLine) {
+        this.triggerAutoSync();
+      }
+    }, SYNC_CONFIG.AUTO_SYNC_INTERVAL_MS);
+
+    // Sync al ganar foco
+    const handleFocus = () => {
+      if (navigator.onLine) {
+        this.triggerAutoSync();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+
+    // Retornar función de cleanup
+    return () => {
+      if (this.autoSyncInterval) {
+        clearInterval(this.autoSyncInterval);
+        this.autoSyncInterval = null;
+      }
+      window.removeEventListener("focus", handleFocus);
+    };
+  }
+
+  /**
+   * Activa sincronización automática con throttling
+   * Aplica Clean Code: Lógica de throttling clara y explícita
+   */
+  private async triggerAutoSync(): Promise<void> {
+    const now = Date.now();
+
+    // Evitar sync simultáneas
+    if (this.autoSyncInProgress) {
+      console.log("⏭️ [OfflineManager] Auto-sync omitida (en progreso)");
+      return;
+    }
+
+    // Throttling: evitar syncs muy frecuentes
+    if (now - this.lastAutoSyncTime < SYNC_CONFIG.MIN_SYNC_INTERVAL_MS) {
+      console.log("⏭️ [OfflineManager] Auto-sync omitida (throttling)");
+      return;
+    }
+
+    try {
+      this.autoSyncInProgress = true;
+      this.lastAutoSyncTime = now;
+
+      console.log("🔄 [OfflineManager] Auto-sync iniciada");
+      const result = await this.forceSync();
+      console.log(
+        `✅ [OfflineManager] Auto-sync completada: ${result.processed} procesadas, ${result.errors} errores`
+      );
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error en auto-sync:", error);
+    } finally {
+      this.autoSyncInProgress = false;
+    }
+  }
+
+  /**
+   * Fuerza sincronización inmediata (sin throttling)
+   * Aplica ISP: Interface para force sync separada de auto-sync
+   */
+  async forceSync(): Promise<{ processed: number; errors: number }> {
+    try {
+      console.log("🔄 [OfflineManager] Force sync iniciada");
+
+      // Sincronizar visitas pendientes
+      await this.syncPendingVisitas();
+
+      // Procesar cola de operaciones
+      const result = await this.processOperationQueue();
+
+      console.log(`✅ [OfflineManager] Force sync completada`);
+      return result;
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error en force sync:", error);
+      return { processed: 0, errors: 1 };
+    }
+  }
+
+  /**
+   * Obtiene estado de servicios offline
+   * Aplica SRP: Solo consulta, no modifica
+   */
+  async getOfflineStatus(): Promise<{
+    isInitialized: boolean;
+    indexedDBAvailable: boolean;
+    localStorageAvailable: boolean;
+    isOnline: boolean;
+  }> {
+    return {
+      isInitialized: this.isInitialized,
+      indexedDBAvailable: await this.testIndexedDBAvailability(),
+      localStorageAvailable: fallbackStorage.isAvailable(),
+      isOnline: typeof window !== "undefined" ? navigator.onLine : false,
+    };
+  }
+
+  /**
+   * Prueba si IndexedDB está disponible
+   * Aplica Clean Code: Test aislado, no afecta estado
+   */
+  private async testIndexedDBAvailability(): Promise<boolean> {
+    try {
+      const Dexie = (await import("dexie")).default;
+      const testDB = new Dexie("OfflineManagerTestDB");
+      testDB.version(1).stores({ test: "id" });
+      await testDB.open();
+      await testDB.close();
+      await Dexie.delete("OfflineManagerTestDB");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * ========================================================================
+   * MÓDULO DE GESTIÓN DE DATOS OFFLINE (CONSOLIDADO)
+   * Funcionalidades de offlineDataManager.ts
+   * ========================================================================
+   */
+
+  /**
+   * Verifica si el mercaderista necesita descargar datos
+   * Aplica SRP: Solo verifica necesidad, no descarga
+   */
+  async shouldDownloadData(user: UserData): Promise<{
+    needsDownload: boolean;
+    reason: string;
+    hasExistingData: boolean;
+  }> {
+    try {
+      // Solo mercaderistas necesitan datos offline
+      if (user.role !== "Mercaderista") {
+        return {
+          needsDownload: false,
+          reason: "Usuario no es mercaderista",
+          hasExistingData: false,
+        };
+      }
+
+      // Verificar datos existentes
+      const routes = await indexedDB.offlineRoutes
+        .where("userId")
+        .equals(user.uid)
+        .toArray();
+
+      const clients = await indexedDB.clientSnapshots.count();
+      const hasData = routes.length > 0 || clients > 0;
+
+      if (!hasData) {
+        return {
+          needsDownload: true,
+          reason: "No hay datos offline disponibles",
+          hasExistingData: false,
+        };
+      }
+
+      // Verificar antigüedad (>24h = desactualizado)
+      const latestRoute = routes.reduce(
+        (latest, route) =>
+          route.lastSyncAt > latest ? route.lastSyncAt : latest,
+        0
+      );
+
+      const hoursOld = (Date.now() - latestRoute) / (1000 * 60 * 60);
+
+      if (hoursOld > 24) {
+        return {
+          needsDownload: true,
+          reason: `Datos desactualizados (${Math.floor(hoursOld)}h)`,
+          hasExistingData: true,
+        };
+      }
+
+      return {
+        needsDownload: false,
+        reason: "Datos offline actualizados",
+        hasExistingData: true,
+      };
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error verificando datos:", error);
+      return {
+        needsDownload: true,
+        reason: "Error verificando datos existentes",
+        hasExistingData: false,
+      };
+    }
+  }
+
+  /**
+   * Descarga datos forzadamente (sin verificar)
+   * Aplica Clean Code: Función enfocada en descarga
+   */
+  async forceDownloadData(
+    user: UserData,
+    onProgress?: (progress: {
+      step: string;
+      percentage: number;
+      message: string;
+    }) => void
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      onProgress?.({
+        step: "init",
+        percentage: 10,
+        message: "Preparando descarga...",
+      });
+
+      // Importar dinámicamente para evitar dependencias circulares
+      const { dataPreloadService } = await import(
+        "@/services/dataPreloadService"
+      );
+
+      onProgress?.({
+        step: "download",
+        percentage: 50,
+        message: "Descargando rutas y clientes...",
+      });
+
+      const result = await dataPreloadService.preloadDataForMercaderista(user);
+
+      onProgress?.({
+        step: "complete",
+        percentage: 100,
+        message: "Descarga completada",
+      });
+
+      if (result.success) {
+        console.log("✅ [OfflineManager] Datos descargados");
+        return { success: true };
+      } else {
+        console.error("❌ [OfflineManager] Error en descarga:", result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error forzando descarga:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Error desconocido",
+      };
+    }
+  }
+
+  /**
+   * Descarga datos solo si es necesario
+   * Aplica DIP: Depende de abstracción (shouldDownloadData)
+   */
+  async downloadDataIfNeeded(
+    user: UserData,
+    onProgress?: (progress: {
+      step: string;
+      percentage: number;
+      message: string;
+    }) => void
+  ): Promise<{ success: boolean; downloaded: boolean; error?: string }> {
+    try {
+      const check = await this.shouldDownloadData(user);
+
+      if (!check.needsDownload) {
+        console.log(`ℹ️ [OfflineManager] No necesario: ${check.reason}`);
+        return { success: true, downloaded: false };
+      }
+
+      console.log(`⬇️ [OfflineManager] Iniciando descarga: ${check.reason}`);
+      const result = await this.forceDownloadData(user, onProgress);
+
+      return {
+        success: result.success,
+        downloaded: result.success,
+        error: result.error,
+      };
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error en descarga:", error);
+      return {
+        success: false,
+        downloaded: false,
+        error: error instanceof Error ? error.message : "Error desconocido",
+      };
+    }
+  }
+
+  /**
+   * Obtiene estadísticas de datos offline
+   * Aplica Clean Code: Función pequeña, retorno claro
+   */
+  async getDataStats(user: UserData): Promise<{
+    routesCount: number;
+    clientsCount: number;
+    draftsCount: number;
+    pendingOpsCount: number;
+    lastSync?: Date;
+  }> {
+    try {
+      const routes = await indexedDB.offlineRoutes
+        .where("userId")
+        .equals(user.uid)
+        .count();
+
+      const clients = await indexedDB.clientSnapshots.count();
+      const drafts = await indexedDB.visitDrafts.count();
+      const pendingOps = await indexedDB.pendingOps
+        .where("status")
+        .anyOf(["pending", "processing"])
+        .count();
+
+      // Buscar última sincronización
+      const latestRoute = await indexedDB.offlineRoutes
+        .where("userId")
+        .equals(user.uid)
+        .reverse()
+        .sortBy("lastSyncAt");
+
+      const lastSync =
+        latestRoute.length > 0
+          ? new Date(latestRoute[0].lastSyncAt)
+          : undefined;
+
+      return {
+        routesCount: routes,
+        clientsCount: clients,
+        draftsCount: drafts,
+        pendingOpsCount: pendingOps,
+        lastSync,
+      };
+    } catch (error) {
+      console.error("❌ [OfflineManager] Error obteniendo stats:", error);
+      return {
+        routesCount: 0,
+        clientsCount: 0,
+        draftsCount: 0,
+        pendingOpsCount: 0,
+      };
+    }
   }
 }
 

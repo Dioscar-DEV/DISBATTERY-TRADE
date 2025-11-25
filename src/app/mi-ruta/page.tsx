@@ -38,7 +38,6 @@ import { obtenerVisitas } from "@/services/visitas";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import offlineManager from "@/services/offlineManager";
 import { dualRouteLoader } from "@/services/dualRouteLoader";
-import { offlineDataManager } from "@/services/offlineDataManager";
 import { getGPSLocation } from "@/services/gpsService";
 
 // Components
