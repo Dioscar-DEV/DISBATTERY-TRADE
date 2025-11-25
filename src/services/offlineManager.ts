@@ -133,9 +133,10 @@ class OfflineManager {
 
       // Intentar guardar en IndexedDB, usar fallback si falla
       try {
-        await db.visitas.add({
+        await indexedDB.visitas.add({
+          id: visitaId,
           visitaId: visitaId,
-          clienteRif: visitaData.clienteData?.rif,
+          clienteRif: visitaData.clienteData?.rif || "unknown",
           data: visitaData,
           fotos: this.extractPhotos(visitaData),
           timestamp: Date.now(),
@@ -252,7 +253,7 @@ class OfflineManager {
       let fallbackVisitas: any[] = [];
 
       try {
-        pendingVisitas = await db.visitas
+        pendingVisitas = await indexedDB.visitas
           .where("syncStatus")
           .equals("pending")
           .toArray();
@@ -307,7 +308,7 @@ class OfflineManager {
           this.notifyProgress(progress);
 
           // Marcar como procesando
-          await db.visitas.update(visita.id!, { syncStatus: "syncing" });
+          await indexedDB.visitas.update(visita.id!, { syncStatus: "syncing" });
 
           // Verificar tipo de datos y procesar según corresponda
           if (this.isAdminData(visita.data)) {
@@ -324,7 +325,7 @@ class OfflineManager {
           }
 
           // Marcar como sincronizada
-          await db.visitas.update(visita.id!, { syncStatus: "synced" });
+          await indexedDB.visitas.update(visita.id!, { syncStatus: "synced" });
 
           progress.processed++;
           console.log(
@@ -337,7 +338,7 @@ class OfflineManager {
           );
 
           // Marcar como error
-          await db.visitas.update(visita.id!, {
+          await indexedDB.visitas.update(visita.id!, {
             syncStatus: "error",
             lastError:
               error instanceof Error ? error.message : "Error desconocido",
@@ -1235,7 +1236,7 @@ class OfflineManager {
 
       // Obtener estadísticas de IndexedDB
       try {
-        const allVisitas = await db.visitas.toArray();
+        const allVisitas = await indexedDB.visitas.toArray();
 
         stats.pending += allVisitas.filter(
           (v: any) => v.syncStatus === "pending"
@@ -1688,7 +1689,7 @@ class OfflineManager {
 
       // Limpiar IndexedDB
       try {
-        await db.visitas.clear();
+        await indexedDB.visitas.clear();
         console.log("✅ [OfflineManager] IndexedDB limpiado");
       } catch (dbError) {
         console.warn("⚠️ [OfflineManager] Error limpiando IndexedDB:", dbError);
