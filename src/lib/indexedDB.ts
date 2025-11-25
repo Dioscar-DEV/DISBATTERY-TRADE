@@ -4,7 +4,7 @@ import Dexie, { Table } from "dexie";
 // Centralize DB name and version to prevent inconsistencies.
 const DB_NAME = "DisbatteryOfflineDB_v3";
 // Increment this version ONLY when you change the schema below.
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 // ---
 
 // Esquemas de datos para IndexedDB
@@ -134,6 +134,17 @@ export interface DebugLog {
   userId?: string;
 }
 
+export interface OfflineVisita {
+  id: string;
+  visitaId: string;
+  clienteRif: string;
+  data: any;
+  fotos: Record<string, string>;
+  timestamp: number;
+  syncStatus: "pending" | "syncing" | "synced" | "error";
+  lastError?: string;
+}
+
 // Base de datos IndexedDB
 class DisbatteryDB extends Dexie {
   visitDrafts!: Table<VisitDraft>;
@@ -142,6 +153,7 @@ class DisbatteryDB extends Dexie {
   offlineRoutes!: Table<OfflineRoute>;
   clientSnapshots!: Table<ClientSnapshot>;
   debugLogs!: Table<DebugLog>;
+  visitas!: Table<OfflineVisita>;
 
   constructor() {
     // Nombre fijo de la base para evitar recreaciones innecesarias
@@ -149,7 +161,7 @@ class DisbatteryDB extends Dexie {
 
     // Usar una versión fija y controlada. Incrementar manualmente cuando
     // se necesite una migración (NO usar Date.now()).
-    
+
     // Definir stores y proporcionar un handler de migración minimalista.
     // Añadir nuevas versiones con this.version(n).stores(...).upgrade(tx => { ... })
     this.version(DB_VERSION)
@@ -161,6 +173,7 @@ class DisbatteryDB extends Dexie {
         offlineRoutes: "id, routeId, userId, date, status, lastSyncAt",
         clientSnapshots: "id, rif, nombre, lastSyncAt",
         debugLogs: "id, timestamp, level, source, visitId, userId",
+        visitas: "id, clienteRif, syncStatus, timestamp",
       })
       .upgrade(async (trans) => {
         // Migration hook: aquí podemos normalizar datos si migramos desde
@@ -303,39 +316,49 @@ export async function initializeOfflineDB() {
     return true;
   } catch (error) {
     console.error("Error initializing offline database:", error);
-    
+
     // Si es un error de versión, intentar limpiar y reinicializar
-    if (error instanceof Error && (error.name === 'VersionError' || error.message.includes('version'))) {
-      console.warn("🔄 Detected IndexedDB version conflict. Attempting automatic recovery...");
+    if (
+      error instanceof Error &&
+      (error.name === "VersionError" || error.message.includes("version"))
+    ) {
+      console.warn(
+        "🔄 Detected IndexedDB version conflict. Attempting automatic recovery..."
+      );
       try {
         // Cerrar la conexión actual para liberar el bloqueo
         db.close();
-        
+
         // Eliminar la base de datos problemática
         console.log(`Deleting database '${DB_NAME}' to resolve conflict...`);
         await Dexie.delete(DB_NAME);
         console.log("Database deleted successfully.");
-        
+
         // Opcional: Limpiar flags de migración para forzar una nueva migración si es necesario
         localStorage.removeItem("indexeddb_migration_completed");
-        
+
         // Intentar abrir nuevamente. Esto creará la DB desde cero.
         console.log("Re-opening the database...");
         await db.open();
-        
-        console.log("✅ Database recreated successfully after version conflict.");
+
+        console.log(
+          "✅ Database recreated successfully after version conflict."
+        );
         return true;
       } catch (retryError) {
-        console.error("❌ Failed to resolve version conflict automatically.", retryError);
+        console.error(
+          "❌ Failed to resolve version conflict automatically.",
+          retryError
+        );
         // Informar al usuario que se requiere una acción manual
         alert(
           "No se pudo resolver un problema con la base de datos local. " +
-          "Por favor, limpie los datos de navegación de este sitio e intente de nuevo."
+            "Por favor, limpie los datos de navegación de este sitio e intente de nuevo."
         );
         return false;
       }
     }
-    
+
     return false;
   }
 }

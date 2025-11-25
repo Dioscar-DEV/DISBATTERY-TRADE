@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
+import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -10,20 +10,24 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { Camera, Trash, Video, X, CheckCircle } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Textarea } from '@/components/ui/textarea';
-import { setN8NWebhookURL } from '@/services/visitas';
-import { RespuestasTrade } from '@/types/visitas';
-import { getCurrentUser, getUserFromStorage } from '@/services/auth';
-import { getGPSLocation, GPSCoordinates } from '@/services/gpsService';
-import { offlineManager } from '@/services/offlineManager';
-
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { Camera, Trash, Video, X, CheckCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
+import { setN8NWebhookURL } from "@/services/visitas";
+import { RespuestasTrade } from "@/types/visitas";
+import { getCurrentUser, getUserFromStorage } from "@/services/auth";
+import { getGPSLocation, GPSCoordinates } from "@/services/gpsService";
 
 interface RecursoUsado {
   tipo: string;
@@ -35,49 +39,48 @@ interface EntregableUsado {
   cantidad: number;
 }
 
-const MARCAS_TRADE: string[] = ['Shell', 'Qualid'];
+const MARCAS_TRADE: string[] = ["Shell", "Qualid"];
 
 const RECURSOS_IMPULSO_SHELL_TYPES: string[] = [
-  'UNIFORMES DE PROMOTORAS SHELL',
-  'BANDEROLAS SHELL',
-  'IGLOO SHELL',
-  'TOLDO SHELL',
-  'EXHIBIDORES SHELL',
+  "UNIFORMES DE PROMOTORAS SHELL",
+  "BANDEROLAS SHELL",
+  "IGLOO SHELL",
+  "TOLDO SHELL",
+  "EXHIBIDORES SHELL",
 ];
 
 const RECURSOS_IMPULSO_QUALID_TYPES: string[] = [
-  'UNIFORMES DE PROMOTORAS QUALID',
-  'BANDEROLAS QUALID',
-  'IGLOO QUALID',
-  'TOLDO QUALID',
+  "UNIFORMES DE PROMOTORAS QUALID",
+  "BANDEROLAS QUALID",
+  "IGLOO QUALID",
+  "TOLDO QUALID",
 ];
 
 const ENTREGABLES_IMPULSO_SHELL_TYPES: string[] = [
-  'Ambientadores Shell para vehiculos',
-  'Bolsas Shell para carros',
-  'Llaveros de Tela Shell',
-  'Gorras Shell',
-  'Bolsas Tipo Boutique Negro',
-  'Bolsas Tipo Boutique Blanco',
-  'Tapasol Shell/Qualid',
-  'Globos Shell',
-  'Vasos Shell',
-  'Agendas',
+  "Ambientadores Shell para vehiculos",
+  "Bolsas Shell para carros",
+  "Llaveros de Tela Shell",
+  "Gorras Shell",
+  "Bolsas Tipo Boutique Negro",
+  "Bolsas Tipo Boutique Blanco",
+  "Tapasol Shell/Qualid",
+  "Globos Shell",
+  "Vasos Shell",
+  "Agendas",
 ];
 
 const ENTREGABLES_IMPULSO_QUALID_TYPES: string[] = [
-  'Bolsas Qualid para carros',
-  'Esponjas Qualid',
-  'Globos Qualid',
-  'Gorras Qualid',
-  'Llavero caucho Qualid',
-  'Llavero de tela Qualid',
-  'Paños Qualid',
-  'Vasos Qualid',
+  "Bolsas Qualid para carros",
+  "Esponjas Qualid",
+  "Globos Qualid",
+  "Gorras Qualid",
+  "Llavero caucho Qualid",
+  "Llavero de tela Qualid",
+  "Paños Qualid",
+  "Vasos Qualid",
 ];
 
-const FOTO_LABELS = ['Stand', 'Promotoras', 'Ambiente'];
-
+const FOTO_LABELS = ["Stand", "Promotoras", "Ambiente"];
 
 export default function TradeEventosPage() {
   const router = useRouter();
@@ -85,7 +88,7 @@ export default function TradeEventosPage() {
 
   // Configurar URL del webhook N8N al inicializar
   useEffect(() => {
-    setN8NWebhookURL('https://n8n.con-visas.com/webhook/Disbattery-Trade-app');
+    setN8NWebhookURL("https://n8n.con-visas.com/webhook/Disbattery-Trade-app");
   }, []);
 
   // Establecer marcas automáticamente desde la ruta
@@ -93,168 +96,247 @@ export default function TradeEventosPage() {
     const marcasFromRoute = getMarcasFromRoute();
     if (marcasFromRoute && marcasFromRoute.length > 0) {
       setSelectedBrands(marcasFromRoute);
-      console.log('🎯 Marcas establecidas automáticamente desde ruta:', marcasFromRoute);
+      console.log(
+        "🎯 Marcas establecidas automáticamente desde ruta:",
+        marcasFromRoute
+      );
     }
   }, []);
 
   // Función para obtener las marcas desde la ruta
   const getMarcasFromRoute = () => {
     try {
-      console.log('🔍 === INICIANDO BÚSQUEDA DE MARCA ===');
+      console.log("🔍 === INICIANDO BÚSQUEDA DE MARCA ===");
 
-      const clienteDataString = localStorage.getItem('clienteData');
+      const clienteDataString = localStorage.getItem("clienteData");
       if (!clienteDataString) {
-        console.log('❌ No hay clienteData en localStorage');
+        console.log("❌ No hay clienteData en localStorage");
         return null;
       }
 
       const clienteData = JSON.parse(clienteDataString);
-      console.log('🎯 Cliente actual:', clienteData.nombre, 'RIF:', clienteData.rif);
+      console.log(
+        "🎯 Cliente actual:",
+        clienteData.nombre,
+        "RIF:",
+        clienteData.rif
+      );
 
       // 1. BUSCAR EN EVENTOS INDEPENDIENTES PRIMERO
-      console.log('🔍 Buscando en eventos independientes...');
-      const eventosString = localStorage.getItem('todaysEventsOffline');
+      console.log("🔍 Buscando en eventos independientes...");
+      const eventosString = localStorage.getItem("todaysEventsOffline");
       if (eventosString) {
         try {
           const eventos = JSON.parse(eventosString);
-          console.log('📋 Eventos encontrados:', eventos.length);
+          console.log("📋 Eventos encontrados:", eventos.length);
 
           for (const evento of eventos) {
-            console.log('🔍 Revisando evento:', evento.nombreEvento, 'Marcas:', evento.marcasTrabajadas || evento.marcaTrabajada);
+            console.log(
+              "🔍 Revisando evento:",
+              evento.nombreEvento,
+              "Marcas:",
+              evento.marcasTrabajadas || evento.marcaTrabajada
+            );
 
             // Priorizar el nuevo formato con múltiples marcas
             if (evento.marcasTrabajadas && evento.marcasTrabajadas.length > 0) {
-              console.log('✅ MARCAS ENCONTRADAS EN EVENTO (NUEVO):', evento.marcasTrabajadas);
+              console.log(
+                "✅ MARCAS ENCONTRADAS EN EVENTO (NUEVO):",
+                evento.marcasTrabajadas
+              );
               return evento.marcasTrabajadas;
             }
 
             // Compatibilidad con formato anterior (una sola marca)
             if (evento.marcaTrabajada) {
-              console.log('✅ MARCA ENCONTRADA EN EVENTO (LEGADO):', evento.marcaTrabajada);
+              console.log(
+                "✅ MARCA ENCONTRADA EN EVENTO (LEGADO):",
+                evento.marcaTrabajada
+              );
               return [evento.marcaTrabajada]; // Convertir a array para consistencia
             }
           }
         } catch (error) {
-          console.error('❌ Error parseando eventos:', error);
+          console.error("❌ Error parseando eventos:", error);
         }
       } else {
-        console.log('ℹ️ No hay eventos en localStorage');
+        console.log("ℹ️ No hay eventos en localStorage");
       }
 
       // 2. BUSCAR EN RUTAS REGULARES
-      console.log('🔍 Buscando en rutas regulares...');
-      const todaysRoutesString = localStorage.getItem('todaysRoutesOffline');
+      console.log("🔍 Buscando en rutas regulares...");
+      const todaysRoutesString = localStorage.getItem("todaysRoutesOffline");
       if (todaysRoutesString) {
         try {
           const todaysRoutes = JSON.parse(todaysRoutesString);
-          console.log('📋 Rutas encontradas:', todaysRoutes.length);
+          console.log("📋 Rutas encontradas:", todaysRoutes.length);
 
-          const currentRoute = todaysRoutes.find((route: any) =>
-            route.points && route.points.some((point: any) =>
-              point.rif === clienteData.rif && point.tipoVisita === 'Trade (Eventos)'
-            )
+          const currentRoute = todaysRoutes.find(
+            (route: any) =>
+              route.points &&
+              route.points.some(
+                (point: any) =>
+                  point.rif === clienteData.rif &&
+                  point.tipoVisita === "Trade (Eventos)"
+              )
           );
 
           if (currentRoute) {
-            console.log('🎯 Ruta encontrada para el cliente:', currentRoute.mercaderista);
+            console.log(
+              "🎯 Ruta encontrada para el cliente:",
+              currentRoute.mercaderista
+            );
 
             // Buscar el punto específico que coincida con el cliente
-            const matchingPoint = currentRoute.points.find((point: any) =>
-              point.rif === clienteData.rif && point.tipoVisita === 'Trade (Eventos)'
+            const matchingPoint = currentRoute.points.find(
+              (point: any) =>
+                point.rif === clienteData.rif &&
+                point.tipoVisita === "Trade (Eventos)"
             );
 
             if (matchingPoint) {
               // Priorizar formato nuevo con múltiples marcas en el punto
-              if (matchingPoint.marcasTrabajadas && matchingPoint.marcasTrabajadas.length > 0) {
-                console.log('✅ MARCAS ENCONTRADAS EN PUNTO (NUEVO):', matchingPoint.marcasTrabajadas);
+              if (
+                matchingPoint.marcasTrabajadas &&
+                matchingPoint.marcasTrabajadas.length > 0
+              ) {
+                console.log(
+                  "✅ MARCAS ENCONTRADAS EN PUNTO (NUEVO):",
+                  matchingPoint.marcasTrabajadas
+                );
                 return matchingPoint.marcasTrabajadas;
               }
               // Compatibilidad con formato anterior en el punto
               if (matchingPoint.marcaTrabajada) {
-                console.log('✅ MARCA ENCONTRADA EN PUNTO (LEGADO):', matchingPoint.marcaTrabajada);
+                console.log(
+                  "✅ MARCA ENCONTRADA EN PUNTO (LEGADO):",
+                  matchingPoint.marcaTrabajada
+                );
                 return [matchingPoint.marcaTrabajada];
               }
             }
 
             // Fallback a la marca de la ruta si no hay marca específica en el punto
-            if (currentRoute.marcasTrabajadas && currentRoute.marcasTrabajadas.length > 0) {
-              console.log('✅ MARCAS ENCONTRADAS EN RUTA (NUEVO):', currentRoute.marcasTrabajadas);
+            if (
+              currentRoute.marcasTrabajadas &&
+              currentRoute.marcasTrabajadas.length > 0
+            ) {
+              console.log(
+                "✅ MARCAS ENCONTRADAS EN RUTA (NUEVO):",
+                currentRoute.marcasTrabajadas
+              );
               return currentRoute.marcasTrabajadas;
             }
             if (currentRoute.marcaTrabajada) {
-              console.log('✅ MARCA ENCONTRADA EN RUTA (LEGADO):', currentRoute.marcaTrabajada);
+              console.log(
+                "✅ MARCA ENCONTRADA EN RUTA (LEGADO):",
+                currentRoute.marcaTrabajada
+              );
               return [currentRoute.marcaTrabajada];
             }
 
-            console.log('⚠️ Ruta encontrada pero sin marca asignada');
+            console.log("⚠️ Ruta encontrada pero sin marca asignada");
           } else {
-            console.log('❌ No se encontró ruta para este cliente con Trade (Eventos)');
+            console.log(
+              "❌ No se encontró ruta para este cliente con Trade (Eventos)"
+            );
           }
         } catch (error) {
-          console.error('❌ Error parseando rutas:', error);
+          console.error("❌ Error parseando rutas:", error);
         }
       } else {
-        console.log('ℹ️ No hay rutas en localStorage');
+        console.log("ℹ️ No hay rutas en localStorage");
       }
 
       // 3. BUSCAR DIRECTAMENTE EN VISIT DATA
-      console.log('🔍 Buscando en visit data...');
-      const visitDataString = localStorage.getItem('currentVisitData');
+      console.log("🔍 Buscando en visit data...");
+      const visitDataString = localStorage.getItem("currentVisitData");
       if (visitDataString) {
         try {
           const visitData = JSON.parse(visitDataString);
-          if (visitData.marcasTrabajadas && visitData.marcasTrabajadas.length > 0) {
-            console.log('✅ MARCAS ENCONTRADAS EN VISIT DATA (NUEVO):', visitData.marcasTrabajadas);
+          if (
+            visitData.marcasTrabajadas &&
+            visitData.marcasTrabajadas.length > 0
+          ) {
+            console.log(
+              "✅ MARCAS ENCONTRADAS EN VISIT DATA (NUEVO):",
+              visitData.marcasTrabajadas
+            );
             return visitData.marcasTrabajadas;
           }
           if (visitData.marcaTrabajada) {
-            console.log('✅ MARCA ENCONTRADA EN VISIT DATA (LEGADO):', visitData.marcaTrabajada);
+            console.log(
+              "✅ MARCA ENCONTRADA EN VISIT DATA (LEGADO):",
+              visitData.marcaTrabajada
+            );
             return [visitData.marcaTrabajada];
           }
         } catch (error) {
-          console.error('❌ Error parseando visit data:', error);
+          console.error("❌ Error parseando visit data:", error);
         }
       }
 
-      console.log('❌ === NO SE ENCONTRÓ MARCA ASIGNADA ===');
+      console.log("❌ === NO SE ENCONTRÓ MARCA ASIGNADA ===");
       return null;
     } catch (error) {
-      console.error('❌ Error obteniendo marca desde ruta:', error);
+      console.error("❌ Error obteniendo marca desde ruta:", error);
       return null;
     }
   };
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [recursosAgregados, setRecursosAgregados] = useState<RecursoUsado[]>([]);
-  const [currentTipoRecurso, setCurrentTipoRecurso] = useState<string>('');
-  const [currentCantidadRecurso, setCurrentCantidadRecurso] = useState<string>('');
+  const [recursosAgregados, setRecursosAgregados] = useState<RecursoUsado[]>(
+    []
+  );
+  const [currentTipoRecurso, setCurrentTipoRecurso] = useState<string>("");
+  const [currentCantidadRecurso, setCurrentCantidadRecurso] =
+    useState<string>("");
 
-  const [entregablesShellAgregados, setEntregablesShellAgregados] = useState<EntregableUsado[]>([]);
-  const [currentTipoEntregableShell, setCurrentTipoEntregableShell] = useState<string>('');
-  const [currentCantidadEntregableShell, setCurrentCantidadEntregableShell] = useState<string>('');
+  const [entregablesShellAgregados, setEntregablesShellAgregados] = useState<
+    EntregableUsado[]
+  >([]);
+  const [currentTipoEntregableShell, setCurrentTipoEntregableShell] =
+    useState<string>("");
+  const [currentCantidadEntregableShell, setCurrentCantidadEntregableShell] =
+    useState<string>("");
 
-  const [entregablesQualidAgregados, setEntregablesQualidAgregados] = useState<EntregableUsado[]>([]);
-  const [currentTipoEntregableQualid, setCurrentTipoEntregableQualid] = useState<string>('');
-  const [currentCantidadEntregableQualid, setCurrentCantidadEntregableQualid] = useState<string>('');
+  const [entregablesQualidAgregados, setEntregablesQualidAgregados] = useState<
+    EntregableUsado[]
+  >([]);
+  const [currentTipoEntregableQualid, setCurrentTipoEntregableQualid] =
+    useState<string>("");
+  const [currentCantidadEntregableQualid, setCurrentCantidadEntregableQualid] =
+    useState<string>("");
 
   // Estados para las 6 fotos del evento
-  const [fotosEvento, setFotosEvento] = useState<(string | null)[]>(Array(6).fill(null));
+  const [fotosEvento, setFotosEvento] = useState<(string | null)[]>(
+    Array(6).fill(null)
+  );
 
   // ✅ NUEVO: Estados de fotos separados por marca
-  const [fotosShell, setFotosShell] = useState<(string | null)[]>(Array(3).fill(null));
-  const [fotosQualid, setFotosQualid] = useState<(string | null)[]>(Array(3).fill(null));
+  const [fotosShell, setFotosShell] = useState<(string | null)[]>(
+    Array(3).fill(null)
+  );
+  const [fotosQualid, setFotosQualid] = useState<(string | null)[]>(
+    Array(3).fill(null)
+  );
 
   // Estados para videos del evento
   const [videosEvento, setVideosEvento] = useState<string[]>([]);
 
   const [isSyncing, setIsSyncing] = useState(false);
-  const [gpsCoordinates, setGpsCoordinates] = useState<GPSCoordinates | null>(null);
+  const [gpsCoordinates, setGpsCoordinates] = useState<GPSCoordinates | null>(
+    null
+  );
 
-  const uploadImage = async (setter: React.Dispatch<React.SetStateAction<string | null>>, photoType: string) => {
+  const uploadImage = async (
+    setter: React.Dispatch<React.SetStateAction<string | null>>,
+    photoType: string
+  ) => {
     try {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
 
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0];
@@ -264,8 +346,8 @@ export default function TradeEventosPage() {
             const result = e.target?.result as string;
             setter(result);
             toast({
-              title: '✅ Imagen subida',
-              description: 'La imagen se ha cargado correctamente.',
+              title: "✅ Imagen subida",
+              description: "La imagen se ha cargado correctamente.",
             });
           };
           reader.readAsDataURL(file);
@@ -276,18 +358,18 @@ export default function TradeEventosPage() {
     } catch (error) {
       console.error("Error uploading image:", error);
       toast({
-        variant: 'destructive',
-        title: 'Error al subir imagen',
-        description: 'Asegúrese de que el archivo sea una imagen válida.',
+        variant: "destructive",
+        title: "Error al subir imagen",
+        description: "Asegúrese de que el archivo sea una imagen válida.",
       });
     }
   };
 
   const uploadEventPhoto = async (index: number) => {
     try {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
 
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0];
@@ -300,7 +382,7 @@ export default function TradeEventosPage() {
             setFotosEvento(newFotos);
             toast({
               title: `✅ Foto ${index + 1} subida`,
-              description: 'La imagen del evento se ha cargado correctamente.',
+              description: "La imagen del evento se ha cargado correctamente.",
             });
           };
           reader.readAsDataURL(file);
@@ -311,19 +393,19 @@ export default function TradeEventosPage() {
     } catch (error) {
       console.error("Error uploading event photo:", error);
       toast({
-        variant: 'destructive',
-        title: 'Error al subir foto del evento',
-        description: 'Asegúrese de que el archivo sea una imagen válida.',
+        variant: "destructive",
+        title: "Error al subir foto del evento",
+        description: "Asegúrese de que el archivo sea una imagen válida.",
       });
     }
   };
 
   // ✅ NUEVAS FUNCIONES PARA CARGAR FOTOS POR MARCA
-  const uploadBrandPhoto = async (brand: 'Shell' | 'Qualid', index: number) => {
+  const uploadBrandPhoto = async (brand: "Shell" | "Qualid", index: number) => {
     try {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
 
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0];
@@ -331,7 +413,7 @@ export default function TradeEventosPage() {
           const reader = new FileReader();
           reader.onload = (e) => {
             const result = e.target?.result as string;
-            if (brand === 'Shell') {
+            if (brand === "Shell") {
               const newFotos = [...fotosShell];
               newFotos[index] = result;
               setFotosShell(newFotos);
@@ -342,7 +424,7 @@ export default function TradeEventosPage() {
             }
             toast({
               title: `✅ Foto ${index + 1} (${brand}) subida`,
-              description: 'La imagen del evento se ha cargado correctamente.',
+              description: "La imagen del evento se ha cargado correctamente.",
             });
           };
           reader.readAsDataURL(file);
@@ -353,15 +435,15 @@ export default function TradeEventosPage() {
     } catch (error) {
       console.error(`Error uploading ${brand} photo:`, error);
       toast({
-        variant: 'destructive',
+        variant: "destructive",
         title: `Error al subir foto de ${brand}`,
-        description: 'Asegúrese de que el archivo sea una imagen válida.',
+        description: "Asegúrese de que el archivo sea una imagen válida.",
       });
     }
   };
 
-  const removeBrandPhoto = (brand: 'Shell' | 'Qualid', index: number) => {
-    if (brand === 'Shell') {
+  const removeBrandPhoto = (brand: "Shell" | "Qualid", index: number) => {
+    if (brand === "Shell") {
       const newFotos = [...fotosShell];
       newFotos[index] = null;
       setFotosShell(newFotos);
@@ -371,16 +453,16 @@ export default function TradeEventosPage() {
       setFotosQualid(newFotos);
     }
     toast({
-      title: 'Foto eliminada',
+      title: "Foto eliminada",
       description: `La foto ${index + 1} de ${brand} ha sido eliminada.`,
     });
   };
 
   const uploadVideo = async () => {
     try {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'video/*';
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "video/*";
 
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0];
@@ -390,8 +472,8 @@ export default function TradeEventosPage() {
             const result = e.target?.result as string;
             setVideosEvento([...videosEvento, result]);
             toast({
-              title: '✅ Video subido',
-              description: 'El video del evento se ha cargado correctamente.',
+              title: "✅ Video subido",
+              description: "El video del evento se ha cargado correctamente.",
             });
           };
           reader.readAsDataURL(file);
@@ -402,9 +484,9 @@ export default function TradeEventosPage() {
     } catch (error) {
       console.error("Error uploading video:", error);
       toast({
-        variant: 'destructive',
-        title: 'Error al subir video',
-        description: 'Asegúrese de que el archivo sea un video válido.',
+        variant: "destructive",
+        title: "Error al subir video",
+        description: "Asegúrese de que el archivo sea un video válido.",
       });
     }
   };
@@ -413,154 +495,162 @@ export default function TradeEventosPage() {
     const newVideos = videosEvento.filter((_, i) => i !== index);
     setVideosEvento(newVideos);
     toast({
-      title: 'Video eliminado',
-      description: 'El video ha sido eliminado.',
+      title: "Video eliminado",
+      description: "El video ha sido eliminado.",
     });
   };
 
   const handleAddRecurso = () => {
     if (!currentTipoRecurso) {
       toast({
-        variant: 'destructive',
-        title: 'Tipo de Recurso Requerido',
-        description: 'Por favor, seleccione un tipo de recurso.',
+        variant: "destructive",
+        title: "Tipo de Recurso Requerido",
+        description: "Por favor, seleccione un tipo de recurso.",
       });
       return;
     }
-    if (currentCantidadRecurso === '' || currentCantidadRecurso === null) {
+    if (currentCantidadRecurso === "" || currentCantidadRecurso === null) {
       toast({
-        variant: 'destructive',
-        title: 'Cantidad Requerida',
-        description: 'Por favor, ingrese la cantidad del recurso.',
+        variant: "destructive",
+        title: "Cantidad Requerida",
+        description: "Por favor, ingrese la cantidad del recurso.",
       });
       return;
     }
     const cantidadNum = parseInt(currentCantidadRecurso);
-    if (isNaN(cantidadNum) || cantidadNum <= 0) { // Quantity must be greater than 0
+    if (isNaN(cantidadNum) || cantidadNum <= 0) {
+      // Quantity must be greater than 0
       toast({
-        variant: 'destructive',
-        title: 'Cantidad Inválida',
-        description: 'Por favor, ingrese una cantidad válida (mayor que 0).',
+        variant: "destructive",
+        title: "Cantidad Inválida",
+        description: "Por favor, ingrese una cantidad válida (mayor que 0).",
       });
       return;
     }
 
-    setRecursosAgregados([...recursosAgregados, { tipo: currentTipoRecurso, cantidad: cantidadNum }]);
-    setCurrentTipoRecurso('');
-    setCurrentCantidadRecurso('');
+    setRecursosAgregados([
+      ...recursosAgregados,
+      { tipo: currentTipoRecurso, cantidad: cantidadNum },
+    ]);
+    setCurrentTipoRecurso("");
+    setCurrentCantidadRecurso("");
   };
 
   const handleRemoveRecurso = (indexToRemove: number) => {
-    setRecursosAgregados(recursosAgregados.filter((_, index) => index !== indexToRemove));
+    setRecursosAgregados(
+      recursosAgregados.filter((_, index) => index !== indexToRemove)
+    );
   };
 
   const handleAddEntregableShell = () => {
     if (!currentTipoEntregableShell) {
       toast({
-        variant: 'destructive',
-        title: 'Tipo de Entregable Requerido',
-        description: 'Por favor, seleccione un tipo de entregable.',
+        variant: "destructive",
+        title: "Tipo de Entregable Requerido",
+        description: "Por favor, seleccione un tipo de entregable.",
       });
       return;
     }
-    if (currentCantidadEntregableShell === '' || currentCantidadEntregableShell === null) {
+    if (
+      currentCantidadEntregableShell === "" ||
+      currentCantidadEntregableShell === null
+    ) {
       toast({
-        variant: 'destructive',
-        title: 'Cantidad Requerida',
-        description: 'Por favor, ingrese la cantidad del entregable.',
+        variant: "destructive",
+        title: "Cantidad Requerida",
+        description: "Por favor, ingrese la cantidad del entregable.",
       });
       return;
     }
     const cantidadNum = parseInt(currentCantidadEntregableShell);
-    if (isNaN(cantidadNum) || cantidadNum <= 0) { // Quantity must be greater than 0
+    if (isNaN(cantidadNum) || cantidadNum <= 0) {
+      // Quantity must be greater than 0
       toast({
-        variant: 'destructive',
-        title: 'Cantidad Inválida',
-        description: 'Por favor, ingrese una cantidad válida (mayor que 0).',
+        variant: "destructive",
+        title: "Cantidad Inválida",
+        description: "Por favor, ingrese una cantidad válida (mayor que 0).",
       });
       return;
     }
 
-    setEntregablesShellAgregados([...entregablesShellAgregados, { tipo: currentTipoEntregableShell, cantidad: cantidadNum }]);
-    setCurrentTipoEntregableShell('');
-    setCurrentCantidadEntregableShell('');
+    setEntregablesShellAgregados([
+      ...entregablesShellAgregados,
+      { tipo: currentTipoEntregableShell, cantidad: cantidadNum },
+    ]);
+    setCurrentTipoEntregableShell("");
+    setCurrentCantidadEntregableShell("");
   };
 
   const handleRemoveEntregableShell = (indexToRemove: number) => {
-    setEntregablesShellAgregados(entregablesShellAgregados.filter((_, index) => index !== indexToRemove));
+    setEntregablesShellAgregados(
+      entregablesShellAgregados.filter((_, index) => index !== indexToRemove)
+    );
   };
 
   const handleAddEntregableQualid = () => {
     if (!currentTipoEntregableQualid) {
       toast({
-        variant: 'destructive',
-        title: 'Tipo de Entregable Requerido',
-        description: 'Por favor, seleccione un tipo de entregable Qualid.',
+        variant: "destructive",
+        title: "Tipo de Entregable Requerido",
+        description: "Por favor, seleccione un tipo de entregable Qualid.",
       });
       return;
     }
-    if (currentCantidadEntregableQualid === '' || currentCantidadEntregableQualid === null) {
+    if (
+      currentCantidadEntregableQualid === "" ||
+      currentCantidadEntregableQualid === null
+    ) {
       toast({
-        variant: 'destructive',
-        title: 'Cantidad Requerida',
-        description: 'Por favor, ingrese la cantidad del entregable Qualid.',
+        variant: "destructive",
+        title: "Cantidad Requerida",
+        description: "Por favor, ingrese la cantidad del entregable Qualid.",
       });
       return;
     }
     const cantidadNum = parseInt(currentCantidadEntregableQualid);
     if (isNaN(cantidadNum) || cantidadNum <= 0) {
       toast({
-        variant: 'destructive',
-        title: 'Cantidad Inválida',
-        description: 'Por favor, ingrese una cantidad válida (mayor que 0).',
+        variant: "destructive",
+        title: "Cantidad Inválida",
+        description: "Por favor, ingrese una cantidad válida (mayor que 0).",
       });
       return;
     }
 
-    setEntregablesQualidAgregados([...entregablesQualidAgregados, { tipo: currentTipoEntregableQualid, cantidad: cantidadNum }]);
-    setCurrentTipoEntregableQualid('');
-    setCurrentCantidadEntregableQualid('');
+    setEntregablesQualidAgregados([
+      ...entregablesQualidAgregados,
+      { tipo: currentTipoEntregableQualid, cantidad: cantidadNum },
+    ]);
+    setCurrentTipoEntregableQualid("");
+    setCurrentCantidadEntregableQualid("");
   };
 
   const handleRemoveEntregableQualid = (indexToRemove: number) => {
-    setEntregablesQualidAgregados(entregablesQualidAgregados.filter((_, index) => index !== indexToRemove));
-  };
-
-
-  const saveDataLocally = (data: any) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const tradeEventosData = JSON.parse(localStorage.getItem('tradeEventosData') || '[]');
-      tradeEventosData.push(data);
-      localStorage.setItem('tradeEventosData', JSON.stringify(tradeEventosData));
-    }
+    setEntregablesQualidAgregados(
+      entregablesQualidAgregados.filter((_, index) => index !== indexToRemove)
+    );
   };
 
   const handleSubmit = async () => {
-    console.log('=== GUARDANDO DATOS TRADE EVENTO PARCIAL ===');
-
-    // 🔍 DEBUGGING DE FOTOS Y DATOS DEL EVENTO
-    console.log('🔍 ====== DEBUG DE TRADE EVENTOS ======');
-    console.log('🔍 selectedBrands:', selectedBrands);
-    console.log('🔍 Fotos del evento:', fotosEvento.filter(f => f).length);
-    console.log('🔍 Videos del evento:', videosEvento.length);
-    console.log('🔍 ====== FIN DEBUG ======');
+    console.log("=== GUARDANDO DATOS TRADE EVENTO PARCIAL ===");
 
     if (selectedBrands.length === 0) {
       toast({
-        variant: 'destructive',
-        title: 'Marca Requerida',
-        description: 'Por favor, seleccione al menos una marca.',
+        variant: "destructive",
+        title: "Marca Requerida",
+        description: "Por favor, seleccione al menos una marca.",
       });
       return;
     }
 
     // Verificar que al menos 3 fotos hayan sido subidas
-    const fotosSubidas = fotosShell.filter(f => f).length + fotosQualid.filter(f => f).length;
+    const fotosSubidas =
+      fotosShell.filter((f) => f).length + fotosQualid.filter((f) => f).length;
     if (fotosSubidas < 3) {
       toast({
-        variant: 'destructive',
-        title: 'Fotos Requeridas',
-        description: 'Por favor, suba al menos 3 fotos del evento.',
+        variant: "destructive",
+        title: "Fotos Requeridas",
+        description: "Por favor, suba al menos 3 fotos del evento.",
       });
       return;
     }
@@ -569,12 +659,12 @@ export default function TradeEventosPage() {
       setIsSyncing(true);
 
       // OBTENER DATOS DEL CLIENTE Y UBICACIÓN (YA CAPTURADA) DESDE LOCALSTORAGE
-      const clienteDataString = localStorage.getItem('clienteData');
+      const clienteDataString = localStorage.getItem("clienteData");
       if (!clienteDataString) {
         toast({
-          variant: 'destructive',
-          title: 'Error de Cliente',
-          description: 'No se encontraron datos del cliente. Vuelva al inicio.',
+          variant: "destructive",
+          title: "Error de Cliente",
+          description: "No se encontraron datos del cliente. Vuelva al inicio.",
         });
         setIsSyncing(false);
         return;
@@ -583,213 +673,132 @@ export default function TradeEventosPage() {
       const cliente = JSON.parse(clienteDataString);
       const location = cliente.gpsCoordinates; // Usar la ubicación ya guardada
 
-      console.log('cliente parsed:', cliente);
-      console.log('🛰️ Ubicación recuperada de localStorage:', location);
-
       // Obtener datos del usuario logueado
       let currentUser = await getCurrentUser();
       if (!currentUser) {
         currentUser = getUserFromStorage();
       }
 
-      const mercaderista = currentUser?.fullName || 'Usuario App';
-      const correoMercaderista = currentUser?.email || '';
-
-      // 🔍 VERIFICAR FOTOS DEL EVENTO
-      console.log('🔍 VERIFICACIÓN DE FOTOS DEL EVENTO:');
-      console.log('🔍 Fotos subidas:', fotosEvento.filter(f => f).length);
-      console.log('🔍 Videos subidos:', videosEvento.length);
+      const mercaderista = currentUser?.fullName || "Usuario App";
+      const correoMercaderista = currentUser?.email || "";
 
       // Preparar datos para guardar localmente (sin enviar aún)
       const tradeEventoData = {
-        tipoVisita: 'Trade (Eventos)',
+        tipoVisita: "Trade (Eventos)",
         marcas: selectedBrands,
         recursosUsados: recursosAgregados,
         entregablesShell: entregablesShellAgregados,
         entregablesQualid: entregablesQualidAgregados,
-        fotosEvento: fotosEvento.filter(foto => foto !== null), // MANTENER PARA COMPATIBILIDAD
-        fotosShell: fotosShell.filter(f => f !== null), // NUEVO
-        fotosQualid: fotosQualid.filter(f => f !== null), // NUEVO
+        fotosEvento: fotosEvento.filter((foto) => foto !== null), // MANTENER PARA COMPATIBILIDAD
+        fotosShell: fotosShell.filter((f) => f !== null), // NUEVO
+        fotosQualid: fotosQualid.filter((f) => f !== null), // NUEVO
         videosEvento: videosEvento,
         gpsCoordinates: location,
         clienteData: cliente,
         mercaderista: mercaderista,
         correoMercaderista: correoMercaderista,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
-      // 🔍 VERIFICAR DATOS FINALES ANTES DE GUARDAR
-      console.log('🔍 VERIFICACIÓN FINAL DE DATOS:');
-      console.log('🔍 tradeEventoData.fotosEvento:', tradeEventoData.fotosEvento.length, 'fotos');
-      console.log('🔍 tradeEventoData.videosEvento:', tradeEventoData.videosEvento.length, 'videos');
-      console.log('🛰️ tradeEventoData.gpsCoordinates:', tradeEventoData.gpsCoordinates);
+      // Guardar en localStorage para reportes finales (SIEMPRE, online u offline)
+      localStorage.setItem(
+        "datosFormularioCompleto",
+        JSON.stringify(tradeEventoData)
+      );
 
-      // Verificar si estamos offline y usar offlineManager
-      if (typeof window !== 'undefined' && !navigator.onLine) {
-        console.log('🔄 Modo Offline: Guardando con offlineManager...');
-        
-        const saveResult = await offlineManager.saveVisita(tradeEventoData);
-        
-        if (saveResult.success) {
-          console.log('✅ Datos guardados offline exitosamente:', saveResult.visitaId);
-          
-          toast({
-            title: 'Datos Guardados Offline',
-            description: 'Los datos se sincronizarán automáticamente cuando haya conexión.',
-          });
-
-          // Redirigir a página de éxito
-          router.push('/registro-exitoso');
-        } else {
-          throw new Error(saveResult.error || 'Error guardando offline');
-        }
-      } else {
-        // Modo online: guardar en localStorage para reportes finales
-        localStorage.setItem('datosFormularioCompleto', JSON.stringify(tradeEventoData));
-
-        console.log('=== DATOS TRADE EVENTO GUARDADOS LOCALMENTE ===');
-        console.log('Datos guardados:', tradeEventoData);
-
-        toast({
-          title: 'Datos Guardados',
-          description: 'Continuando a reportes finales...',
-        });
-
-        // Ir directamente a reportes finales (sin ventas)
-        router.push('/reportes-finales');
-      }
-
-    } catch (error) {
-      console.log('=== ERROR GUARDANDO DATOS TRADE EVENTO ===');
-      console.error('Error completo:', error);
+      console.log("=== DATOS TRADE EVENTO GUARDADOS LOCALMENTE ===");
+      console.log("Datos guardados:", tradeEventoData);
 
       toast({
-        variant: 'destructive',
-        title: 'Error al Guardar',
-        description: 'Hubo un problema guardando los datos. Intente nuevamente.',
+        title: "Datos Guardados",
+        description: "Continuando a reportes finales...",
       });
 
+      // Ir directamente a reportes finales
+      router.push("/reportes-finales");
+    } catch (error) {
+      console.log("=== ERROR GUARDANDO DATOS TRADE EVENTO ===");
+      console.error("Error completo:", error);
+
+      toast({
+        variant: "destructive",
+        title: "Error al Guardar",
+        description:
+          "Hubo un problema guardando los datos. Intente nuevamente.",
+      });
     } finally {
       setIsSyncing(false);
     }
   };
 
-  useEffect(() => {
-    const syncData = async () => {
-      if (isSyncing || typeof window === 'undefined' || !window.localStorage) return;
-      setIsSyncing(true);
-
-      try {
-        const localDataString = localStorage.getItem('tradeEventosData');
-        if (!localDataString) {
-          setIsSyncing(false);
-          return;
-        }
-        const localData = JSON.parse(localDataString);
-        if (localData.length === 0) {
-          setIsSyncing(false);
-          return;
-        }
-
-        console.log('Enviando datos de Eventos Trade al servidor:', localData);
-        // Example: await fetch('/api/sync-trade-eventos', { method: 'POST', body: JSON.stringify(localData) });
-        // Replace with actual API call
-
-        localStorage.removeItem('tradeEventosData');
-        toast({
-          title: 'Datos de Eventos Trade Sincronizados',
-          description: 'Todos los datos de eventos trade se han enviado al servidor.',
-        });
-      } catch (error) {
-        console.error('Error al sincronizar los datos de Eventos Trade:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error de Sincronización (Eventos Trade)',
-          description: 'Hubo un problema al sincronizar los datos. Inténtalo de nuevo más tarde.',
-        });
-      } finally {
-        setIsSyncing(false);
-      }
-    };
-
-    if (typeof window !== 'undefined' && navigator.onLine) {
-      syncData();
-    }
-    if (typeof window !== 'undefined') {
-      window.addEventListener('online', syncData);
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('online', syncData);
-      }
-    };
-  }, [isSyncing, toast]);
-
   const getCurrentResourceList = () => {
     let allResources: string[] = [];
-    if (selectedBrands.includes('Shell')) {
+    if (selectedBrands.includes("Shell")) {
       allResources = [...allResources, ...RECURSOS_IMPULSO_SHELL_TYPES];
     }
-    if (selectedBrands.includes('Qualid')) {
+    if (selectedBrands.includes("Qualid")) {
       allResources = [...allResources, ...RECURSOS_IMPULSO_QUALID_TYPES];
     }
     return allResources;
   };
 
   const availableRecursoTypes = getCurrentResourceList().filter(
-    tipo => !recursosAgregados.find(r => r.tipo === tipo)
+    (tipo) => !recursosAgregados.find((r) => r.tipo === tipo)
   );
 
   const availableEntregableShellTypes = ENTREGABLES_IMPULSO_SHELL_TYPES.filter(
-    tipo => !entregablesShellAgregados.find(e => e.tipo === tipo)
+    (tipo) => !entregablesShellAgregados.find((e) => e.tipo === tipo)
   );
 
-  const availableEntregableQualidTypes = ENTREGABLES_IMPULSO_QUALID_TYPES.filter(
-    tipo => !entregablesQualidAgregados.find(e => e.tipo === tipo)
-  );
+  const availableEntregableQualidTypes =
+    ENTREGABLES_IMPULSO_QUALID_TYPES.filter(
+      (tipo) => !entregablesQualidAgregados.find((e) => e.tipo === tipo)
+    );
 
-  const fotosSubidas = fotosShell.filter(f => f).length + fotosQualid.filter(f => f).length;
+  const fotosSubidas =
+    fotosShell.filter((f) => f).length + fotosQualid.filter((f) => f).length;
 
   // Función para determinar si se puede continuar
   const canProceed = () => {
-    const fotosSubidas = fotosShell.filter(f => f).length + fotosQualid.filter(f => f).length;
+    const fotosSubidas =
+      fotosShell.filter((f) => f).length + fotosQualid.filter((f) => f).length;
 
     return selectedBrands.length > 0 && fotosSubidas >= 3;
   };
 
   const handleBrandChange = (brand: string, checked: boolean) => {
     if (checked) {
-      setSelectedBrands(prev => [...prev, brand]);
+      setSelectedBrands((prev) => [...prev, brand]);
     } else {
-      setSelectedBrands(prev => prev.filter(b => b !== brand));
+      setSelectedBrands((prev) => prev.filter((b) => b !== brand));
       // Si se desmarca Shell, limpiar sus entregables
-      if (brand === 'Shell') {
+      if (brand === "Shell") {
         setEntregablesShellAgregados([]);
-        setCurrentTipoEntregableShell('');
-        setCurrentCantidadEntregableShell('');
+        setCurrentTipoEntregableShell("");
+        setCurrentCantidadEntregableShell("");
       }
       // Si se desmarca Qualid, limpiar sus entregables
-      if (brand === 'Qualid') {
+      if (brand === "Qualid") {
         setEntregablesQualidAgregados([]);
-        setCurrentTipoEntregableQualid('');
-        setCurrentCantidadEntregableQualid('');
+        setCurrentTipoEntregableQualid("");
+        setCurrentCantidadEntregableQualid("");
       }
     }
     // Limpiar recursos cuando cambie la selección
     setRecursosAgregados([]);
-    setCurrentTipoRecurso('');
-    setCurrentCantidadRecurso('');
+    setCurrentTipoRecurso("");
+    setCurrentCantidadRecurso("");
   };
-
 
   return (
     <div
       className="flex flex-col items-center justify-center min-h-screen p-4"
       style={{
-        backgroundImage: 'url("https://storage.googleapis.com/iandai/imagenes/Dise%C3%B1o%20sin%20t%C3%ADtulo%20(51).png")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
+        backgroundImage:
+          'url("https://storage.googleapis.com/iandai/imagenes/Dise%C3%B1o%20sin%20t%C3%ADtulo%20(51).png")',
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
       }}
     >
       <Card className="w-full max-w-md">
@@ -797,27 +806,28 @@ export default function TradeEventosPage() {
           <CardTitle>
             <span
               style={{
-                backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)',
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-                color: 'transparent',
+                backgroundImage: "linear-gradient(to right, #fbce04, #e30a18)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                color: "transparent",
               }}
             >
               Registro de Evento Trade
             </span>
           </CardTitle>
-          <CardDescription>Ingrese los detalles del evento realizado.</CardDescription>
+          <CardDescription>
+            Ingrese los detalles del evento realizado.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-
-
           <div>
             <Label className="font-medium">Marcas Trabajadas</Label>
             <p className="text-sm text-muted-foreground mb-3">
-              Seleccione las marcas que trabajará en este evento. Puede seleccionar ambas.
+              Seleccione las marcas que trabajará en este evento. Puede
+              seleccionar ambas.
             </p>
             <div className="space-y-3">
-              {MARCAS_TRADE.map(marca => (
+              {MARCAS_TRADE.map((marca) => (
                 <label key={marca} className="flex items-center space-x-3">
                   <input
                     type="checkbox"
@@ -837,14 +847,16 @@ export default function TradeEventosPage() {
             )}
             {selectedBrands.length > 0 && (
               <p className="text-sm text-green-600 mt-2">
-                ✓ Marcas seleccionadas: {selectedBrands.join(', ')}
+                ✓ Marcas seleccionadas: {selectedBrands.join(", ")}
               </p>
             )}
           </div>
 
           {selectedBrands.length > 0 && (
             <div className="space-y-4 border-t pt-4">
-              <Label className="font-medium">Recursos Utilizados ({selectedBrands.join(' y ')})</Label>
+              <Label className="font-medium">
+                Recursos Utilizados ({selectedBrands.join(" y ")})
+              </Label>
               <div className="flex items-end space-x-2">
                 <div className="flex-grow space-y-1">
                   <Label htmlFor="tipo-recurso-select">Tipo de Recurso</Label>
@@ -854,11 +866,19 @@ export default function TradeEventosPage() {
                     disabled={availableRecursoTypes.length === 0 || isSyncing}
                   >
                     <SelectTrigger id="tipo-recurso-select">
-                      <SelectValue placeholder={availableRecursoTypes.length > 0 ? "Seleccionar recurso" : "Todos agregados"} />
+                      <SelectValue
+                        placeholder={
+                          availableRecursoTypes.length > 0
+                            ? "Seleccionar recurso"
+                            : "Todos agregados"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableRecursoTypes.map(tipo => (
-                        <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                      {availableRecursoTypes.map((tipo) => (
+                        <SelectItem key={tipo} value={tipo}>
+                          {tipo}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -878,7 +898,13 @@ export default function TradeEventosPage() {
                 </div>
                 <Button
                   onClick={handleAddRecurso}
-                  disabled={!currentTipoRecurso || currentCantidadRecurso === '' || parseInt(currentCantidadRecurso) <= 0 || availableRecursoTypes.length === 0 || isSyncing}
+                  disabled={
+                    !currentTipoRecurso ||
+                    currentCantidadRecurso === "" ||
+                    parseInt(currentCantidadRecurso) <= 0 ||
+                    availableRecursoTypes.length === 0 ||
+                    isSyncing
+                  }
                   className="shrink-0"
                 >
                   Agregar
@@ -887,12 +913,24 @@ export default function TradeEventosPage() {
 
               {recursosAgregados.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  <Label className="text-sm text-muted-foreground">Recursos agregados:</Label>
+                  <Label className="text-sm text-muted-foreground">
+                    Recursos agregados:
+                  </Label>
                   <ul className="space-y-1">
                     {recursosAgregados.map((recurso, index) => (
-                      <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
-                        <span className="text-sm">{recurso.tipo}: {recurso.cantidad}</span>
-                        <Button variant="ghost" size="sm" onClick={() => handleRemoveRecurso(index)} disabled={isSyncing}>
+                      <li
+                        key={index}
+                        className="flex justify-between items-center p-2 border rounded-md bg-background"
+                      >
+                        <span className="text-sm">
+                          {recurso.tipo}: {recurso.cantidad}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveRecurso(index)}
+                          disabled={isSyncing}
+                        >
                           <Trash className="h-4 w-4 text-destructive" />
                         </Button>
                       </li>
@@ -900,41 +938,63 @@ export default function TradeEventosPage() {
                   </ul>
                 </div>
               )}
-              {availableRecursoTypes.length === 0 && getCurrentResourceList().length > 0 && recursosAgregados.length === getCurrentResourceList().length && (
-                <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de recursos {selectedBrands.join(' y ')} disponibles han sido agregados.</p>
-              )}
+              {availableRecursoTypes.length === 0 &&
+                getCurrentResourceList().length > 0 &&
+                recursosAgregados.length ===
+                  getCurrentResourceList().length && (
+                  <p className="text-sm text-muted-foreground text-center mt-2">
+                    Todos los tipos de recursos {selectedBrands.join(" y ")}{" "}
+                    disponibles han sido agregados.
+                  </p>
+                )}
             </div>
           )}
 
-          {selectedBrands.includes('Shell') && (
+          {selectedBrands.includes("Shell") && (
             <div className="space-y-4 border-t pt-4">
               <Label className="font-medium">Entregables Shell</Label>
               <div className="flex items-end space-x-2">
                 <div className="flex-grow space-y-1">
-                  <Label htmlFor="tipo-entregable-shell-select">Tipo de Entregable</Label>
+                  <Label htmlFor="tipo-entregable-shell-select">
+                    Tipo de Entregable
+                  </Label>
                   <Select
                     value={currentTipoEntregableShell}
                     onValueChange={setCurrentTipoEntregableShell}
-                    disabled={availableEntregableShellTypes.length === 0 || isSyncing}
+                    disabled={
+                      availableEntregableShellTypes.length === 0 || isSyncing
+                    }
                   >
                     <SelectTrigger id="tipo-entregable-shell-select">
-                      <SelectValue placeholder={availableEntregableShellTypes.length > 0 ? "Seleccionar entregable" : "Todos agregados"} />
+                      <SelectValue
+                        placeholder={
+                          availableEntregableShellTypes.length > 0
+                            ? "Seleccionar entregable"
+                            : "Todos agregados"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableEntregableShellTypes.map(tipo => (
-                        <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                      {availableEntregableShellTypes.map((tipo) => (
+                        <SelectItem key={tipo} value={tipo}>
+                          {tipo}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="w-1/3 space-y-1">
-                  <Label htmlFor="cantidad-entregable-shell-input">Cantidad</Label>
+                  <Label htmlFor="cantidad-entregable-shell-input">
+                    Cantidad
+                  </Label>
                   <Input
                     id="cantidad-entregable-shell-input"
                     type="number"
                     placeholder="Ingresar cantidad"
                     value={currentCantidadEntregableShell}
-                    onChange={(e) => setCurrentCantidadEntregableShell(e.target.value)}
+                    onChange={(e) =>
+                      setCurrentCantidadEntregableShell(e.target.value)
+                    }
                     inputMode="numeric"
                     min="1"
                     disabled={isSyncing}
@@ -942,7 +1002,13 @@ export default function TradeEventosPage() {
                 </div>
                 <Button
                   onClick={handleAddEntregableShell}
-                  disabled={!currentTipoEntregableShell || currentCantidadEntregableShell === '' || parseInt(currentCantidadEntregableShell) <= 0 || availableEntregableShellTypes.length === 0 || isSyncing}
+                  disabled={
+                    !currentTipoEntregableShell ||
+                    currentCantidadEntregableShell === "" ||
+                    parseInt(currentCantidadEntregableShell) <= 0 ||
+                    availableEntregableShellTypes.length === 0 ||
+                    isSyncing
+                  }
                   className="shrink-0"
                 >
                   Agregar
@@ -951,12 +1017,24 @@ export default function TradeEventosPage() {
 
               {entregablesShellAgregados.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  <Label className="text-sm text-muted-foreground">Entregables Shell agregados:</Label>
+                  <Label className="text-sm text-muted-foreground">
+                    Entregables Shell agregados:
+                  </Label>
                   <ul className="space-y-1">
                     {entregablesShellAgregados.map((entregable, index) => (
-                      <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
-                        <span className="text-sm">{entregable.tipo}: {entregable.cantidad}</span>
-                        <Button variant="ghost" size="sm" onClick={() => handleRemoveEntregableShell(index)} disabled={isSyncing}>
+                      <li
+                        key={index}
+                        className="flex justify-between items-center p-2 border rounded-md bg-background"
+                      >
+                        <span className="text-sm">
+                          {entregable.tipo}: {entregable.cantidad}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveEntregableShell(index)}
+                          disabled={isSyncing}
+                        >
                           <Trash className="h-4 w-4 text-destructive" />
                         </Button>
                       </li>
@@ -964,41 +1042,63 @@ export default function TradeEventosPage() {
                   </ul>
                 </div>
               )}
-              {availableEntregableShellTypes.length === 0 && ENTREGABLES_IMPULSO_SHELL_TYPES.length > 0 && entregablesShellAgregados.length === ENTREGABLES_IMPULSO_SHELL_TYPES.length && (
-                <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de entregables Shell disponibles han sido agregados.</p>
-              )}
+              {availableEntregableShellTypes.length === 0 &&
+                ENTREGABLES_IMPULSO_SHELL_TYPES.length > 0 &&
+                entregablesShellAgregados.length ===
+                  ENTREGABLES_IMPULSO_SHELL_TYPES.length && (
+                  <p className="text-sm text-muted-foreground text-center mt-2">
+                    Todos los tipos de entregables Shell disponibles han sido
+                    agregados.
+                  </p>
+                )}
             </div>
           )}
 
-          {selectedBrands.includes('Qualid') && (
+          {selectedBrands.includes("Qualid") && (
             <div className="space-y-4 border-t pt-4">
               <Label className="font-medium">Entregables Qualid</Label>
               <div className="flex items-end space-x-2">
                 <div className="flex-grow space-y-1">
-                  <Label htmlFor="tipo-entregable-qualid-select">Tipo de Entregable</Label>
+                  <Label htmlFor="tipo-entregable-qualid-select">
+                    Tipo de Entregable
+                  </Label>
                   <Select
                     value={currentTipoEntregableQualid}
                     onValueChange={setCurrentTipoEntregableQualid}
-                    disabled={availableEntregableQualidTypes.length === 0 || isSyncing}
+                    disabled={
+                      availableEntregableQualidTypes.length === 0 || isSyncing
+                    }
                   >
                     <SelectTrigger id="tipo-entregable-qualid-select">
-                      <SelectValue placeholder={availableEntregableQualidTypes.length > 0 ? "Seleccionar entregable" : "Todos agregados"} />
+                      <SelectValue
+                        placeholder={
+                          availableEntregableQualidTypes.length > 0
+                            ? "Seleccionar entregable"
+                            : "Todos agregados"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableEntregableQualidTypes.map(tipo => (
-                        <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                      {availableEntregableQualidTypes.map((tipo) => (
+                        <SelectItem key={tipo} value={tipo}>
+                          {tipo}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="w-1/3 space-y-1">
-                  <Label htmlFor="cantidad-entregable-qualid-input">Cantidad</Label>
+                  <Label htmlFor="cantidad-entregable-qualid-input">
+                    Cantidad
+                  </Label>
                   <Input
                     id="cantidad-entregable-qualid-input"
                     type="number"
                     placeholder="Ingresar cantidad"
                     value={currentCantidadEntregableQualid}
-                    onChange={(e) => setCurrentCantidadEntregableQualid(e.target.value)}
+                    onChange={(e) =>
+                      setCurrentCantidadEntregableQualid(e.target.value)
+                    }
                     inputMode="numeric"
                     min="1"
                     disabled={isSyncing}
@@ -1006,7 +1106,13 @@ export default function TradeEventosPage() {
                 </div>
                 <Button
                   onClick={handleAddEntregableQualid}
-                  disabled={!currentTipoEntregableQualid || currentCantidadEntregableQualid === '' || parseInt(currentCantidadEntregableQualid) <= 0 || availableEntregableQualidTypes.length === 0 || isSyncing}
+                  disabled={
+                    !currentTipoEntregableQualid ||
+                    currentCantidadEntregableQualid === "" ||
+                    parseInt(currentCantidadEntregableQualid) <= 0 ||
+                    availableEntregableQualidTypes.length === 0 ||
+                    isSyncing
+                  }
                   className="shrink-0"
                 >
                   Agregar
@@ -1015,12 +1121,24 @@ export default function TradeEventosPage() {
 
               {entregablesQualidAgregados.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  <Label className="text-sm text-muted-foreground">Entregables Qualid agregados:</Label>
+                  <Label className="text-sm text-muted-foreground">
+                    Entregables Qualid agregados:
+                  </Label>
                   <ul className="space-y-1">
                     {entregablesQualidAgregados.map((entregable, index) => (
-                      <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
-                        <span className="text-sm">{entregable.tipo}: {entregable.cantidad}</span>
-                        <Button variant="ghost" size="sm" onClick={() => handleRemoveEntregableQualid(index)} disabled={isSyncing}>
+                      <li
+                        key={index}
+                        className="flex justify-between items-center p-2 border rounded-md bg-background"
+                      >
+                        <span className="text-sm">
+                          {entregable.tipo}: {entregable.cantidad}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveEntregableQualid(index)}
+                          disabled={isSyncing}
+                        >
                           <Trash className="h-4 w-4 text-destructive" />
                         </Button>
                       </li>
@@ -1028,33 +1146,49 @@ export default function TradeEventosPage() {
                   </ul>
                 </div>
               )}
-              {availableEntregableQualidTypes.length === 0 && ENTREGABLES_IMPULSO_QUALID_TYPES.length > 0 && entregablesQualidAgregados.length === ENTREGABLES_IMPULSO_QUALID_TYPES.length && (
-                <p className="text-sm text-muted-foreground text-center mt-2">Todos los tipos de entregables Qualid disponibles han sido agregados.</p>
-              )}
+              {availableEntregableQualidTypes.length === 0 &&
+                ENTREGABLES_IMPULSO_QUALID_TYPES.length > 0 &&
+                entregablesQualidAgregados.length ===
+                  ENTREGABLES_IMPULSO_QUALID_TYPES.length && (
+                  <p className="text-sm text-muted-foreground text-center mt-2">
+                    Todos los tipos de entregables Qualid disponibles han sido
+                    agregados.
+                  </p>
+                )}
             </div>
           )}
 
           {/* Sección de Fotos del Evento */}
           {selectedBrands.length > 0 && (
             <div className="space-y-4 border-t pt-4">
-              <Label className="font-medium">Fotos del Evento (Mínimo 3 en total)</Label>
+              <Label className="font-medium">
+                Fotos del Evento (Mínimo 3 en total)
+              </Label>
               <p className="text-sm text-muted-foreground">
-                Sube fotos del evento, incluyendo la instalación, promotoras y ambiente general.
+                Sube fotos del evento, incluyendo la instalación, promotoras y
+                ambiente general.
               </p>
               <p className="text-sm text-muted-foreground font-semibold">
-                Fotos subidas: {fotosShell.filter(f => f).length + fotosQualid.filter(f => f).length}/6
+                Fotos subidas:{" "}
+                {fotosShell.filter((f) => f).length +
+                  fotosQualid.filter((f) => f).length}
+                /6
               </p>
             </div>
           )}
 
           {/* SECCIÓN DE FOTOS SHELL */}
-          {selectedBrands.includes('Shell') && (
+          {selectedBrands.includes("Shell") && (
             <div className="space-y-4 border-t pt-4">
-              <Label className="font-medium text-lg">📷 Fotos del Evento Shell</Label>
+              <Label className="font-medium text-lg">
+                📷 Fotos del Evento Shell
+              </Label>
               <div className="grid grid-cols-2 gap-4">
                 {fotosShell.map((foto, index) => (
                   <div key={`shell-${index}`} className="space-y-2">
-                    <Label className="text-sm">Foto {FOTO_LABELS[index]} (Shell)</Label>
+                    <Label className="text-sm">
+                      Foto {FOTO_LABELS[index]} (Shell)
+                    </Label>
                     {foto ? (
                       <div className="relative">
                         <img
@@ -1066,7 +1200,7 @@ export default function TradeEventosPage() {
                           variant="destructive"
                           size="sm"
                           className="absolute top-2 right-2"
-                          onClick={() => removeBrandPhoto('Shell', index)}
+                          onClick={() => removeBrandPhoto("Shell", index)}
                           disabled={isSyncing}
                         >
                           <X className="h-4 w-4" />
@@ -1076,7 +1210,7 @@ export default function TradeEventosPage() {
                       <Button
                         variant="outline"
                         className="w-full h-32 border-2 border-dashed"
-                        onClick={() => uploadBrandPhoto('Shell', index)}
+                        onClick={() => uploadBrandPhoto("Shell", index)}
                         disabled={isSyncing}
                       >
                         <Camera className="mr-2 h-4 w-4" /> Subir Foto
@@ -1089,13 +1223,17 @@ export default function TradeEventosPage() {
           )}
 
           {/* SECCIÓN DE FOTOS QUALID */}
-          {selectedBrands.includes('Qualid') && (
+          {selectedBrands.includes("Qualid") && (
             <div className="space-y-4 border-t pt-4">
-              <Label className="font-medium text-lg">📷 Fotos del Evento Qualid</Label>
+              <Label className="font-medium text-lg">
+                📷 Fotos del Evento Qualid
+              </Label>
               <div className="grid grid-cols-2 gap-4">
                 {fotosQualid.map((foto, index) => (
                   <div key={`qualid-${index}`} className="space-y-2">
-                    <Label className="text-sm">Foto {FOTO_LABELS[index]} (Qualid)</Label>
+                    <Label className="text-sm">
+                      Foto {FOTO_LABELS[index]} (Qualid)
+                    </Label>
                     {foto ? (
                       <div className="relative">
                         <img
@@ -1107,7 +1245,7 @@ export default function TradeEventosPage() {
                           variant="destructive"
                           size="sm"
                           className="absolute top-2 right-2"
-                          onClick={() => removeBrandPhoto('Qualid', index)}
+                          onClick={() => removeBrandPhoto("Qualid", index)}
                           disabled={isSyncing}
                         >
                           <X className="h-4 w-4" />
@@ -1117,7 +1255,7 @@ export default function TradeEventosPage() {
                       <Button
                         variant="outline"
                         className="w-full h-32 border-2 border-dashed"
-                        onClick={() => uploadBrandPhoto('Qualid', index)}
+                        onClick={() => uploadBrandPhoto("Qualid", index)}
                         disabled={isSyncing}
                       >
                         <Camera className="mr-2 h-4 w-4" /> Subir Foto
@@ -1132,9 +1270,12 @@ export default function TradeEventosPage() {
           {/* Sección de Videos del Evento */}
           {selectedBrands.length > 0 && (
             <div className="space-y-4 border-t pt-4">
-              <Label className="font-medium">Videos del Evento (Opcional)</Label>
+              <Label className="font-medium">
+                Videos del Evento (Opcional)
+              </Label>
               <p className="text-sm text-muted-foreground">
-                Sube videos cortos que capturen la dinámica del evento, interacción con clientes o momentos destacados.
+                Sube videos cortos que capturen la dinámica del evento,
+                interacción con clientes o momentos destacados.
               </p>
               <Button
                 variant="outline"
@@ -1146,12 +1287,22 @@ export default function TradeEventosPage() {
               </Button>
               {videosEvento.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-sm text-muted-foreground">Videos subidos:</Label>
+                  <Label className="text-sm text-muted-foreground">
+                    Videos subidos:
+                  </Label>
                   <ul className="space-y-2">
                     {videosEvento.map((video, index) => (
-                      <li key={index} className="flex justify-between items-center p-2 border rounded-md bg-background">
+                      <li
+                        key={index}
+                        className="flex justify-between items-center p-2 border rounded-md bg-background"
+                      >
                         <span className="text-sm">Video {index + 1}</span>
-                        <Button variant="ghost" size="sm" onClick={() => removeVideo(index)} disabled={isSyncing}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeVideo(index)}
+                          disabled={isSyncing}
+                        >
                           <Trash className="h-4 w-4 text-destructive" />
                         </Button>
                       </li>
@@ -1161,40 +1312,52 @@ export default function TradeEventosPage() {
               )}
             </div>
           )}
-
-
         </CardContent>
         <CardFooter>
           <Button
             onClick={handleSubmit}
             disabled={!canProceed() || isSyncing}
             className="w-full"
-            style={{ backgroundImage: 'linear-gradient(to right, #fbce04, #e30a18)' }}
+            style={{
+              backgroundImage: "linear-gradient(to right, #fbce04, #e30a18)",
+            }}
           >
-            {isSyncing ? 'Guardando...' : 'Siguiente'}
+            {isSyncing ? "Guardando..." : "Siguiente"}
           </Button>
 
           {/* Indicador de progreso */}
           {selectedBrands.length > 0 && (
             <div className="ml-4 mt-0 p-3 bg-gray-50 rounded-md">
-              <p className="text-sm font-medium mb-2">Progreso del formulario:</p>
+              <p className="text-sm font-medium mb-2">
+                Progreso del formulario:
+              </p>
               <div className="space-y-1 text-sm">
                 <div className="flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className={'text-green-600'}>
-                    Marcas seleccionadas ({selectedBrands.join(', ')})
+                  <span className={"text-green-600"}>
+                    Marcas seleccionadas ({selectedBrands.join(", ")})
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  {fotosSubidas >= 3 ? <CheckCircle className="h-4 w-4 text-green-600" /> : <div className="h-4 w-4 rounded-full border-2 border-gray-300" />}
-                  <span className={fotosSubidas >= 3 ? 'text-green-600' : 'text-gray-500'}>
+                  {fotosSubidas >= 3 ? (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                  )}
+                  <span
+                    className={
+                      fotosSubidas >= 3 ? "text-green-600" : "text-gray-500"
+                    }
+                  >
                     Fotos del evento ({fotosSubidas}/6 - mínimo 3)
                   </span>
                 </div>
                 {videosEvento.length > 0 && (
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm text-blue-600">Video(s) añadido(s)</span>
+                    <span className="text-sm text-blue-600">
+                      Video(s) añadido(s)
+                    </span>
                   </div>
                 )}
               </div>
