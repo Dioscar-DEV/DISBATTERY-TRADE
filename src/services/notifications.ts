@@ -11,7 +11,9 @@ import {
 import { getFirestoreClient } from "@/firebase/clientApp";
 
 // Configuración de Firebase Cloud Messaging (FCM)
-const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "BDCJ8sVw_IJmvCoEFGup7PHFvQKH3i8qzCsepnHWRguS-Wpb9ZsdOx9xCFSyjLM5tXv5YS1YVwB5sac1QAKRUeQ" ;
+const VAPID_KEY =
+  process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
+  "BDCJ8sVw_IJmvCoEFGup7PHFvQKH3i8qzCsepnHWRguS-Wpb9ZsdOx9xCFSyjLM5tXv5YS1YVwB5sac1QAKRUeQ";
 
 export interface NotificationData {
   title: string;
@@ -94,6 +96,11 @@ export const getUserNotificationToken = async (): Promise<string | null> => {
     }
 
     const messaging = getMessaging();
+    if (!messaging) {
+      console.warn("⚠️ Firebase Messaging no soportado en este navegador");
+      return null;
+    }
+
     const token = await getToken(messaging, { vapidKey: VAPID_KEY });
 
     if (token) {
@@ -395,6 +402,10 @@ export const setupForegroundMessageListener = () => {
     if (typeof window === "undefined") return;
 
     const messaging = getMessaging();
+    if (!messaging) {
+      console.log("⚠️ Messaging no soportado, saltando listener");
+      return;
+    }
 
     onMessage(messaging, (payload) => {
       console.log("📨 Mensaje recibido en primer plano:", payload);

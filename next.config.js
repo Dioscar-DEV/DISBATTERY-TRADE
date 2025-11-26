@@ -46,9 +46,9 @@ if (isProd) {
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const withPWA = require("next-pwa")({
   dest: "public",
-  register: true,
+  register: false,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === "development",
+  disable: false, // Habilitar PWA en desarrollo para probar offline
   fallbacks: {
     document: "/offline.html",
   },
@@ -63,10 +63,9 @@ const withPWA = require("next-pwa")({
       urlPattern: ({ request, url }) => {
         return request.mode === "navigate" && !url.pathname.endsWith(".txt");
       },
-      handler: "NetworkFirst",
+      handler: "StaleWhileRevalidate", // Cambiado de NetworkFirst a StaleWhileRevalidate para offline-first
       options: {
         cacheName: "all-pages",
-        networkTimeoutSeconds: 5,
         expiration: {
           maxEntries: 200,
           maxAgeSeconds: 60 * 60 * 24 * 30,

@@ -16,13 +16,23 @@ import { getMessaging, type Messaging } from "firebase/messaging";
 
 // Your web app's Firebase configuration (prefer environment variables)
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCs73uDqTGuoy2u0fnZgngTqRWhuyIU5l8",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "disbattery-trade.firebaseapp.com",
+  apiKey:
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
+    "AIzaSyCs73uDqTGuoy2u0fnZgngTqRWhuyIU5l8",
+  authDomain:
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ||
+    "disbattery-trade.firebaseapp.com",
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "disbattery-trade",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "disbattery-trade.firebasestorage.app",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "614937382806",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:614937382806:web:5df489972e5eb4365117b7",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-ZJ2LRH0HDT",
+  storageBucket:
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+    "disbattery-trade.firebasestorage.app",
+  messagingSenderId:
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "614937382806",
+  appId:
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID ||
+    "1:614937382806:web:5df489972e5eb4365117b7",
+  measurementId:
+    process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-ZJ2LRH0HDT",
 };
 
 // Initialize Firebase app instance (safe for SSR)
@@ -41,8 +51,19 @@ if (typeof window !== "undefined") {
   auth = getAuth(app);
   storage = getStorage(app);
   // Initialize messaging with VAPID key from environment
-  if (process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "BDCJ8sVw_IJmvCoEFGup7PHFvQKH3i8qzCsepnHWRguS-Wpb9ZsdOx9xCFSyjLM5tXv5YS1YVwB5sac1QAKRUeQ") {
-    messaging = getMessaging(app);
+  // We use try-catch because getMessaging() can throw if the browser doesn't support required APIs
+  try {
+    if (
+      process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
+      "BDCJ8sVw_IJmvCoEFGup7PHFvQKH3i8qzCsepnHWRguS-Wpb9ZsdOx9xCFSyjLM5tXv5YS1YVwB5sac1QAKRUeQ"
+    ) {
+      messaging = getMessaging(app);
+    }
+  } catch (error) {
+    console.warn(
+      "Firebase Messaging not supported in this environment:",
+      error
+    );
   }
 }
 
@@ -104,23 +125,3 @@ export function getFirestoreClient(): Firestore {
   }
   return db;
 }
-
-export function getAnalyticsClient() {
-  return analytics;
-}
-
-export function getMessagingClient(): Messaging {
-  if (!messaging) {
-    if (typeof window === "undefined") {
-      throw new Error("Firebase Messaging is only available in the browser.");
-    }
-    if (!process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "BDCJ8sVw_IJmvCoEFGup7PHFvQKH3i8qzCsepnHWRguS-Wpb9ZsdOx9xCFSyjLM5tXv5YS1YVwB5sac1QAKRUeQ") {
-      throw new Error("VAPID key is required for Firebase Messaging. Set NEXT_PUBLIC_FIREBASE_VAPID_KEY in your environment.");
-    }
-    messaging = getMessaging(app);
-  }
-  return messaging;
-}
-
-// Export VAPID key for use in messaging setup
-export const getVapidKey = () => process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "BDCJ8sVw_IJmvCoEFGup7PHFvQKH3i8qzCsepnHWRguS-Wpb9ZsdOx9xCFSyjLM5tXv5YS1YVwB5sac1QAKRUeQ";

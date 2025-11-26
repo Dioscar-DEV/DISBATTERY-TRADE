@@ -33,9 +33,8 @@ const DB_VERSION = 1;
   '/trade-eventos',
   '/trade-impulso',
   '/shell-material-interno',
-  '/brand-selection',
+  '/shell-material-interno',
   '/instalar',
-  '/test-notifications',
   '/registro-exitoso',
   '/offline.html',
   '/manifest.json'
