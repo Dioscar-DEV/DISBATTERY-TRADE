@@ -22,20 +22,19 @@ const DB_VERSION = 1;
 
   const CRITICAL_RESOURCES = [
   '/',
-  '/mi-ruta',
-  '/visit-capture',
-  '/signage-capture',
-  '/shell-merchandising',
-  '/qualid-merchandising',
-  '/observaciones',
-  '/reportes-finales',
-  '/ventas-productos',
-  '/trade-eventos',
-  '/trade-impulso',
-  '/shell-material-interno',
-  '/shell-material-interno',
-  '/instalar',
-  '/registro-exitoso',
+  '/mi-ruta', '/mi-ruta/',
+  '/visit-capture', '/visit-capture/',
+  '/signage-capture', '/signage-capture/',
+  '/shell-merchandising', '/shell-merchandising/',
+  '/qualid-merchandising', '/qualid-merchandising/',
+  '/observaciones', '/observaciones/',
+  '/reportes-finales', '/reportes-finales/',
+  '/ventas-productos', '/ventas-productos/',
+  '/trade-eventos', '/trade-eventos/',
+  '/trade-impulso', '/trade-impulso/',
+  '/shell-material-interno', '/shell-material-interno/',
+  '/instalar', '/instalar/',
+  '/registro-exitoso', '/registro-exitoso/',
   '/offline.html',
   '/manifest.json'
   ];
@@ -81,9 +80,25 @@ async function handleAppRequest(request) {
         }
         return networkResponse;
       } catch (err) {
-        const cached = await caches.match(request);
+        // Estrategia de Cache con normalización de URL y ignoreSearch
+        const cache = await caches.open(CACHE_NAME);
+        const matchOptions = { ignoreSearch: true };
+        
+        // 1. Intentar match exacto
+        let cached = await cache.match(request, matchOptions);
         if (cached) return cached;
-        return caches.match('/offline.html') || new Response('Aplicación offline', { status: 503 });
+
+        // 2. Intentar normalizando slash (si tiene, quitarlo; si no, ponerlo)
+        const url = new URL(request.url);
+        const hasSlash = url.pathname.endsWith('/');
+        const altPath = hasSlash ? url.pathname.slice(0, -1) : url.pathname + '/';
+        const altUrl = new URL(altPath, url.origin).toString();
+        
+        cached = await cache.match(altUrl, matchOptions);
+        if (cached) return cached;
+
+        // 3. Fallback a offline.html
+        return cache.match('/offline.html') || new Response('Aplicación offline', { status: 503 });
       }
     }
 
