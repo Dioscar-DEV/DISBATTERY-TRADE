@@ -1,27 +1,31 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Check, ChevronsUpDown, Search } from "lucide-react"
+import * as React from "react";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export interface ComboboxOption {
-  value: string
-  label: string
+  value: string;
+  label: string;
 }
 
 interface ComboboxProps {
-  options: ComboboxOption[]
-  value?: string
-  onValueChange: (value: string) => void
-  placeholder?: string
-  searchPlaceholder?: string
-  emptyText?: string
-  className?: string
+  options: ComboboxOption[];
+  value?: string;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  emptyText?: string;
+  className?: string;
 }
 
 export function Combobox({
@@ -31,16 +35,16 @@ export function Combobox({
   placeholder = "Seleccionar...",
   searchPlaceholder = "Buscar...",
   emptyText = "No se encontraron resultados",
-  className
+  className,
 }: ComboboxProps) {
-  const [open, setOpen] = React.useState(false)
-  const [searchValue, setSearchValue] = React.useState("")
+  const [open, setOpen] = React.useState(false);
+  const [searchValue, setSearchValue] = React.useState("");
 
   const filteredOptions = options.filter((option) =>
     option.label.toLowerCase().includes(searchValue.toLowerCase())
-  )
+  );
 
-  const selectedOption = options.find((option) => option.value === value)
+  const selectedOption = options.find((option) => option.value === value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -80,9 +84,9 @@ export function Combobox({
                     value === option.value && "bg-accent text-accent-foreground"
                   )}
                   onClick={() => {
-                    onValueChange(option.value)
-                    setOpen(false)
-                    setSearchValue("")
+                    onValueChange(option.value);
+                    setOpen(false);
+                    setSearchValue("");
                   }}
                 >
                   <Check
@@ -99,5 +103,5 @@ export function Combobox({
         </ScrollArea>
       </PopoverContent>
     </Popover>
-  )
-} 
+  );
+}

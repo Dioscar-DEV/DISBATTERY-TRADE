@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 // Declaración de tipos para Google Maps en window
 declare global {
   interface Window {
@@ -13,30 +13,34 @@ declare global {
 const loadGoogleMapsAPI = (apiKey: string): Promise<void> => {
   return new Promise((resolve, reject) => {
     // Verificar si ya está cargado
-    if (typeof window !== 'undefined' && window.google && window.google.maps) {
+    if (typeof window !== "undefined" && window.google && window.google.maps) {
       resolve();
       return;
     }
 
     // Verificar si el script ya está siendo cargado
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    const existingScript = document.querySelector(
+      'script[src*="maps.googleapis.com"]'
+    );
     if (existingScript) {
       // Esperar a que termine de cargar
       const handleLoad = () => {
         if (window.google && window.google.maps) {
           resolve();
         } else {
-          reject(new Error('Google Maps API no se cargó correctamente'));
+          reject(new Error("Google Maps API no se cargó correctamente"));
         }
       };
-      
-      existingScript.addEventListener('load', handleLoad);
-      existingScript.addEventListener('error', () => reject(new Error('Error cargando Google Maps API')));
+
+      existingScript.addEventListener("load", handleLoad);
+      existingScript.addEventListener("error", () =>
+        reject(new Error("Error cargando Google Maps API"))
+      );
       return;
     }
 
     // Crear el script para cargar Google Maps API
-    const script = document.createElement('script');
+    const script = document.createElement("script");
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry,visualization&region=VE&language=es&v=weekly`;
     script.async = true;
     script.defer = true;
@@ -47,13 +51,17 @@ const loadGoogleMapsAPI = (apiKey: string): Promise<void> => {
         if (window.google && window.google.maps) {
           resolve();
         } else {
-          reject(new Error('Google Maps API no se cargó correctamente'));
+          reject(new Error("Google Maps API no se cargó correctamente"));
         }
       }, 100);
     };
 
     script.onerror = () => {
-      reject(new Error('Error cargando el script de Google Maps API. Verifica tu API key y conexión.'));
+      reject(
+        new Error(
+          "Error cargando el script de Google Maps API. Verifica tu API key y conexión."
+        )
+      );
     };
 
     document.head.appendChild(script);
@@ -81,12 +89,12 @@ interface GoogleMapsProps {
 export function GoogleMaps({
   center = { lat: 10.4806, lng: -66.9036 }, // Caracas, Venezuela por defecto
   zoom = 13,
-  height = '400px',
+  height = "400px",
   markers = [],
   heatmapData = [],
   showHeatmap = false,
   onMapClick,
-  onMarkerClick
+  onMarkerClick,
 }: GoogleMapsProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -94,61 +102,78 @@ export function GoogleMaps({
   const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mapMarkers, setMapMarkers] = useState<google.maps.Marker[]>([]);
-  const [heatmap, setHeatmap] = useState<google.maps.visualization.HeatmapLayer | null>(null);
+  const [heatmap, setHeatmap] =
+    useState<google.maps.visualization.HeatmapLayer | null>(null);
 
   // Memorizar los puntos del heatmap para evitar recrearlos constantemente
   // Solo si Google Maps está cargado
   const heatmapPoints = useMemo(() => {
-    if (!heatmapData || heatmapData.length === 0 || !isGoogleLoaded || typeof window === 'undefined' || !window.google) {
+    if (
+      !heatmapData ||
+      heatmapData.length === 0 ||
+      !isGoogleLoaded ||
+      typeof window === "undefined" ||
+      !window.google
+    ) {
       return [];
     }
-    
+
     try {
-      return heatmapData.map(data => 
-        new window.google.maps.LatLng(data.position.lat, data.position.lng)
+      return heatmapData.map(
+        (data) =>
+          new window.google.maps.LatLng(data.position.lat, data.position.lng)
       );
     } catch (error) {
-      console.error('Error creando puntos de heatmap:', error);
+      console.error("Error creando puntos de heatmap:", error);
       return [];
     }
   }, [heatmapData, isGoogleLoaded]);
 
   // Memorizar la configuración del heatmap
-  const heatmapConfig = useMemo(() => ({
-    radius: 50,
-    opacity: 0.8,
-    dissipating: true,
-    gradient: [
-      'rgba(0, 255, 255, 0)',
-      'rgba(0, 255, 255, 1)',
-      'rgba(0, 191, 255, 1)',
-      'rgba(0, 127, 255, 1)',
-      'rgba(0, 63, 255, 1)',
-      'rgba(0, 0, 255, 1)',
-      'rgba(0, 0, 223, 1)',
-      'rgba(0, 0, 191, 1)',
-      'rgba(0, 0, 159, 1)',
-      'rgba(0, 0, 127, 1)',
-      'rgba(63, 0, 91, 1)',
-      'rgba(127, 0, 63, 1)',
-      'rgba(191, 0, 31, 1)',
-      'rgba(255, 0, 0, 1)'
-    ]
-  }), []);
+  const heatmapConfig = useMemo(
+    () => ({
+      radius: 50,
+      opacity: 0.8,
+      dissipating: true,
+      gradient: [
+        "rgba(0, 255, 255, 0)",
+        "rgba(0, 255, 255, 1)",
+        "rgba(0, 191, 255, 1)",
+        "rgba(0, 127, 255, 1)",
+        "rgba(0, 63, 255, 1)",
+        "rgba(0, 0, 255, 1)",
+        "rgba(0, 0, 223, 1)",
+        "rgba(0, 0, 191, 1)",
+        "rgba(0, 0, 159, 1)",
+        "rgba(0, 0, 127, 1)",
+        "rgba(63, 0, 91, 1)",
+        "rgba(127, 0, 63, 1)",
+        "rgba(191, 0, 31, 1)",
+        "rgba(255, 0, 0, 1)",
+      ],
+    }),
+    []
+  );
 
   useEffect(() => {
     const initMap = async () => {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyA6Q_8LsOmui-Dcib-w5KD3CiJagTxFHoA";
-      
+      const apiKey =
+        process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
+        "AIzaSyA6Q_8LsOmui-Dcib-w5KD3CiJagTxFHoA";
+
       if (!apiKey) {
-        setError('Google Maps API key no configurada.');
+        setError("Google Maps API key no configurada.");
         return;
       }
 
       // Verificar si Google Maps ya está cargado globalmente
-      if (typeof window !== 'undefined' && window.google && window.google.maps) {
+      if (
+        typeof window !== "undefined" &&
+        window.google &&
+        window.google.maps
+      ) {
         setIsGoogleLoaded(true);
-        
+
         if (mapRef.current) {
           const mapInstance = new window.google.maps.Map(mapRef.current, {
             center,
@@ -160,7 +185,7 @@ export function GoogleMaps({
           });
 
           if (onMapClick) {
-            mapInstance.addListener('click', onMapClick);
+            mapInstance.addListener("click", onMapClick);
           }
 
           setMap(mapInstance);
@@ -172,11 +197,15 @@ export function GoogleMaps({
       try {
         // Método moderno para cargar Google Maps API
         await loadGoogleMapsAPI(apiKey);
-        
+
         // Verificar que Google Maps esté completamente cargado
-        if (typeof window !== 'undefined' && window.google && window.google.maps) {
+        if (
+          typeof window !== "undefined" &&
+          window.google &&
+          window.google.maps
+        ) {
           setIsGoogleLoaded(true);
-          
+
           if (mapRef.current) {
             const mapInstance = new window.google.maps.Map(mapRef.current, {
               center,
@@ -186,24 +215,27 @@ export function GoogleMaps({
               fullscreenControl: true,
               zoomControl: true,
               // Configuraciones adicionales para mejor rendimiento
-              gestureHandling: 'cooperative',
+              gestureHandling: "cooperative",
               clickableIcons: false,
             });
 
             if (onMapClick) {
-              mapInstance.addListener('click', onMapClick);
+              mapInstance.addListener("click", onMapClick);
             }
 
             setMap(mapInstance);
             setIsLoaded(true);
           }
         } else {
-          throw new Error('Google Maps API no se cargó correctamente');
+          throw new Error("Google Maps API no se cargó correctamente");
         }
       } catch (err: any) {
-        const errorMessage = err?.message || 'Error desconocido cargando Google Maps';
-        setError(`Error cargando Google Maps: ${errorMessage}. Verifica tu API key y conexión.`);
-        console.error('Error loading Google Maps:', err);
+        const errorMessage =
+          err?.message || "Error desconocido cargando Google Maps";
+        setError(
+          `Error cargando Google Maps: ${errorMessage}. Verifica tu API key y conexión.`
+        );
+        console.error("Error loading Google Maps:", err);
       }
     };
 
@@ -219,7 +251,7 @@ export function GoogleMaps({
 
     try {
       // Limpiar marcadores existentes
-      mapMarkers.forEach(marker => marker.setMap(null));
+      mapMarkers.forEach((marker) => marker.setMap(null));
 
       // Crear nuevos marcadores
       const newMarkers = markers.map((markerData, index) => {
@@ -234,14 +266,14 @@ export function GoogleMaps({
             content: markerData.info,
           });
 
-          marker.addListener('click', () => {
+          marker.addListener("click", () => {
             infoWindow.open(map, marker);
             if (onMarkerClick) {
               onMarkerClick(marker, index);
             }
           });
         } else if (onMarkerClick) {
-          marker.addListener('click', () => {
+          marker.addListener("click", () => {
             onMarkerClick(marker, index);
           });
         }
@@ -251,32 +283,44 @@ export function GoogleMaps({
 
       setMapMarkers(newMarkers);
     } catch (error) {
-      console.error('Error creando marcadores:', error);
+      console.error("Error creando marcadores:", error);
     }
   }, [map, isLoaded, isGoogleLoaded, markers, onMarkerClick, showHeatmap]);
 
   // Optimizar el heatmap para evitar parpadeo
   useEffect(() => {
-    if (!map || !isLoaded || !isGoogleLoaded || typeof window === 'undefined' || !window.google) return;
+    if (
+      !map ||
+      !isLoaded ||
+      !isGoogleLoaded ||
+      typeof window === "undefined" ||
+      !window.google
+    )
+      return;
 
     try {
       if (showHeatmap && heatmapPoints.length > 0) {
         // Solo crear nuevo heatmap si no existe o si los datos cambiaron significativamente
-        if (!heatmap || (heatmap.getData() && heatmap.getData().getLength() !== heatmapPoints.length)) {
+        if (
+          !heatmap ||
+          (heatmap.getData() &&
+            heatmap.getData().getLength() !== heatmapPoints.length)
+        ) {
           // Limpiar heatmap existente
           if (heatmap) {
             heatmap.setMap(null);
           }
 
           // Limpiar marcadores cuando se muestra heatmap
-          mapMarkers.forEach(marker => marker.setMap(null));
+          mapMarkers.forEach((marker) => marker.setMap(null));
           setMapMarkers([]);
 
           // Crear el heatmap con datos estables
-          const heatmapLayer = new window.google.maps.visualization.HeatmapLayer({
-            data: heatmapPoints,
-            map: map,
-          });
+          const heatmapLayer =
+            new window.google.maps.visualization.HeatmapLayer({
+              data: heatmapPoints,
+              map: map,
+            });
 
           // Aplicar configuración del heatmap
           heatmapLayer.setOptions(heatmapConfig);
@@ -292,9 +336,18 @@ export function GoogleMaps({
         setHeatmap(null);
       }
     } catch (error) {
-      console.error('Error manejando heatmap:', error);
+      console.error("Error manejando heatmap:", error);
     }
-  }, [map, isLoaded, isGoogleLoaded, heatmapPoints, showHeatmap, heatmapConfig, heatmap, mapMarkers]);
+  }, [
+    map,
+    isLoaded,
+    isGoogleLoaded,
+    heatmapPoints,
+    showHeatmap,
+    heatmapConfig,
+    heatmap,
+    mapMarkers,
+  ]);
 
   // Callback estable para el cambio de centro del mapa
   const updateMapCenter = useCallback(() => {
@@ -303,7 +356,7 @@ export function GoogleMaps({
         map.setCenter(center);
         map.setZoom(zoom);
       } catch (error) {
-        console.error('Error actualizando centro del mapa:', error);
+        console.error("Error actualizando centro del mapa:", error);
       }
     }
   }, [map, center.lat, center.lng, zoom, isGoogleLoaded]);
@@ -317,7 +370,7 @@ export function GoogleMaps({
 
   if (error) {
     return (
-      <div 
+      <div
         className="flex items-center justify-center bg-gray-100 border border-gray-300 rounded-lg"
         style={{ height }}
       >
@@ -328,7 +381,9 @@ export function GoogleMaps({
           <div className="text-xs text-gray-500 space-y-1">
             <p>• Verifica tu conexión a internet</p>
             <p>• Confirma que la API key de Google Maps esté configurada</p>
-            <p>• Revisa que la API key tenga permisos para Maps JavaScript API</p>
+            <p>
+              • Revisa que la API key tenga permisos para Maps JavaScript API
+            </p>
           </div>
           <button
             onClick={() => {
@@ -347,23 +402,23 @@ export function GoogleMaps({
 
   return (
     <div className="relative">
-      <div 
-        ref={mapRef} 
+      <div
+        ref={mapRef}
         style={{ height }}
         className="w-full rounded-lg shadow-md"
       />
       {(!isLoaded || !isGoogleLoaded) && (
-        <div 
-          className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg"
-        >
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             <p className="text-sm text-gray-600 mt-2">
-              {!isGoogleLoaded ? 'Cargando Google Maps API...' : 'Inicializando mapa...'}
+              {!isGoogleLoaded
+                ? "Cargando Google Maps API..."
+                : "Inicializando mapa..."}
             </p>
           </div>
         </div>
       )}
     </div>
   );
-} 
+}
