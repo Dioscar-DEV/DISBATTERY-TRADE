@@ -49,9 +49,9 @@ const withPWA = require("next-pwa")({
   register: false,
   skipWaiting: true,
   disable: false, // Habilitar PWA en desarrollo para probar offline
-  fallbacks: {
-    document: "/offline.html",
-  },
+  // fallbacks: {
+  //   document: "/offline.html",
+  // },
   publicExcludes: ["!offline.html"],
   buildExcludes: [
     /middleware-manifest\.json$/,

@@ -97,7 +97,11 @@ async function handleAppRequest(request) {
         cached = await cache.match(altUrl, matchOptions);
         if (cached) return cached;
 
-        // 3. Fallback a offline.html
+        // 3. Fallback a App Shell (/) para mantener la SPA funcionando
+        const appShell = await cache.match('/');
+        if (appShell) return appShell;
+
+        // 4. Fallback a offline.html si todo falla
         return cache.match('/offline.html') || new Response('Aplicación offline', { status: 503 });
       }
     }
