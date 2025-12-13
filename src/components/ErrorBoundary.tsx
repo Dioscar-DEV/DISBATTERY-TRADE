@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertCircle, RefreshCw, Home } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import React, { Component, ErrorInfo, ReactNode } from "react";
+import { AlertCircle, RefreshCw, Home } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Props {
   children: ReactNode;
@@ -28,11 +28,11 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+
     this.setState({
       error,
-      errorInfo
+      errorInfo,
     });
 
     if (this.props.onError) {
@@ -49,22 +49,25 @@ class ErrorBoundary extends Component<Props, State> {
 
   handleGoHome = () => {
     // Check user role and redirect appropriately
-    const currentUser = localStorage.getItem('currentUser');
-    let homePath = '/';
-    
+    const currentUser = localStorage.getItem("currentUser");
+    let homePath = "/";
+
     if (currentUser) {
       try {
         const userData = JSON.parse(currentUser);
-        if (userData.role === 'AdminMaster' || userData.role === 'Administrador') {
-          homePath = '/admin/dashboard';
+        if (
+          userData.role === "AdminMaster" ||
+          userData.role === "Administrador"
+        ) {
+          homePath = "/admin/dashboard";
         } else {
-          homePath = '/mi-ruta';
+          homePath = "/mi-ruta";
         }
       } catch (error) {
-        console.error('Error parsing user data:', error);
+        console.error("Error parsing user data:", error);
       }
     }
-    
+
     window.location.href = homePath;
   };
 
@@ -90,7 +93,7 @@ class ErrorBoundary extends Component<Props, State> {
             <Alert className="border-red-200 bg-red-50">
               <AlertCircle className="h-4 w-4 text-red-600" />
               <AlertDescription className="text-red-800">
-                {this.state.error?.message || 'Error desconocido'}
+                {this.state.error?.message || "Error desconocido"}
               </AlertDescription>
             </Alert>
 
@@ -116,7 +119,7 @@ class ErrorBoundary extends Component<Props, State> {
                 <RefreshCw className="h-4 w-4" />
                 Reintentar
               </Button>
-              
+
               <Button
                 onClick={this.handleGoHome}
                 variant="outline"
@@ -138,8 +141,8 @@ class ErrorBoundary extends Component<Props, State> {
 // Hook para usar ErrorBoundary de manera programática
 export function useErrorHandler() {
   const handleError = (error: Error, context?: string) => {
-    console.error(`Error${context ? ` in ${context}` : ''}:`, error);
-    
+    console.error(`Error${context ? ` in ${context}` : ""}:`, error);
+
     // You could also trigger a toast notification here
     // toast.error(error.message);
   };

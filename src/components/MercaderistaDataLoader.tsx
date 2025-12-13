@@ -71,10 +71,6 @@ export default function MercaderistaDataLoader() {
     const handleMercaderistaLogin = async (event: CustomEvent) => {
       const userData = event.detail;
       if (userData && userData.role === "Mercaderista") {
-        console.log(
-          "🎯 [MercaderistaDataLoader] Login de mercaderista detectado:",
-          userData
-        );
         await checkUserAndData();
       }
     };

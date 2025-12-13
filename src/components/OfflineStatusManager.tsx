@@ -148,9 +148,9 @@ export default function OfflineStatusManager({
     }
 
     if (isOnline) {
-      return <Wifi className="w-4 h-4 text-green-500" />;
+      return <Wifi className="w-4 h-4 text-primary" />;
     } else {
-      return <WifiOff className="w-4 h-4 text-red-500" />;
+      return <WifiOff className="w-4 h-4 text-destructive" />;
     }
   };
 

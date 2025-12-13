@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { getAuthClient, getFirestoreClient } from '@/firebase/clientApp';
-import { doc, getDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import { toast } from '@/hooks/use-toast';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getAuthClient, getFirestoreClient } from "@/firebase/clientApp";
+import { doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { toast } from "@/hooks/use-toast";
 
 /**
  * Componente que verifica en tiempo real el status del usuario logueado
@@ -19,7 +19,7 @@ export function UserStatusChecker() {
     const interval = setInterval(async () => {
       try {
         // Solo verificar si hay usuario en localStorage
-        const currentUserStr = localStorage.getItem('currentUser');
+        const currentUserStr = localStorage.getItem("currentUser");
         if (!currentUserStr) return;
 
         const currentUser = JSON.parse(currentUserStr);
@@ -27,16 +27,14 @@ export function UserStatusChecker() {
 
         // Obtener status actualizado desde Firestore
         const firestore = getFirestoreClient();
-        const userDoc = await getDoc(doc(firestore, 'users', currentUser.id));
+        const userDoc = await getDoc(doc(firestore, "users", currentUser.id));
         if (!userDoc.exists()) return;
 
         const userData = userDoc.data();
-        const userStatus = userData.status || 'active';
+        const userStatus = userData.status || "active";
 
         // Verificar si el usuario fue rechazado o está pendiente
-        if (userStatus === 'rejected') {
-          console.log('🚫 Usuario rechazado detectado - forzando logout');
-
+        if (userStatus === "rejected") {
           // Limpiar todo y desloguear
           localStorage.clear();
           await getAuthClient().signOut();
@@ -48,13 +46,11 @@ export function UserStatusChecker() {
           });
 
           // Redirigir al login
-          router.push('/');
+          router.push("/");
           return;
         }
 
-        if (userStatus === 'pending_approval') {
-          console.log('⏳ Usuario pendiente detectado - forzando logout');
-
+        if (userStatus === "pending_approval") {
           // Limpiar todo y desloguear
           localStorage.clear();
           await getAuthClient().signOut();
@@ -66,12 +62,11 @@ export function UserStatusChecker() {
           });
 
           // Redirigir al login
-          router.push('/');
+          router.push("/");
           return;
         }
-
       } catch (error) {
-        console.warn('Error verificando status del usuario:', error);
+        console.warn("Error verificando status del usuario:", error);
         // No hacer nada en caso de error de red
       }
     }, 30000); // Verificar cada 30 segundos
@@ -86,26 +81,26 @@ export function UserStatusChecker() {
 
       // Usuario autenticado, verificar su status una vez
       try {
-        const currentUserStr = localStorage.getItem('currentUser');
+        const currentUserStr = localStorage.getItem("currentUser");
         if (!currentUserStr) return;
 
         const currentUser = JSON.parse(currentUserStr);
         if (!currentUser.id) return;
 
         const firestore = getFirestoreClient();
-        const userDoc = await getDoc(doc(firestore, 'users', currentUser.id));
+        const userDoc = await getDoc(doc(firestore, "users", currentUser.id));
         if (!userDoc.exists()) return;
 
         const userData = userDoc.data();
-        const userStatus = userData.status || 'active';
+        const userStatus = userData.status || "active";
 
-        if (userStatus === 'rejected' || userStatus === 'pending_approval') {
+        if (userStatus === "rejected" || userStatus === "pending_approval") {
           localStorage.clear();
           await getAuthClient().signOut();
-          router.push('/');
+          router.push("/");
         }
       } catch (error) {
-        console.warn('Error en verificación de auth:', error);
+        console.warn("Error en verificación de auth:", error);
       }
     });
 

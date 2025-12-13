@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { Route } from "@/types/routes";
 // Declaración de tipos para Google Maps en window
 declare global {
   interface Window {
@@ -84,6 +85,8 @@ interface GoogleMapsProps {
   showHeatmap?: boolean;
   onMapClick?: (event: google.maps.MapMouseEvent) => void;
   onMarkerClick?: (marker: any, index: number) => void;
+  className?: string;
+  routes?: Route[];
 }
 
 export function GoogleMaps({
@@ -95,13 +98,15 @@ export function GoogleMaps({
   showHeatmap = false,
   onMapClick,
   onMarkerClick,
+  className,
+  routes = [],
 }: GoogleMapsProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
+  const markersRef = useRef<google.maps.Marker[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [mapMarkers, setMapMarkers] = useState<google.maps.Marker[]>([]);
   const [heatmap, setHeatmap] =
     useState<google.maps.visualization.HeatmapLayer | null>(null);
 
@@ -250,11 +255,32 @@ export function GoogleMaps({
     if (!map || !isLoaded || !isGoogleLoaded || showHeatmap) return; // No mostrar marcadores si se está mostrando heatmap
 
     try {
+      // Convertir rutas a marcadores si existen
+      const routeMarkers = routes.flatMap((route) =>
+        route.points.map((point) => ({
+          position: point.position,
+          title: point.name,
+          info: `
+            <div class="p-2">
+              <h3 class="font-bold text-sm">${point.name}</h3>
+              <p class="text-xs text-gray-600">${point.address}</p>
+              ${point.tipoVisita ? `<span class="text-xs font-semibold text-blue-600 mt-1 block">${point.tipoVisita}</span>` : ""}
+              <div class="text-xs text-gray-400 mt-1">
+                ${route.mercaderista} - ${route.date}
+              </div>
+            </div>
+          `,
+        }))
+      );
+
       // Limpiar marcadores existentes
-      mapMarkers.forEach((marker) => marker.setMap(null));
+      markersRef.current.forEach((marker) => marker.setMap(null));
+      markersRef.current = [];
+
+      const allMarkersData = [...markers, ...routeMarkers];
 
       // Crear nuevos marcadores
-      const newMarkers = markers.map((markerData, index) => {
+      allMarkersData.forEach((markerData, index) => {
         const marker = new window.google.maps.Marker({
           position: markerData.position,
           map,
@@ -278,14 +304,22 @@ export function GoogleMaps({
           });
         }
 
-        return marker;
+        markersRef.current.push(marker);
       });
-
-      setMapMarkers(newMarkers);
     } catch (error) {
       console.error("Error creando marcadores:", error);
     }
-  }, [map, isLoaded, isGoogleLoaded, markers, onMarkerClick, showHeatmap]);
+  }, [
+    map,
+    isLoaded,
+    isGoogleLoaded,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    JSON.stringify(markers),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    JSON.stringify(routes),
+    onMarkerClick,
+    showHeatmap,
+  ]);
 
   // Optimizar el heatmap para evitar parpadeo
   useEffect(() => {
@@ -312,8 +346,9 @@ export function GoogleMaps({
           }
 
           // Limpiar marcadores cuando se muestra heatmap
-          mapMarkers.forEach((marker) => marker.setMap(null));
-          setMapMarkers([]);
+          if (markersRef.current) {
+            markersRef.current.forEach((marker) => marker.setMap(null));
+          }
 
           // Crear el heatmap con datos estables
           const heatmapLayer =
@@ -346,7 +381,6 @@ export function GoogleMaps({
     showHeatmap,
     heatmapConfig,
     heatmap,
-    mapMarkers,
   ]);
 
   // Callback estable para el cambio de centro del mapa
@@ -401,7 +435,7 @@ export function GoogleMaps({
   }
 
   return (
-    <div className="relative">
+    <div className={`relative ${className || ""}`}>
       <div
         ref={mapRef}
         style={{ height }}

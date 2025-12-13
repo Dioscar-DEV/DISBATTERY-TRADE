@@ -47,16 +47,12 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  UserCircle,
-  ArrowLeft,
-  Menu,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getAuthClient, getFirestoreClient } from "@/firebase/clientApp";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import {
   collection,
-  addDoc,
   getDocs,
   doc,
   deleteDoc,
@@ -69,12 +65,10 @@ import {
 import {
   Region,
   Sede,
-  SEDES_DATA,
   getSedesByRegion,
   getCitiesBySede,
 } from "@/types/routes";
 import { UserData } from "@/services/auth";
-import { LogoutButton } from "@/components/LogoutButton";
 import { offlineManager } from "@/services/offlineManager";
 import { obtenerUltimasVisitasUsuarios } from "@/services/visitas";
 import { Visita } from "@/types/visitas";
@@ -86,13 +80,12 @@ import {
   ADMIN_MASTER_EMAILS,
 } from "@/services/auth";
 import { sendNuevoUsuarioAprobacionEmail } from "@/services/emailNotifications";
+import { PageWrapper } from "@/components/PageWrapper";
 
 const newUserSchema = z.object({
-  fullName: z
-    .string()
-    .min(3, {
-      message: "El nombre completo es requerido (mínimo 3 caracteres).",
-    }),
+  fullName: z.string().min(3, {
+    message: "El nombre completo es requerido (mínimo 3 caracteres).",
+  }),
   email: z.string().email({ message: "Por favor, ingrese un email válido." }),
   password: z
     .string()
@@ -872,793 +865,700 @@ function UserManagementPageContent() {
 
   if (currentUser?.role === "Supervisor") {
     return (
-      <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8">
-        <Card className="shadow-xl bg-white/90 backdrop-blur-sm">
-          <CardHeader className="border-b pb-4">
-            <CardTitle className="text-2xl font-bold">
-              Acceso restringido
-            </CardTitle>
-            <CardDescription className="text-sm text-gray-500">
-              Los supervisores solo pueden gestionar rutas y monitorear
-              mercaderistas. No tienen acceso a la gestión de usuarios.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+      <PageWrapper
+        title="Acceso Restringido"
+        showBackButton={true}
+        backUrl="/admin/dashboard"
+        className="bg-gray-50"
+      >
+        <div className="container-constrained py-8">
+          <Card className="shadow-xl bg-white/90 backdrop-blur-sm">
+            <CardHeader className="border-b pb-4">
+              <CardTitle className="text-2xl font-bold">
+                Acceso restringido
+              </CardTitle>
+              <CardDescription className="text-sm text-gray-500">
+                Los supervisores solo pueden gestionar rutas y monitorear
+                mercaderistas. No tienen acceso a la gestión de usuarios.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </PageWrapper>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Top Bar */}
-      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
-        <div
-          style={{ backgroundColor: "#b61817" }}
-          className="w-full sm:w-1/3 flex items-center justify-between sm:justify-start py-3 px-6 sm:px-8"
-        >
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={() => router.back()}
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-red-700/50 p-2 rounded-md"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            {/* Desktop User Info */}
-            <div className="hidden sm:flex items-center text-white p-2 rounded-md">
-              <UserCircle className="w-10 h-10 mr-3" />
-              <div className="text-left flex-1">
-                <div className="text-xl font-semibold">
-                  {currentUser?.fullName || "Usuario"}
-                </div>
-                <div className="text-sm opacity-75">
-                  {userPermissions?.isAdminMaster
-                    ? "Admin Master"
-                    : `${currentUser?.role} - ${currentUser?.sede}`}
-                </div>
+    <PageWrapper
+      title="Gestión de Usuarios"
+      subtitle="Administra las cuentas de los usuarios y sus roles en el sistema."
+      showBackButton={true}
+      backUrl="/admin/dashboard"
+      className="bg-gray-50"
+    >
+      <div className="container-constrained py-8">
+        <Card className="shadow-xl bg-white/90 backdrop-blur-sm">
+          <CardHeader className="border-b pb-4">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-2xl font-bold flex items-center">
+                  <Users className="mr-3 h-7 w-7" />
+                  Gestión de Usuarios
+                </CardTitle>
+                <CardDescription className="text-sm text-gray-500">
+                  Administra las cuentas de los usuarios y sus roles en el
+                  sistema.
+                </CardDescription>
               </div>
-              <LogoutButton className="ml-3 bg-red-800 hover:bg-red-900 text-white border-0 px-3 py-1 text-sm" />
-            </div>
-            {/* Mobile Title */}
-            <h1 className="sm:hidden text-xl font-semibold text-white">
-              Gestión de Usuarios
-            </h1>
-          </div>
-          {/* Mobile Hamburger Button */}
-          <div className="sm:hidden">
-            <Button
-              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-red-700/50 p-2 rounded-md"
-            >
-              <Menu className="w-6 h-6" />
-            </Button>
-          </div>
-        </div>
-        <div
-          style={{ backgroundColor: "#ffee26" }}
-          className="w-full sm:w-2/3 flex items-center justify-center sm:justify-end py-3 px-6 sm:px-8"
-        >
-          <img
-            src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png"
-            alt="Disbattery Lubricantes Logo"
-            className="max-h-8"
-            data-ai-hint="company logo darktext"
-          />
-        </div>
-      </header>
-
-      {/* Collapsible Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div
-          className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <div className="flex items-center p-2 rounded-md mb-4">
-            <UserCircle className="w-10 h-10 mr-3 flex-shrink-0" />
-            <div className="text-left flex-1 overflow-hidden">
-              <div className="text-xl font-semibold truncate">
-                {currentUser?.fullName || "Usuario"}
-              </div>
-              <div className="text-sm opacity-75 truncate">
-                {userPermissions?.isAdminMaster
-                  ? "Admin Master"
-                  : `${currentUser?.role} - ${currentUser?.sede}`}
-              </div>
-            </div>
-          </div>
-          <LogoutButton className="w-full bg-red-700 hover:bg-red-800 text-white" />
-        </div>
-      )}
-
-      {/* Main Content */}
-      <main style={{ backgroundColor: "#a51717" }} className="flex-grow pt-24">
-        <div className="container mx-auto py-8 px-2 sm:px-4 md:px-6 lg:px-8">
-          <Card className="shadow-xl bg-white/90 backdrop-blur-sm">
-            <CardHeader className="border-b pb-4">
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div>
-                  <CardTitle className="text-2xl font-bold flex items-center">
-                    <Users className="mr-3 h-7 w-7" />
-                    Gestión de Usuarios
-                  </CardTitle>
-                  <CardDescription className="text-sm text-gray-500">
-                    Administra las cuentas de los usuarios y sus roles en el
-                    sistema.
-                  </CardDescription>
-                </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      className="flex items-center gap-2 w-full md:w-auto"
-                      disabled={!userPermissions?.canManageUsers}
-                    >
-                      <PlusCircle className="h-5 w-5" />
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    className="flex items-center gap-2 w-full md:w-auto"
+                    disabled={!userPermissions?.canManageUsers}
+                  >
+                    <PlusCircle className="h-5 w-5" />
+                    Crear Nuevo Usuario
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl">
                       Crear Nuevo Usuario
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle className="text-xl">
-                        Crear Nuevo Usuario
-                      </DialogTitle>
-                      <DialogDescription>
-                        Complete los campos para registrar un nuevo usuario en
-                        el sistema.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form
-                      onSubmit={handleSubmit(onSubmit)}
-                      className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2"
-                    >
-                      <div>
-                        <Label htmlFor="fullName">Nombre Completo</Label>
-                        <Input
-                          id="fullName"
-                          {...register("fullName")}
-                          placeholder="Ej: Juan Pérez"
-                          className="mt-1"
-                        />
-                        {errors.fullName && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.fullName.message}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          {...register("email")}
-                          placeholder="usuario@dominio.com"
-                          className="mt-1"
-                        />
-                        {errors.email && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.email.message}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <Label htmlFor="password">Contraseña</Label>
-                        <div className="relative">
-                          <Input
-                            id="password"
-                            type={showPassword ? "text" : "password"}
-                            {...register("password")}
-                            placeholder="Mínimo 6 caracteres"
-                            className="mt-1"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 transform mt-0.5"
-                            onClick={togglePasswordVisibility}
-                          >
-                            {showPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                        {errors.password && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.password.message}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <Label htmlFor="role">Rol</Label>
-                        <Controller
-                          name="role"
-                          control={control}
-                          render={({ field }) => (
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <SelectTrigger className="w-full mt-1">
-                                <SelectValue placeholder="Seleccionar un rol" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Mercaderista">
-                                  Mercaderista
-                                </SelectItem>
-                                <SelectItem value="Administrador">
-                                  Administrador
-                                </SelectItem>
-                                <SelectItem value="Supervisor">
-                                  Supervisor
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                        {errors.role && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.role.message}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* ✅ Campos de Región y Sede SOLO para AdminMaster */}
-                      {isCurrentUserAdminMaster ? (
-                        <>
-                          <div>
-                            <Label htmlFor="region">Región</Label>
-                            <Controller
-                              name="region"
-                              control={control}
-                              render={({ field }) => (
-                                <Select
-                                  onValueChange={(value) => {
-                                    field.onChange(value);
-                                    handleRegionChange(value as Region);
-                                  }}
-                                  defaultValue={field.value}
-                                >
-                                  <SelectTrigger className="w-full mt-1">
-                                    <SelectValue placeholder="Seleccionar región" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Centro-capital">
-                                      Centro-capital
-                                    </SelectItem>
-                                    <SelectItem value="Centro-Los llanos">
-                                      Centro-Los llanos
-                                    </SelectItem>
-                                    <SelectItem value="Occidente">
-                                      Occidente
-                                    </SelectItem>
-                                    <SelectItem value="Oriente">
-                                      Oriente
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              )}
-                            />
-                            {errors.region && (
-                              <p className="text-xs text-red-500 mt-1">
-                                {errors.region.message}
-                              </p>
-                            )}
-                          </div>
-
-                          <div>
-                            <Label htmlFor="sede">Sede</Label>
-                            <Controller
-                              name="sede"
-                              control={control}
-                              render={({ field }) => (
-                                <Select
-                                  onValueChange={(value) => {
-                                    field.onChange(value);
-                                    handleSedeChange(value as Sede);
-                                  }}
-                                  defaultValue={field.value}
-                                >
-                                  <SelectTrigger className="w-full mt-1">
-                                    <SelectValue placeholder="Seleccionar sede" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="GRUPO DISBATTERY">
-                                      GRUPO DISBATTERY
-                                    </SelectItem>
-                                    <SelectItem value="BLITZ 2000">
-                                      BLITZ 2000
-                                    </SelectItem>
-                                    <SelectItem value="GRUPO VICTORIA">
-                                      GRUPO VICTORIA
-                                    </SelectItem>
-                                    <SelectItem value="DISBATTERY">
-                                      DISBATTERY
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              )}
-                            />
-                            {errors.sede && (
-                              <p className="text-xs text-red-500 mt-1">
-                                {errors.sede.message}
-                              </p>
-                            )}
-                          </div>
-                        </>
-                      ) : (
-                        /* Información automática de sede y región para Admin regulares */
-                        <div className="col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <p className="text-sm font-medium text-blue-900">
-                              Sede y Región asignadas automáticamente
-                            </p>
-                          </div>
-                          <p className="text-xs text-blue-700 mt-1">
-                            <strong>Sede:</strong>{" "}
-                            {currentUser?.sede || "GRUPO DISBATTERY"} •
-                            <strong> Región:</strong>{" "}
-                            {getRegionBySede(
-                              currentUser?.sede || "GRUPO DISBATTERY"
-                            )}
-                          </p>
-                          <p className="text-xs text-blue-600 mt-1">
-                            El usuario heredará automáticamente la misma sede y
-                            región que tienes asignada como administrador.
-                          </p>
-                        </div>
+                    </DialogTitle>
+                    <DialogDescription>
+                      Complete los campos para registrar un nuevo usuario en el
+                      sistema.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form
+                    onSubmit={handleSubmit(onSubmit)}
+                    className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2"
+                  >
+                    <div>
+                      <Label htmlFor="fullName">Nombre Completo</Label>
+                      <Input
+                        id="fullName"
+                        {...register("fullName")}
+                        placeholder="Ej: Juan Pérez"
+                        className="mt-1"
+                      />
+                      {errors.fullName && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.fullName.message}
+                        </p>
                       )}
+                    </div>
 
-                      <div>
-                        <Label htmlFor="phone">Teléfono</Label>
+                    <div>
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        {...register("email")}
+                        placeholder="usuario@dominio.com"
+                        className="mt-1"
+                      />
+                      {errors.email && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.email.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="password">Contraseña</Label>
+                      <div className="relative">
                         <Input
-                          id="phone"
-                          {...register("phone")}
-                          placeholder="+58 412-123-4567"
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          {...register("password")}
+                          placeholder="Mínimo 6 caracteres"
                           className="mt-1"
                         />
-                        {errors.phone && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.phone.message}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <Label htmlFor="city">Ciudad</Label>
-                        <Controller
-                          name="city"
-                          control={control}
-                          render={({ field }) => (
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <SelectTrigger className="w-full mt-1">
-                                <SelectValue placeholder="Seleccionar ciudad" />
-                              </SelectTrigger>
-                              <SelectContent className="max-h-48 overflow-y-auto">
-                                {(isCurrentUserAdminMaster
-                                  ? availableCities
-                                  : getCitiesBySede(
-                                      (currentUser?.sede as Sede) ||
-                                        ("GRUPO DISBATTERY" as Sede)
-                                    )
-                                ).map((city) => (
-                                  <SelectItem key={city} value={city}>
-                                    {city}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                        {errors.city && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {errors.city.message}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex justify-end space-x-2 pt-4 border-t sticky bottom-0 bg-white">
                         <Button
                           type="button"
-                          variant="outline"
-                          onClick={() => setIsDialogOpen(false)}
-                          disabled={isSubmitting}
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 transform mt-0.5"
+                          onClick={togglePasswordVisibility}
                         >
-                          Cancelar
-                        </Button>
-                        <Button type="submit" disabled={isSubmitting}>
-                          {isSubmitting && (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
                           )}
-                          {isSubmitting ? "Creando..." : "Crear Usuario"}
                         </Button>
                       </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
+                      {errors.password && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.password.message}
+                        </p>
+                      )}
+                    </div>
 
-            <CardContent className="pt-6">
-              {/* Filtros */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div>
-                  <Label htmlFor="search">Buscar Usuario</Label>
-                  <Input
-                    id="search"
-                    placeholder="Buscar por nombre o email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="filterRole">Filtrar por Rol</Label>
-                  <Select
-                    value={filterRole}
-                    onValueChange={(value: typeof filterRole) =>
-                      setFilterRole(value)
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos los roles</SelectItem>
-                      <SelectItem value="Mercaderista">Mercaderista</SelectItem>
-                      <SelectItem value="Administrador">
-                        Administrador
-                      </SelectItem>
-                      <SelectItem value="Supervisor">Supervisor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="filterRegion">Filtrar por Región</Label>
-                  <Select
-                    value={filterRegion}
-                    onValueChange={(value: typeof filterRegion) =>
-                      setFilterRegion(value)
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todas las regiones</SelectItem>
-                      <SelectItem value="Centro-capital">
-                        Centro-capital
-                      </SelectItem>
-                      <SelectItem value="Centro-Los llanos">
-                        Centro-Los llanos
-                      </SelectItem>
-                      <SelectItem value="Occidente">Occidente</SelectItem>
-                      <SelectItem value="Oriente">Oriente</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Tabla de usuarios */}
-              {isLoadingUsers ? (
-                <div className="flex justify-center items-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                  <span className="ml-2">Cargando usuarios...</span>
-                </div>
-              ) : (
-                <div className="border rounded-lg overflow-x-auto">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-white z-10">
-                      <TableRow>
-                        <TableHead>Nombre Completo</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Teléfono</TableHead>
-                        <TableHead>Rol</TableHead>
-                        <TableHead>Status de Cuenta</TableHead>
-                        <TableHead>Región</TableHead>
-                        <TableHead>Ciudad</TableHead>
-                        <TableHead>Última Visita</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredUsers.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={9}
-                            className="text-center py-8 text-gray-500"
+                    <div>
+                      <Label htmlFor="role">Rol</Label>
+                      <Controller
+                        name="role"
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
                           >
-                            No se encontraron usuarios que coincidan con los
-                            filtros
+                            <SelectTrigger className="w-full mt-1">
+                              <SelectValue placeholder="Seleccionar un rol" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Mercaderista">
+                                Mercaderista
+                              </SelectItem>
+                              <SelectItem value="Administrador">
+                                Administrador
+                              </SelectItem>
+                              <SelectItem value="Supervisor">
+                                Supervisor
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {errors.role && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.role.message}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* ✅ Campos de Región y Sede SOLO para AdminMaster */}
+                    {isCurrentUserAdminMaster ? (
+                      <>
+                        <div>
+                          <Label htmlFor="region">Región</Label>
+                          <Controller
+                            name="region"
+                            control={control}
+                            render={({ field }) => (
+                              <Select
+                                onValueChange={(value) => {
+                                  field.onChange(value);
+                                  handleRegionChange(value as Region);
+                                }}
+                                defaultValue={field.value}
+                              >
+                                <SelectTrigger className="w-full mt-1">
+                                  <SelectValue placeholder="Seleccionar región" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Centro-capital">
+                                    Centro-capital
+                                  </SelectItem>
+                                  <SelectItem value="Centro-Los llanos">
+                                    Centro-Los llanos
+                                  </SelectItem>
+                                  <SelectItem value="Occidente">
+                                    Occidente
+                                  </SelectItem>
+                                  <SelectItem value="Oriente">
+                                    Oriente
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                          {errors.region && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors.region.message}
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <Label htmlFor="sede">Sede</Label>
+                          <Controller
+                            name="sede"
+                            control={control}
+                            render={({ field }) => (
+                              <Select
+                                onValueChange={(value) => {
+                                  field.onChange(value);
+                                  handleSedeChange(value as Sede);
+                                }}
+                                defaultValue={field.value}
+                              >
+                                <SelectTrigger className="w-full mt-1">
+                                  <SelectValue placeholder="Seleccionar sede" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="GRUPO DISBATTERY">
+                                    GRUPO DISBATTERY
+                                  </SelectItem>
+                                  <SelectItem value="BLITZ 2000">
+                                    BLITZ 2000
+                                  </SelectItem>
+                                  <SelectItem value="GRUPO VICTORIA">
+                                    GRUPO VICTORIA
+                                  </SelectItem>
+                                  <SelectItem value="DISBATTERY">
+                                    DISBATTERY
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                          {errors.sede && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {errors.sede.message}
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      /* Información automática de sede y región para Admin regulares */
+                      <div className="col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <p className="text-sm font-medium text-blue-900">
+                            Sede y Región asignadas automáticamente
+                          </p>
+                        </div>
+                        <p className="text-xs text-blue-700 mt-1">
+                          <strong>Sede:</strong>{" "}
+                          {currentUser?.sede || "GRUPO DISBATTERY"} •
+                          <strong> Región:</strong>{" "}
+                          {getRegionBySede(
+                            currentUser?.sede || "GRUPO DISBATTERY"
+                          )}
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          El usuario heredará automáticamente la misma sede y
+                          región que tienes asignada como administrador.
+                        </p>
+                      </div>
+                    )}
+
+                    <div>
+                      <Label htmlFor="phone">Teléfono</Label>
+                      <Input
+                        id="phone"
+                        {...register("phone")}
+                        placeholder="+58 412-123-4567"
+                        className="mt-1"
+                      />
+                      {errors.phone && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.phone.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="city">Ciudad</Label>
+                      <Controller
+                        name="city"
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <SelectTrigger className="w-full mt-1">
+                              <SelectValue placeholder="Seleccionar ciudad" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-48 overflow-y-auto">
+                              {(isCurrentUserAdminMaster
+                                ? availableCities
+                                : getCitiesBySede(
+                                    (currentUser?.sede as Sede) ||
+                                      ("GRUPO DISBATTERY" as Sede)
+                                  )
+                              ).map((city) => (
+                                <SelectItem key={city} value={city}>
+                                  {city}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {errors.city && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.city.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end space-x-2 pt-4 border-t sticky bottom-0 bg-white">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsDialogOpen(false)}
+                        disabled={isSubmitting}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting && (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
+                        {isSubmitting ? "Creando..." : "Crear Usuario"}
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardHeader>
+
+          <CardContent className="pt-6">
+            {/* Filtros */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div>
+                <Label htmlFor="search">Buscar Usuario</Label>
+                <Input
+                  id="search"
+                  placeholder="Buscar por nombre o email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="filterRole">Filtrar por Rol</Label>
+                <Select
+                  value={filterRole}
+                  onValueChange={(value: typeof filterRole) =>
+                    setFilterRole(value)
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los roles</SelectItem>
+                    <SelectItem value="Mercaderista">Mercaderista</SelectItem>
+                    <SelectItem value="Administrador">Administrador</SelectItem>
+                    <SelectItem value="Supervisor">Supervisor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="filterRegion">Filtrar por Región</Label>
+                <Select
+                  value={filterRegion}
+                  onValueChange={(value: typeof filterRegion) =>
+                    setFilterRegion(value)
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas las regiones</SelectItem>
+                    <SelectItem value="Centro-capital">
+                      Centro-capital
+                    </SelectItem>
+                    <SelectItem value="Centro-Los llanos">
+                      Centro-Los llanos
+                    </SelectItem>
+                    <SelectItem value="Occidente">Occidente</SelectItem>
+                    <SelectItem value="Oriente">Oriente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Tabla de usuarios */}
+            {isLoadingUsers ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <span className="ml-2">Cargando usuarios...</span>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-x-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-white z-10">
+                    <TableRow>
+                      <TableHead>Nombre Completo</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Teléfono</TableHead>
+                      <TableHead>Rol</TableHead>
+                      <TableHead>Status de Cuenta</TableHead>
+                      <TableHead>Región</TableHead>
+                      <TableHead>Ciudad</TableHead>
+                      <TableHead>Última Visita</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={9}
+                          className="text-center py-8 text-gray-500"
+                        >
+                          No se encontraron usuarios que coincidan con los
+                          filtros
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium whitespace-nowrap">
+                            {user.fullName}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {user.email}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {user.phone || "N/A"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getRoleColor(user.role)}>
+                              {user.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={getStatusColor((user as any).status)}
+                            >
+                              {getStatusText((user as any).status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {user.region || "N/A"}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {user.city || "N/A"}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <span className="text-sm text-gray-600">
+                              {formatLastVisit(
+                                ultimasVisitas[user.email]?.marcaTemporal
+                              )}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditUser(user)}
+                                disabled={
+                                  (currentUser &&
+                                    !userPermissions?.isAdminMaster &&
+                                    !canAccessSede(
+                                      currentUser,
+                                      user.sede as Sede
+                                    )) ||
+                                  isUserAdminMaster(user.email)
+                                }
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteUser(user)}
+                                className="text-red-600 hover:text-red-700"
+                                disabled={
+                                  (currentUser &&
+                                    !userPermissions?.isAdminMaster &&
+                                    !canAccessSede(
+                                      currentUser,
+                                      user.sede as Sede
+                                    )) ||
+                                  isUserAdminMaster(user.email)
+                                }
+                              >
+                                <Trash2 className="w-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
-                      ) : (
-                        filteredUsers.map((user) => (
-                          <TableRow key={user.id}>
-                            <TableCell className="font-medium whitespace-nowrap">
-                              {user.fullName}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              {user.email}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              {user.phone || "N/A"}
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={getRoleColor(user.role)}>
-                                {user.role}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                className={getStatusColor((user as any).status)}
-                              >
-                                {getStatusText((user as any).status)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              {user.region || "N/A"}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              {user.city || "N/A"}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              <span className="text-sm text-gray-600">
-                                {formatLastVisit(
-                                  ultimasVisitas[user.email]?.marcaTemporal
-                                )}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2 justify-end">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEditUser(user)}
-                                  disabled={
-                                    (currentUser &&
-                                      !userPermissions?.isAdminMaster &&
-                                      !canAccessSede(
-                                        currentUser,
-                                        user.sede as Sede
-                                      )) ||
-                                    isUserAdminMaster(user.email)
-                                  }
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDeleteUser(user)}
-                                  className="text-red-600 hover:text-red-700"
-                                  disabled={
-                                    (currentUser &&
-                                      !userPermissions?.isAdminMaster &&
-                                      !canAccessSede(
-                                        currentUser,
-                                        user.sede as Sede
-                                      )) ||
-                                    isUserAdminMaster(user.email)
-                                  }
-                                >
-                                  <Trash2 className="w-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Bottom Bar */}
-      <footer className="flex flex-col sm:flex-row h-14 flex-shrink-0">
-        <div
-          style={{ backgroundColor: "#2a2769" }}
-          className="w-full sm:w-1/5 h-full"
-        ></div>
-        <div
-          style={{ backgroundColor: "#b61817" }}
-          className="w-full sm:w-1/5 h-full"
-        ></div>
-        <div
-          style={{ backgroundColor: "#fbce04" }}
-          className="w-full sm:w-3/5 h-full flex items-end justify-end px-4 sm:px-6"
-        >
-          <img
-            src="https://storage.googleapis.com/iandai/imagenes/shelllogo.png"
-            alt="Shell Logo"
-            className="max-h-14"
-            data-ai-hint="shell pecten"
-          />
-        </div>
-      </footer>
+        {/* Dialog de edición */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Editar Usuario</DialogTitle>
+              <DialogDescription>
+                Modifica la información del usuario. Los cambios se guardarán en
+                Firestore.
+              </DialogDescription>
+            </DialogHeader>
 
-      {/* Dialog de edición */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Editar Usuario</DialogTitle>
-            <DialogDescription>
-              Modifica la información del usuario. Los cambios se guardarán en
-              Firestore.
-            </DialogDescription>
-          </DialogHeader>
+            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
+              <div>
+                <Label htmlFor="editFullName">Nombre Completo</Label>
+                <Input
+                  id="editFullName"
+                  value={editForm.fullName}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, fullName: e.target.value })
+                  }
+                />
+              </div>
 
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
-            <div>
-              <Label htmlFor="editFullName">Nombre Completo</Label>
-              <Input
-                id="editFullName"
-                value={editForm.fullName}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, fullName: e.target.value })
-                }
-              />
-            </div>
+              <div>
+                <Label htmlFor="editEmail">Email</Label>
+                <Input
+                  id="editEmail"
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, email: e.target.value })
+                  }
+                  disabled
+                  className="bg-gray-100"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  El email no se puede modificar
+                </p>
+              </div>
 
-            <div>
-              <Label htmlFor="editEmail">Email</Label>
-              <Input
-                id="editEmail"
-                type="email"
-                value={editForm.email}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, email: e.target.value })
-                }
-                disabled
-                className="bg-gray-100"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                El email no se puede modificar
-              </p>
-            </div>
+              <div>
+                <Label htmlFor="editPhone">Teléfono</Label>
+                <Input
+                  id="editPhone"
+                  value={editForm.phone}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, phone: e.target.value })
+                  }
+                />
+              </div>
 
-            <div>
-              <Label htmlFor="editPhone">Teléfono</Label>
-              <Input
-                id="editPhone"
-                value={editForm.phone}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, phone: e.target.value })
-                }
-              />
-            </div>
+              <div>
+                <Label htmlFor="editRole">Rol</Label>
+                <Select
+                  value={editForm.role}
+                  onValueChange={(
+                    value: "Mercaderista" | "Administrador" | "Supervisor"
+                  ) => setEditForm({ ...editForm, role: value })}
+                  disabled={
+                    userToEdit ? isUserAdminMaster(userToEdit.email) : false
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Mercaderista">Mercaderista</SelectItem>
+                    <SelectItem value="Administrador">Administrador</SelectItem>
+                    <SelectItem value="Supervisor">Supervisor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div>
-              <Label htmlFor="editRole">Rol</Label>
-              <Select
-                value={editForm.role}
-                onValueChange={(
-                  value: "Mercaderista" | "Administrador" | "Supervisor"
-                ) => setEditForm({ ...editForm, role: value })}
-                disabled={
-                  userToEdit ? isUserAdminMaster(userToEdit.email) : false
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Mercaderista">Mercaderista</SelectItem>
-                  <SelectItem value="Administrador">Administrador</SelectItem>
-                  <SelectItem value="Supervisor">Supervisor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <Label htmlFor="editRegion">Región</Label>
+                <Select
+                  value={editForm.region}
+                  onValueChange={(value: Region) => {
+                    const sedesDisponibles = getSedesByRegion(value);
+                    setEditForm({
+                      ...editForm,
+                      region: value,
+                      sede: sedesDisponibles[0]?.name || "GRUPO DISBATTERY",
+                      city: "",
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Centro-capital">
+                      Centro-capital
+                    </SelectItem>
+                    <SelectItem value="Centro-Los llanos">
+                      Centro-Los llanos
+                    </SelectItem>
+                    <SelectItem value="Occidente">Occidente</SelectItem>
+                    <SelectItem value="Oriente">Oriente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div>
-              <Label htmlFor="editRegion">Región</Label>
-              <Select
-                value={editForm.region}
-                onValueChange={(value: Region) => {
-                  const sedesDisponibles = getSedesByRegion(value);
-                  setEditForm({
-                    ...editForm,
-                    region: value,
-                    sede: sedesDisponibles[0]?.name || "GRUPO DISBATTERY",
-                    city: "",
-                  });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Centro-capital">Centro-capital</SelectItem>
-                  <SelectItem value="Centro-Los llanos">
-                    Centro-Los llanos
-                  </SelectItem>
-                  <SelectItem value="Occidente">Occidente</SelectItem>
-                  <SelectItem value="Oriente">Oriente</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="editSede">Sede</Label>
-              <Select
-                value={editForm.sede}
-                onValueChange={(value: Sede) =>
-                  setEditForm({ ...editForm, sede: value, city: "" })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(editForm.region
-                    ? getSedesByRegion(editForm.region as Region)
-                    : []
-                  )
-                    .filter(
-                      (sede) =>
-                        !userPermissions ||
-                        userPermissions.canAccessAllSedes ||
-                        userPermissions.allowedSedes.includes(sede.name)
+              <div>
+                <Label htmlFor="editSede">Sede</Label>
+                <Select
+                  value={editForm.sede}
+                  onValueChange={(value: Sede) =>
+                    setEditForm({ ...editForm, sede: value, city: "" })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(editForm.region
+                      ? getSedesByRegion(editForm.region as Region)
+                      : []
                     )
-                    .map((sede) => (
-                      <SelectItem key={sede.name} value={sede.name}>
-                        {sede.name}
+                      .filter(
+                        (sede) =>
+                          !userPermissions ||
+                          userPermissions.canAccessAllSedes ||
+                          userPermissions.allowedSedes.includes(sede.name)
+                      )
+                      .map((sede) => (
+                        <SelectItem key={sede.name} value={sede.name}>
+                          {sede.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="editCity">Ciudad</Label>
+                <Select
+                  value={editForm.city}
+                  onValueChange={(value: string) =>
+                    setEditForm({ ...editForm, city: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-48 overflow-y-auto">
+                    {(editForm.sede
+                      ? getCitiesBySede(editForm.sede as Sede)
+                      : []
+                    ).map((city) => (
+                      <SelectItem key={city} value={city}>
+                        {city}
                       </SelectItem>
                     ))}
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div>
-              <Label htmlFor="editCity">Ciudad</Label>
-              <Select
-                value={editForm.city}
-                onValueChange={(value: string) =>
-                  setEditForm({ ...editForm, city: value })
-                }
+            <div className="flex justify-end gap-2 pt-4 border-t sticky bottom-0 bg-white">
+              <Button
+                variant="outline"
+                onClick={() => setEditDialogOpen(false)}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-48 overflow-y-auto">
-                  {(editForm.sede
-                    ? getCitiesBySede(editForm.sede as Sede)
-                    : []
-                  ).map((city) => (
-                    <SelectItem key={city} value={city}>
-                      {city}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveEditUser}>Guardar Cambios</Button>
             </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4 border-t sticky bottom-0 bg-white">
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSaveEditUser}>Guardar Cambios</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </PageWrapper>
   );
 }
 

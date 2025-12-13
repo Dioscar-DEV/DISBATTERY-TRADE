@@ -43,6 +43,7 @@ import {
   UserPermissions,
   canAccessSede,
 } from "@/services/auth";
+import { PageWrapper } from "@/components/PageWrapper";
 
 type VisitaDoc = {
   id: string;
@@ -72,7 +73,7 @@ export default function DatosVisitasPage() {
   const [routes, setRoutes] = useState<RouteDoc[]>([]);
   const [days, setDays] = useState(30);
   const [search, setSearch] = useState("");
-  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Cargar usuario y permisos
   useEffect(() => {
@@ -622,482 +623,377 @@ export default function DatosVisitasPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Top Bar */}
-      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
-        <div
-          style={{ backgroundColor: "#b61817" }}
-          className="w-full sm:w-1/3 flex items-center justify-between sm:justify-start py-3 px-6 sm:px-8"
-        >
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={() => router.back()}
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-red-700/50 p-2 rounded-md"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            {/* Desktop User Info */}
-            <div className="hidden sm:flex items-center text-white p-2 rounded-md">
-              <UserCircle className="w-10 h-10 mr-3" />
-              <div className="text-left flex-1">
-                <div className="text-xl font-semibold">
-                  {currentUser.fullName}
-                </div>
-                <div className="text-sm opacity-75">
+    <PageWrapper
+      title="Datos de Visitas"
+      subtitle={
+        userPermissions?.isAdminMaster
+          ? `Todas las sedes — Últimos ${days} días`
+          : `Sede: ${currentUser?.sede} — Últimos ${days} días`
+      }
+      loading={loading}
+      requireAuth={false} // Handled manually
+      showHomeButton={true}
+    >
+      <div className="container-constrained p-2 sm:p-4">
+        <Card className="bg-stone-50 shadow-xl">
+          <CardHeader className="border-b border-gray-200">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-2xl font-bold text-gray-900">
+                  Datos de Visitas
+                </CardTitle>
+                <CardDescription className="text-gray-600 mt-1">
                   {userPermissions.isAdminMaster
-                    ? "Admin Master"
-                    : `${currentUser.role} - ${currentUser.sede}`}
-                </div>
+                    ? "Todas las sedes"
+                    : `Sede: ${currentUser.sede}`}{" "}
+                  — Últimos {days} días
+                </CardDescription>
               </div>
-            </div>
-            {/* Mobile Title */}
-            <h1 className="sm:hidden text-xl font-semibold text-white">
-              Datos de Visitas
-            </h1>
-          </div>
-          {/* Mobile Hamburger Button */}
-          <div className="sm:hidden">
-            <Button
-              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-red-700/50 p-2 rounded-md"
-            >
-              <Menu className="w-6 h-6" />
-            </Button>
-          </div>
-        </div>
-        <div
-          style={{ backgroundColor: "#ffee26" }}
-          className="w-full sm:w-2/3 flex items-center justify-center sm:justify-end py-3 px-6 sm:px-8"
-        >
-          <img
-            src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png"
-            alt="Disbattery Lubricantes Logo"
-            className="max-h-8"
-          />
-        </div>
-      </header>
-
-      {/* Collapsible Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div
-          className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <div className="flex items-center p-2 rounded-md mb-4">
-            <UserCircle className="w-10 h-10 mr-3 flex-shrink-0" />
-            <div className="text-left flex-1 overflow-hidden">
-              <div className="text-xl font-semibold truncate">
-                {currentUser.fullName}
-              </div>
-              <div className="text-sm opacity-75 truncate">
-                {userPermissions.isAdminMaster
-                  ? "Admin Master"
-                  : `${currentUser.role} - ${currentUser.sede}`}
-              </div>
-            </div>
-          </div>
-          {/* Podrías añadir un LogoutButton aquí si lo tienes como componente */}
-        </div>
-      )}
-
-      {/* Main */}
-      <main style={{ backgroundColor: "#a51717" }} className="flex-grow pt-24">
-        <div className="max-w-7xl mx-auto p-2 sm:p-4">
-          <Card className="bg-stone-50 shadow-xl">
-            <CardHeader className="border-b border-gray-200">
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div>
-                  <CardTitle className="text-2xl font-bold text-gray-900">
-                    Datos de Visitas
-                  </CardTitle>
-                  <CardDescription className="text-gray-600 mt-1">
-                    {userPermissions.isAdminMaster
-                      ? "Todas las sedes"
-                      : `Sede: ${currentUser.sede}`}{" "}
-                    — Últimos {days} días
-                  </CardDescription>
-                </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Buscar por RIF o nombre"
-                    className="w-full sm:w-56"
-                  />
-                  <select
-                    className="border rounded px-2 py-2 text-sm w-full sm:w-auto"
-                    value={days}
-                    onChange={(e) => setDays(parseInt(e.target.value))}
-                  >
-                    <option value={7}>7 días</option>
-                    <option value={14}>14 días</option>
-                    <option value={30}>30 días</option>
-                    <option value={60}>60 días</option>
-                  </select>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-6 space-y-6">
-              {/* KPIs */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="border-red-100">
-                  <CardContent className="p-4">
-                    <div className="text-sm text-gray-500">Visitas Hoy</div>
-                    <div className="text-3xl font-bold text-red-600">
-                      {
-                        visitasFiltradas.filter((v) => {
-                          const d = normalizeDate(v.createdAt);
-                          const hoy = new Date();
-                          return d && d.toDateString() === hoy.toDateString();
-                        }).length
-                      }
-                    </div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      Tiempo real
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-red-100">
-                  <CardContent className="p-4">
-                    <div className="text-sm text-gray-500">Visitas 7 días</div>
-                    <div className="text-3xl font-bold text-red-600">
-                      {
-                        visitasFiltradas.filter((v) => {
-                          const d = normalizeDate(v.createdAt);
-                          const hace7 = new Date();
-                          hace7.setDate(hace7.getDate() - 7);
-                          return d && d >= hace7;
-                        }).length
-                      }
-                    </div>
-                    <div className="mt-2">
-                      <Sparkline data={kpis.serie.slice(-7)} />
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-red-100">
-                  <CardContent className="p-4">
-                    <div className="text-sm text-gray-500">Visitas Mes</div>
-                    <div className="text-3xl font-bold text-red-600">
-                      {kpis.total}
-                    </div>
-                    <div className="mt-2 flex items-center gap-2 text-red-700">
-                      <Activity className="w-4 h-4" />
-                      Últimos {days} días
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-red-100">
-                  <CardContent className="p-4">
-                    <div className="text-sm text-gray-500">Clientes únicos</div>
-                    <div className="text-3xl font-bold text-red-600">
-                      {kpis.clientesUnicos}
-                    </div>
-                    <div className="mt-2 flex items-center gap-2 text-red-700">
-                      <MapPinned className="w-4 h-4" />
-                      Cobertura
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Gráficos */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <LineChart
-                  data={chartLineData}
-                  title="Visitas por día (14 días)"
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por RIF o nombre"
+                  className="w-full sm:w-56"
                 />
-                <BarChart data={chartBarData} title="Visitas por tipo" />
+                <select
+                  className="border rounded px-2 py-2 text-sm w-full sm:w-auto"
+                  value={days}
+                  onChange={(e) => setDays(parseInt(e.target.value))}
+                >
+                  <option value={7}>7 días</option>
+                  <option value={14}>14 días</option>
+                  <option value={30}>30 días</option>
+                  <option value={60}>60 días</option>
+                </select>
               </div>
+            </div>
+          </CardHeader>
 
-              {/* Rutas */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-gray-900">
-                      Rutas finalizadas
-                    </CardTitle>
-                    <CardDescription>Completadas en el período</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-72 overflow-y-auto">
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Fecha</TableHead>
-                              <TableHead>Mercaderista</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {rutasFinalizadas.length === 0 ? (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={2}
-                                  className="text-gray-500"
-                                >
-                                  Sin rutas finalizadas
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              rutasFinalizadas.slice(0, 10).map((r) => {
-                                const d = normalizeDate(r.date);
-                                return (
-                                  <TableRow key={r.id}>
-                                    <TableCell>
-                                      {d ? d.toLocaleDateString() : "—"}
-                                    </TableCell>
-                                    <TableCell className="font-mono text-sm whitespace-nowrap">
-                                      {r.mercaderistoId || "—"}
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                      {rutasFinalizadas.length > 10 && (
-                        <div className="text-xs text-gray-500 mt-2 text-center">
-                          Y {rutasFinalizadas.length - 10} más...
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+          <CardContent className="p-6 space-y-6">
+            {/* KPIs */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="border-red-100">
+                <CardContent className="p-4">
+                  <div className="text-sm text-gray-500">Visitas Hoy</div>
+                  <div className="text-3xl font-bold text-red-600">
+                    {
+                      visitasFiltradas.filter((v) => {
+                        const d = normalizeDate(v.createdAt);
+                        const hoy = new Date();
+                        return d && d.toDateString() === hoy.toDateString();
+                      }).length
+                    }
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">Tiempo real</div>
+                </CardContent>
+              </Card>
+              <Card className="border-red-100">
+                <CardContent className="p-4">
+                  <div className="text-sm text-gray-500">Visitas 7 días</div>
+                  <div className="text-3xl font-bold text-red-600">
+                    {
+                      visitasFiltradas.filter((v) => {
+                        const d = normalizeDate(v.createdAt);
+                        const hace7 = new Date();
+                        hace7.setDate(hace7.getDate() - 7);
+                        return d && d >= hace7;
+                      }).length
+                    }
+                  </div>
+                  <div className="mt-2">
+                    <Sparkline data={kpis.serie.slice(-7)} />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-red-100">
+                <CardContent className="p-4">
+                  <div className="text-sm text-gray-500">Visitas Mes</div>
+                  <div className="text-3xl font-bold text-red-600">
+                    {kpis.total}
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-red-700">
+                    <Activity className="w-4 h-4" />
+                    Últimos {days} días
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-red-100">
+                <CardContent className="p-4">
+                  <div className="text-sm text-gray-500">Clientes únicos</div>
+                  <div className="text-3xl font-bold text-red-600">
+                    {kpis.clientesUnicos}
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-red-700">
+                    <MapPinned className="w-4 h-4" />
+                    Cobertura
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-gray-900">
-                      Rutas en progreso
-                    </CardTitle>
-                    <CardDescription>Activas actualmente</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-72 overflow-y-auto">
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Fecha</TableHead>
-                              <TableHead>Mercaderista</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {rutasEnProgreso.length === 0 ? (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={2}
-                                  className="text-gray-500"
-                                >
-                                  Sin rutas en progreso
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              rutasEnProgreso.map((r) => {
-                                const d = normalizeDate(r.date);
-                                return (
-                                  <TableRow key={r.id}>
-                                    <TableCell>
-                                      {d ? d.toLocaleDateString() : "—"}
-                                    </TableCell>
-                                    <TableCell className="font-mono text-sm whitespace-nowrap">
-                                      {r.mercaderistoId || "—"}
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+            {/* Gráficos */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <LineChart
+                data={chartLineData}
+                title="Visitas por día (14 días)"
+              />
+              <BarChart data={chartBarData} title="Visitas por tipo" />
+            </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-gray-900">
-                      Rutas no finalizadas
-                    </CardTitle>
-                    <CardDescription>De días anteriores</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-72 overflow-y-auto">
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Fecha</TableHead>
-                              <TableHead>Mercaderista</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {rutasNoFinalizadas.length === 0 ? (
-                              <TableRow>
-                                <TableCell
-                                  colSpan={2}
-                                  className="text-gray-500"
-                                >
-                                  No hay rutas pendientes
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              rutasNoFinalizadas.map((r) => {
-                                const d = normalizeDate(r.date);
-                                return (
-                                  <TableRow key={r.id}>
-                                    <TableCell>
-                                      {d ? d.toLocaleDateString() : "—"}
-                                    </TableCell>
-                                    <TableCell className="font-mono text-sm whitespace-nowrap">
-                                      {r.mercaderistoId || "—"}
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Top mercaderistas y clientes */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-gray-900">
-                      Top mercaderistas
-                    </CardTitle>
-                    <CardDescription>
-                      Por número de visitas - Últimos {days} días
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
+            {/* Rutas */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-gray-900">
+                    Rutas finalizadas
+                  </CardTitle>
+                  <CardDescription>Completadas en el período</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-72 overflow-y-auto">
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead>Fecha</TableHead>
                             <TableHead>Mercaderista</TableHead>
-                            <TableHead className="text-right">
-                              Visitas
-                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {topMercaderistas.length === 0 ? (
+                          {rutasFinalizadas.length === 0 ? (
                             <TableRow>
                               <TableCell colSpan={2} className="text-gray-500">
-                                Sin datos
+                                Sin rutas finalizadas
                               </TableCell>
                             </TableRow>
                           ) : (
-                            topMercaderistas.map((m, i) => (
-                              <TableRow key={m.email}>
-                                <TableCell className="whitespace-nowrap">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 bg-red-100 text-red-800 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                      {i + 1}
-                                    </div>
-                                    <span className="font-mono text-sm">
-                                      {m.email}
-                                    </span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right font-semibold text-red-600">
-                                  {m.count}
-                                </TableCell>
-                              </TableRow>
-                            ))
+                            rutasFinalizadas.slice(0, 10).map((r) => {
+                              const d = normalizeDate(r.date);
+                              return (
+                                <TableRow key={r.id}>
+                                  <TableCell>
+                                    {d ? d.toLocaleDateString() : "—"}
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm whitespace-nowrap">
+                                    {r.mercaderistoId || "—"}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
                           )}
                         </TableBody>
                       </Table>
                     </div>
-                  </CardContent>
-                </Card>
+                    {rutasFinalizadas.length > 10 && (
+                      <div className="text-xs text-gray-500 mt-2 text-center">
+                        Y {rutasFinalizadas.length - 10} más...
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-gray-900">
-                      Top clientes por visitas
-                    </CardTitle>
-                    <CardDescription>
-                      Más visitados - Últimos {days} días
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-gray-900">
+                    Rutas en progreso
+                  </CardTitle>
+                  <CardDescription>Activas actualmente</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-72 overflow-y-auto">
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>RIF</TableHead>
-                            <TableHead>Cliente</TableHead>
-                            <TableHead className="text-right">
-                              Visitas
-                            </TableHead>
+                            <TableHead>Fecha</TableHead>
+                            <TableHead>Mercaderista</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {topClientes.length === 0 ? (
+                          {rutasEnProgreso.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={3} className="text-gray-500">
-                                Sin datos
+                              <TableCell colSpan={2} className="text-gray-500">
+                                Sin rutas en progreso
                               </TableCell>
                             </TableRow>
                           ) : (
-                            topClientes.map((c, i) => (
-                              <TableRow key={c.rif}>
-                                <TableCell className="whitespace-nowrap">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-5 h-5 bg-yellow-100 text-yellow-800 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                      {i + 1}
-                                    </div>
-                                    <span className="font-mono text-sm">
-                                      {c.rif}
-                                    </span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>{c.nombre}</TableCell>
-                                <TableCell className="text-right font-semibold text-red-600">
-                                  {c.count}
-                                </TableCell>
-                              </TableRow>
-                            ))
+                            rutasEnProgreso.map((r) => {
+                              const d = normalizeDate(r.date);
+                              return (
+                                <TableRow key={r.id}>
+                                  <TableCell>
+                                    {d ? d.toLocaleDateString() : "—"}
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm whitespace-nowrap">
+                                    {r.mercaderistoId || "—"}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
                           )}
                         </TableBody>
                       </Table>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+                  </div>
+                </CardContent>
+              </Card>
 
-      {/* Bottom Bar */}
-      <footer className="flex flex-col sm:flex-row h-14 flex-shrink-0">
-        <div
-          style={{ backgroundColor: "#2a2769" }}
-          className="w-full sm:w-1/5 h-full"
-        ></div>
-        <div
-          style={{ backgroundColor: "#b61817" }}
-          className="w-full sm:w-1/5 h-full"
-        ></div>
-        <div
-          style={{ backgroundColor: "#fbce04" }}
-          className="w-full sm:w-3/5 h-full"
-        ></div>
-      </footer>
-    </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-gray-900">
+                    Rutas no finalizadas
+                  </CardTitle>
+                  <CardDescription>De días anteriores</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-72 overflow-y-auto">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Fecha</TableHead>
+                            <TableHead>Mercaderista</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rutasNoFinalizadas.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={2} className="text-gray-500">
+                                No hay rutas pendientes
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            rutasNoFinalizadas.map((r) => {
+                              const d = normalizeDate(r.date);
+                              return (
+                                <TableRow key={r.id}>
+                                  <TableCell>
+                                    {d ? d.toLocaleDateString() : "—"}
+                                  </TableCell>
+                                  <TableCell className="font-mono text-sm whitespace-nowrap">
+                                    {r.mercaderistoId || "—"}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Top mercaderistas y clientes */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-gray-900">
+                    Top mercaderistas
+                  </CardTitle>
+                  <CardDescription>
+                    Por número de visitas - Últimos {days} días
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Mercaderista</TableHead>
+                          <TableHead className="text-right">Visitas</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {topMercaderistas.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={2} className="text-gray-500">
+                              Sin datos
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          topMercaderistas.map((m, i) => (
+                            <TableRow key={m.email}>
+                              <TableCell className="whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 bg-red-100 text-red-800 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                    {i + 1}
+                                  </div>
+                                  <span className="font-mono text-sm">
+                                    {m.email}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right font-semibold text-red-600">
+                                {m.count}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-gray-900">
+                    Top clientes por visitas
+                  </CardTitle>
+                  <CardDescription>
+                    Más visitados - Últimos {days} días
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>RIF</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead className="text-right">Visitas</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {topClientes.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-gray-500">
+                              Sin datos
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          topClientes.map((c, i) => (
+                            <TableRow key={c.rif}>
+                              <TableCell className="whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 bg-yellow-100 text-yellow-800 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                    {i + 1}
+                                  </div>
+                                  <span className="font-mono text-sm">
+                                    {c.rif}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>{c.nombre}</TableCell>
+                              <TableCell className="text-right font-semibold text-red-600">
+                                {c.count}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </PageWrapper>
   );
 }

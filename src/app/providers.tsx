@@ -1,24 +1,26 @@
-// app/providers.tsx
-'use client'
+"use client";
 
-import { useEffect } from "react"
-import { usePostHog } from 'posthog-js/react'
+import { useEffect } from "react";
+import posthog from "posthog-js";
+import { PostHogProvider as PHProvider } from "posthog-js/react";
+import { PrimeReactProvider } from "@/components/PrimeReactProvider";
 
-import posthog from 'posthog-js'
-import { PostHogProvider as PHProvider } from 'posthog-js/react'
-
-export function PostHogProvider({ children }: { children: React.ReactNode }) {
+function PostHogAuthWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     posthog.init("phc_ixe5Oph7GXU1Baxb25WgmomndWaG0BxYFaqAOcJ2EYL", {
-      api_host: 'https://us.i.posthog.com',
-      person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well
-      defaults: '2025-05-24'
-    })
-  }, [])
+      api_host: "https://us.i.posthog.com",
+      person_profiles: "identified_only", // or 'always' to create profiles for anonymous users as well
+      defaults: "2025-05-24",
+    });
+  }, []);
 
+  return <PHProvider client={posthog}>{children}</PHProvider>;
+}
+
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <PHProvider client={posthog}>
-      {children}
-    </PHProvider>
-  )
+    <PrimeReactProvider>
+      <PostHogAuthWrapper>{children}</PostHogAuthWrapper>
+    </PrimeReactProvider>
+  );
 }

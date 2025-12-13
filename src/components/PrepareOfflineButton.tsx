@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { serviceWorkerManager } from '@/services/serviceWorkerManager';
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { serviceWorkerManager } from "@/services/serviceWorkerManager";
 
 export function PrepareOfflineButton() {
   const [ready, setReady] = useState(false);
@@ -21,18 +21,18 @@ export function PrepareOfflineButton() {
       setPrecaching(true);
       await serviceWorkerManager.precacheAppShell();
       await serviceWorkerManager.precacheUrls([
-        '/',
-        '/mi-ruta',
-        '/visit-capture',
-        '/signage-capture',
-        '/shell-merchandising',
-        '/qualid-merchandising',
-        '/observaciones',
-        '/reportes-finales',
-        '/ventas-productos',
-        '/trade-eventos',
-        '/trade-impulso',
-        '/shell-material-interno',
+        "/",
+        "/mi-ruta",
+        "/visit-capture",
+        "/signage-capture",
+        "/shell-merchandising",
+        "/qualid-merchandising",
+        "/observaciones",
+        "/reportes-finales",
+        "/ventas-productos",
+        "/trade-eventos",
+        "/trade-impulso",
+        "/shell-material-interno",
       ]);
       setDone(true);
     } finally {
@@ -44,9 +44,7 @@ export function PrepareOfflineButton() {
 
   return (
     <Button size="sm" disabled={precaching} onClick={handlePrepareOffline}>
-      {precaching ? 'Preparando…' : done ? 'Listo' : 'Descargar secciones'}
+      {precaching ? "Preparando…" : done ? "Listo" : "Descargar secciones"}
     </Button>
   );
 }
-
-

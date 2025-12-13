@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,24 +11,31 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
-import { GPSCoordinates, getGPSLocation } from '@/services/gpsService';
-import { Loader2, MapPin, UserCircle } from 'lucide-react';
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { GPSCoordinates, getGPSLocation } from "@/services/gpsService";
+import { Loader2, MapPin } from "lucide-react";
+import { PageWrapper } from "@/components/PageWrapper";
 
 const LOCAL_STORAGE_KEYS = {
-  clienteData: 'clienteData',
+  clienteData: "clienteData",
 } as const;
 
 const VISIT_TYPES = {
-  EVENT: 'Trade (Eventos)',
-  IMPULSO: 'Trade (Impulso)',
-  MERCH_INTERNAL: 'Merchandising (Material Interno)',
-  MERCH_EXTERNAL: 'Merchandising (Externo)',
+  EVENT: "Trade (Eventos)",
+  IMPULSO: "Trade (Impulso)",
+  MERCH_INTERNAL: "Merchandising (Material Interno)",
+  MERCH_EXTERNAL: "Merchandising (Externo)",
 } as const;
 
 const SELECTABLE_VISIT_TYPES = [
@@ -38,13 +45,13 @@ const SELECTABLE_VISIT_TYPES = [
 ] as const;
 
 const VISIT_TYPE_ROUTES: Record<VisitType, string> = {
-  [VISIT_TYPES.EVENT]: '/trade-eventos',
-  [VISIT_TYPES.IMPULSO]: '/signage-capture',
-  [VISIT_TYPES.MERCH_INTERNAL]: '/signage-capture',
-  [VISIT_TYPES.MERCH_EXTERNAL]: '/signage-capture',
+  [VISIT_TYPES.EVENT]: "/trade-eventos",
+  [VISIT_TYPES.IMPULSO]: "/signage-capture",
+  [VISIT_TYPES.MERCH_INTERNAL]: "/signage-capture",
+  [VISIT_TYPES.MERCH_EXTERNAL]: "/signage-capture",
 };
 
-type VisitType = typeof VISIT_TYPES[keyof typeof VISIT_TYPES];
+type VisitType = (typeof VISIT_TYPES)[keyof typeof VISIT_TYPES];
 
 type ClienteData = {
   tipoVisita?: VisitType;
@@ -73,52 +80,37 @@ function VisitCaptureContent() {
   const isFormValid = showVisitTypeSelector && Boolean(selectedVisitType);
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100 relative overflow-hidden">
-      {/* Decorative SVG Background */}
-      <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none">
-        <svg viewBox="0 0 500 800" preserveAspectRatio="xMidYMid slice" className="w-full h-full">
-          <path d="M0,0 L0,700 Q150,800 500,600 V0 Z" fill="#D90429" />
-        </svg>
-      </div>
-
-      {/* Header Area */}
-      <header className="relative z-20 h-20 flex items-center justify-between px-4 sm:px-6 bg-gradient-to-r from-gray-200 to-gray-400 shadow-md">
-        <Button
-          variant="ghost"
-          className="flex items-center text-gray-700 hover:bg-gray-300/50 p-2 rounded-md text-lg font-semibold"
-        >
-          <UserCircle className="w-7 h-7 mr-2 text-black" />
-          <span className="text-black">Usuario</span>
-        </Button>
-        <img
-          src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png"
-          alt="Disbattery Lubricantes Logo"
-          className="max-h-8"
-          data-ai-hint="company logo darktext"
-        />
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-grow flex flex-col items-center justify-center p-4 z-10">
+    <PageWrapper title="Ejecución de Visita o Acción">
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4">
         <Card className="w-full max-w-md bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.1)] border border-gray-100 rounded-2xl">
           <CardHeader className="text-center pt-6 pb-4 px-6">
             <CardTitle className="text-xl font-bold text-[#0A4B8B]">
-              Ejecucion de Visita o Accion
+              Ejecución de Visita o Acción
             </CardTitle>
             <CardDescription className="mt-1 text-sm text-gray-700">
-              {pointName ? `Cliente: ${pointName}` : 'Favor ingresa los datos del cliente a ejecutar'}
+              {pointName
+                ? `Cliente: ${pointName}`
+                : "Favor ingresa los datos del cliente a ejecutar"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 p-6">
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <Input id="location" value={locationDisplay} readOnly type="text" className="pl-10 placeholder:italic" />
+              <Input
+                id="location"
+                value={locationDisplay}
+                readOnly
+                type="text"
+                className="pl-10 placeholder:italic"
+              />
             </div>
 
             {isCheckingClientVisitType || isPointLoading ? (
               <div className="text-center py-4">
                 <Loader2 className="animate-spin h-8 w-8 text-blue-500 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">Verificando configuración del cliente...</p>
+                <p className="text-sm text-gray-600">
+                  Verificando configuración del cliente...
+                </p>
               </div>
             ) : showVisitTypeSelector ? (
               <div>
@@ -126,8 +118,10 @@ function VisitCaptureContent() {
                   Tipo de visita
                 </Label>
                 <Select
-                  onValueChange={(value) => setSelectedVisitType(value as VisitType)}
-                  value={selectedVisitType ?? ''}
+                  onValueChange={(value) =>
+                    setSelectedVisitType(value as VisitType)
+                  }
+                  value={selectedVisitType ?? ""}
                 >
                   <SelectTrigger className="w-full mt-1" id="visit-type">
                     <SelectValue placeholder="Seleccionar tipo de visita" />
@@ -152,31 +146,28 @@ function VisitCaptureContent() {
           {showVisitTypeSelector && (
             <CardFooter className="px-6 pb-6">
               <Button
-                onClick={() => selectedVisitType && handleRedirection(selectedVisitType)}
+                onClick={() =>
+                  selectedVisitType && handleRedirection(selectedVisitType)
+                }
                 className={cn(
-                  'w-full text-white font-semibold py-3 rounded-full',
+                  "w-full text-white font-semibold py-3 rounded-full",
                   isFormValid && !isSubmitting
-                    ? 'bg-gradient-to-r from-[#007BFF] to-[#0056b3]'
-                    : 'bg-gray-400 cursor-not-allowed',
+                    ? "bg-gradient-to-r from-[#007BFF] to-[#0056b3]"
+                    : "bg-gray-400 cursor-not-allowed"
                 )}
                 disabled={!isFormValid || isSubmitting}
               >
-                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Siguiente'}
+                {isSubmitting ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  "Siguiente"
+                )}
               </Button>
             </CardFooter>
           )}
         </Card>
-      </main>
-
-      {/* Footer Section */}
-      <footer className="h-14 z-10 flex fixed bottom-0 w-full">
-        <div className="w-1/4 h-full bg-[#0033A0]"></div>
-        <div className="w-1/4 h-full bg-[#D90429]"></div>
-        <div className="w-1/2 h-full bg-[#FFC72C] flex items-center justify-end px-4">
-          {/* Logo de Shell removido */}
-        </div>
-      </footer>
-    </div>
+      </div>
+    </PageWrapper>
   );
 }
 
@@ -208,14 +199,19 @@ function usePointData(searchParams: ReturnType<typeof useSearchParams> | null) {
 
   useEffect(() => {
     if (!searchParams) {
-      setState({ pointId: null, pointName: null, pointType: null, isLoading: false });
+      setState({
+        pointId: null,
+        pointName: null,
+        pointType: null,
+        isLoading: false,
+      });
       return;
     }
 
     setState({
-      pointId: searchParams.get('pointId'),
-      pointName: searchParams.get('pointName'),
-      pointType: searchParams.get('pointType'),
+      pointId: searchParams.get("pointId"),
+      pointName: searchParams.get("pointName"),
+      pointType: searchParams.get("pointType"),
       isLoading: false,
     });
   }, [searchParams]);
@@ -228,12 +224,17 @@ function useVisitFlow({
   toast,
 }: {
   router: ReturnType<typeof useRouter>;
-  toast: ReturnType<typeof useToast>['toast'];
+  toast: ReturnType<typeof useToast>["toast"];
 }) {
-  const [selectedVisitType, setSelectedVisitType] = useState<VisitType | null>(null);
-  const [gpsCoordinates, setGpsCoordinates] = useState<GPSCoordinates | null>(null);
+  const [selectedVisitType, setSelectedVisitType] = useState<VisitType | null>(
+    null
+  );
+  const [gpsCoordinates, setGpsCoordinates] = useState<GPSCoordinates | null>(
+    null
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCheckingClientVisitType, setIsCheckingClientVisitType] = useState(true);
+  const [isCheckingClientVisitType, setIsCheckingClientVisitType] =
+    useState(true);
   const [showVisitTypeSelector, setShowVisitTypeSelector] = useState(false);
 
   const handleRedirection = useCallback(
@@ -247,14 +248,15 @@ function useVisitFlow({
 
         if (location) {
           toast({
-            title: 'Ubicación GPS Capturada',
+            title: "Ubicación GPS Capturada",
             description: `Lat: ${location.latitude.toFixed(4)}, Lon: ${location.longitude.toFixed(4)}`,
           });
         } else {
           toast({
-            variant: 'destructive',
-            title: 'Advertencia de Ubicación',
-            description: 'No se pudo obtener la ubicación GPS. El reporte se guardará sin esta información.',
+            variant: "destructive",
+            title: "Advertencia de Ubicación",
+            description:
+              "No se pudo obtener la ubicación GPS. El reporte se guardará sin esta información.",
           });
         }
 
@@ -270,16 +272,17 @@ function useVisitFlow({
 
         router.push(getRouteForVisitType(visitType));
       } catch (error) {
-        console.error('Error al continuar con la visita:', error);
+        console.error("Error al continuar con la visita:", error);
         toast({
-          variant: 'destructive',
-          title: 'Error Inesperado',
-          description: 'Ocurrió un error al procesar la visita. Intente de nuevo.',
+          variant: "destructive",
+          title: "Error Inesperado",
+          description:
+            "Ocurrió un error al procesar la visita. Intente de nuevo.",
         });
         setIsSubmitting(false);
       }
     },
-    [router, toast],
+    [router, toast]
   );
 
   useEffect(() => {
@@ -288,7 +291,9 @@ function useVisitFlow({
         setIsCheckingClientVisitType(true);
 
         const clienteData = loadClienteData();
-        const prefilledVisitType = clienteData?.tipoVisita as VisitType | undefined;
+        const prefilledVisitType = clienteData?.tipoVisita as
+          | VisitType
+          | undefined;
 
         if (!clienteData) {
           setShowVisitTypeSelector(true);
@@ -297,7 +302,7 @@ function useVisitFlow({
 
         if (prefilledVisitType) {
           toast({
-            title: 'Tipo de visita definido',
+            title: "Tipo de visita definido",
             description: `Procesando visita: ${prefilledVisitType}`,
           });
 
@@ -306,7 +311,7 @@ function useVisitFlow({
           setShowVisitTypeSelector(true);
         }
       } catch (error) {
-        console.error('Error verificando tipo de visita:', error);
+        console.error("Error verificando tipo de visita:", error);
         setShowVisitTypeSelector(true);
       } finally {
         setIsCheckingClientVisitType(false);
@@ -336,7 +341,7 @@ function loadClienteData(): ClienteData | null {
   try {
     return JSON.parse(raw) as ClienteData;
   } catch (error) {
-    console.error('Error parsing clienteData from localStorage:', error);
+    console.error("Error parsing clienteData from localStorage:", error);
     return null;
   }
 }
@@ -346,10 +351,11 @@ function persistClienteData(data: ClienteData) {
 }
 
 function getRouteForVisitType(visitType: VisitType) {
-  return VISIT_TYPE_ROUTES[visitType] ?? '/signage-capture';
+  return VISIT_TYPE_ROUTES[visitType] ?? "/signage-capture";
 }
 
 function formatLocationDisplay(gpsCoordinates: GPSCoordinates | null) {
-  return gpsCoordinates ? `Lat: ${gpsCoordinates.latitude.toFixed(4)}...` : 'Capturando ubicación...';
+  return gpsCoordinates
+    ? `Lat: ${gpsCoordinates.latitude.toFixed(4)}...`
+    : "Capturando ubicación...";
 }
-

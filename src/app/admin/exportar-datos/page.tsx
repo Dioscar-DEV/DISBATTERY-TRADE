@@ -29,6 +29,12 @@ import {
 import { ExportDataDialog } from "@/components/ExportDataDialog";
 import { useExportData } from "@/hooks/useExportData";
 import { ExportFilters } from "@/services/exportService";
+import { PageWrapper } from "@/components/PageWrapper";
+import {
+  getCurrentUserWithPermissions,
+  UserData,
+  UserPermissions,
+} from "@/services/auth";
 
 // Interfaces para mejorar el tipado
 interface StatCardProps {
@@ -210,6 +216,23 @@ export default function ExportarDatosPage() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [filtrosActivos, setFiltrosActivos] = useState<ExportFilters>({});
 
+  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
+  const [userPermissions, setUserPermissions] =
+    useState<UserPermissions | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const init = async () => {
+      const result = await getCurrentUserWithPermissions();
+      if (result) {
+        setCurrentUser(result.user);
+        setUserPermissions(result.permissions);
+      }
+      setLoading(false);
+    };
+    init();
+  }, []);
+
   // Cargar estadísticas al montar el componente
   useEffect(() => {
     obtenerEstadisticas();
@@ -232,162 +255,163 @@ export default function ExportarDatosPage() {
   );
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Exportar Datos</h1>
-          <p className="text-muted-foreground">
-            Exporta los datos de visitas en diferentes formatos y con filtros
-            personalizados
-          </p>
+    <PageWrapper
+      title="Exportar Datos"
+      subtitle="Exporta los datos de visitas en diferentes formatos y con filtros personalizados"
+      loading={loading}
+      requireAuth={true}
+      showHomeButton={true}
+    >
+      <div className="container-constrained p-6 space-y-6">
+        {/* Header Action - Move Export Button here if desired, or keep in content */}
+        <div className="flex justify-end mb-4">
+          <Button
+            onClick={() => setShowExportDialog(true)}
+            disabled={isExporting}
+            className="min-w-[140px]"
+          >
+            {isExporting ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                Exportando...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                Exportar Datos
+              </>
+            )}
+          </Button>
         </div>
-        <Button
-          onClick={() => setShowExportDialog(true)}
-          disabled={isExporting}
-          className="min-w-[140px]"
-        >
-          {isExporting ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-              Exportando...
-            </>
-          ) : (
-            <>
-              <Download className="h-4 w-4 mr-2" />
-              Exportar Datos
-            </>
-          )}
-        </Button>
-      </div>
 
-      {/* Progreso de exportación */}
-      {isExporting && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Exportando datos...</span>
-                <span>{progress}%</span>
+        {/* Progreso de exportación */}
+        {isExporting && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Exportando datos...</span>
+                  <span>{progress}%</span>
+                </div>
+                <Progress value={progress} className="w-full" />
               </div>
-              <Progress value={progress} className="w-full" />
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Estadísticas generales */}
-      {estadisticas && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {STATS_CONFIG.map((stat) => (
-            <StatCard
-              key={stat.key}
-              title={stat.title}
-              value={estadisticas[stat.key]}
-              description={stat.description}
-              icon={stat.icon}
-              color={stat.color}
-            />
-          ))}
-        </div>
-      )}
+        {/* Estadísticas generales */}
+        {estadisticas && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {STATS_CONFIG.map((stat) => (
+              <StatCard
+                key={stat.key}
+                title={stat.title}
+                value={estadisticas[stat.key]}
+                description={stat.description}
+                icon={stat.icon}
+                color={stat.color}
+              />
+            ))}
+          </div>
+        )}
 
-      {/* Distribución por tipo de visita */}
-      {estadisticas?.porTipoVisita && (
+        {/* Distribución por tipo de visita */}
+        {estadisticas?.porTipoVisita && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Distribución por Tipo de Visita</CardTitle>
+              <CardDescription>
+                Cantidad de visitas registradas por cada tipo
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {Object.entries(estadisticas.porTipoVisita).map(
+                  ([tipo, cantidad]) => (
+                    <div
+                      key={tipo}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full" />
+                        <span className="font-medium">{tipo}</span>
+                      </div>
+                      <Badge variant="secondary">{cantidad as number}</Badge>
+                    </div>
+                  )
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Formatos de exportación disponibles */}
         <Card>
           <CardHeader>
-            <CardTitle>Distribución por Tipo de Visita</CardTitle>
+            <CardTitle>Formatos de Exportación</CardTitle>
             <CardDescription>
-              Cantidad de visitas registradas por cada tipo
+              Selecciona el formato más adecuado para tus necesidades
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.entries(estadisticas.porTipoVisita).map(
-                ([tipo, cantidad]) => (
-                  <div
-                    key={tipo}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full" />
-                      <span className="font-medium">{tipo}</span>
-                    </div>
-                    <Badge variant="secondary">{cantidad as number}</Badge>
-                  </div>
-                )
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {EXPORT_FORMATS.map((format) => (
+                <FormatCard
+                  key={format.formato}
+                  format={format}
+                  onSelect={() => handleExportarRapido()}
+                />
+              ))}
             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Formatos de exportación disponibles */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Formatos de Exportación</CardTitle>
-          <CardDescription>
-            Selecciona el formato más adecuado para tus necesidades
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {EXPORT_FORMATS.map((format) => (
-              <FormatCard
-                key={format.formato}
-                format={format}
-                onSelect={() => handleExportarRapido()}
-              />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Exportaciones rápidas */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Exportaciones Rápidas</CardTitle>
-          <CardDescription>
-            Exporta datos con filtros predefinidos para casos comunes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {QUICK_EXPORT_OPTIONS.map((option) => (
-              <QuickExportButton
-                key={option.title}
-                config={option}
-                onExport={handleExportarRapido}
-              />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Información adicional */}
-      <Alert>
-        <AlertDescription>
-          <div className="space-y-2">
-            <span className="font-medium">
-              💡 Consejos para la exportación:
-            </span>
-            <ul className="text-sm space-y-1 ml-4">
-              {EXPORT_TIPS.map((tip) => (
-                <li key={tip.format}>
-                  • <strong>{tip.format}:</strong> {tip.description}
-                </li>
+        {/* Exportaciones rápidas */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Exportaciones Rápidas</CardTitle>
+            <CardDescription>
+              Exporta datos con filtros predefinidos para casos comunes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {QUICK_EXPORT_OPTIONS.map((option) => (
+                <QuickExportButton
+                  key={option.title}
+                  config={option}
+                  onExport={handleExportarRapido}
+                />
               ))}
-            </ul>
-          </div>
-        </AlertDescription>
-      </Alert>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Diálogo de exportación */}
-      <ExportDataDialog
-        isOpen={showExportDialog}
-        onClose={() => setShowExportDialog(false)}
-        initialFilters={filtrosActivos}
-      />
-    </div>
+        {/* Información adicional */}
+        <Alert>
+          <AlertDescription>
+            <div className="space-y-2">
+              <span className="font-medium">
+                💡 Consejos para la exportación:
+              </span>
+              <ul className="text-sm space-y-1 ml-4">
+                {EXPORT_TIPS.map((tip) => (
+                  <li key={tip.format}>
+                    • <strong>{tip.format}:</strong> {tip.description}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </AlertDescription>
+        </Alert>
+
+        {/* Diálogo de exportación */}
+        <ExportDataDialog
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          initialFilters={filtrosActivos}
+        />
+      </div>
+    </PageWrapper>
   );
 }

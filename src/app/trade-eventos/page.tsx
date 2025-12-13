@@ -792,7 +792,7 @@ export default function TradeEventosPage() {
 
   return (
     <div
-      className="flex flex-col items-center justify-center min-h-screen p-4"
+      className="flex flex-col items-center justify-center min-h-screen p-4 pt-safe"
       style={{
         backgroundImage:
           'url("https://storage.googleapis.com/iandai/imagenes/Dise%C3%B1o%20sin%20t%C3%ADtulo%20(51).png")',

@@ -1,17 +1,6 @@
-'use client'
-
-import { useEffect, useMemo, useState } from 'react';
-import { serviceWorkerManager } from '@/services/serviceWorkerManager';
-
-interface ProgressState {
-  total: number;
-  done: number;
-  percentage: number;
-  message: string;
-}
+"use client";
+import { useEffect } from "react";
 
 export default function AutoPrecacheOverlay() {
   return null;
 }
-
-

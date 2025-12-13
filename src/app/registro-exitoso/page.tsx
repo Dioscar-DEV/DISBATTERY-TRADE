@@ -1,9 +1,8 @@
+"use client";
 
-'use client';
-
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,26 +10,29 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { CheckCircle } from 'lucide-react';
-import { useOfflineSync } from '@/hooks/useOfflineSync';
-import { getAuthClient } from '@/firebase/clientApp';
-import { onAuthStateChanged, User } from 'firebase/auth';
+} from "@/components/ui/card";
+import { CheckCircle } from "lucide-react";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { getAuthClient } from "@/firebase/clientApp";
+import { onAuthStateChanged, User } from "firebase/auth";
 
 const LOCAL_STORAGE_KEYS = {
-  clienteData: 'clienteData',
-  currentUser: 'currentUser',
+  clienteData: "clienteData",
+  currentUser: "currentUser",
 } as const;
 
 const ROUTES = {
   autoRedirect: {
-    path: '/mi-ruta',
-    description: 'redirección automática después de countdown',
-    completionLog: '🔄 [REDIRECT] Redirigiendo a /mi-ruta después de countdown',
+    path: "/mi-ruta",
+    description: "redirección automática después de countdown",
+    completionLog: "🔄 [REDIRECT] Redirigiendo a /mi-ruta después de countdown",
   },
-  myRoute: { path: '/mi-ruta', description: 'botón ir a mi ruta' },
-  visitCapture: { path: '/visit-capture', description: 'botón registrar nueva visita' },
-  home: { path: '/', description: 'botón volver al inicio' },
+  myRoute: { path: "/mi-ruta", description: "botón ir a mi ruta" },
+  visitCapture: {
+    path: "/visit-capture",
+    description: "botón registrar nueva visita",
+  },
+  home: { path: "/", description: "botón volver al inicio" },
 } as const;
 
 const COUNTDOWN_SECONDS = 5;
@@ -52,12 +54,14 @@ interface CountdownOptions {
   completionLogMessage: string;
 }
 
+import { PageWrapper } from "@/components/PageWrapper";
+
 export default function RegistroExitosoPage() {
   const router = useRouter();
 
   useOfflineSync();
   useClienteDataLogger();
-  useAuthStateTracker();
+  // useAuthStateTracker(); // PageWrapper handles auth now
 
   const safeNavigate = useSafeNavigate(router);
   const handleAutoRedirect = useCallback(() => {
@@ -75,7 +79,9 @@ export default function RegistroExitosoPage() {
   }, [safeNavigate]);
 
   const handleRegistrarVisitaTrade = useCallback(() => {
-    console.log('🔄 [REDIRECT] Navegando a /mi-ruta desde botón (sin autocompletado automático)');
+    console.log(
+      "🔄 [REDIRECT] Navegando a /mi-ruta desde botón (sin autocompletado automático)"
+    );
     safeNavigate(ROUTES.myRoute.path, ROUTES.myRoute.description);
   }, [safeNavigate]);
 
@@ -84,19 +90,23 @@ export default function RegistroExitosoPage() {
   }, [safeNavigate]);
 
   return (
-    <div className="relative flex flex-col min-h-screen bg-white overflow-hidden">
+    <PageWrapper
+      showBackButton={false}
+      showHomeButton={false}
+      className="bg-white overflow-hidden relative" // PageWrapper has min-h-screen
+    >
       {/* Background color blocks */}
       <div
         className="absolute top-0 left-0 h-[60vh] w-[55vw] sm:h-[70vh] sm:w-[50vw] bg-[#002D72] -z-0" // Disbattery Blue
-        style={{ clipPath: 'polygon(0 0, 100% 0, 0 100%)' }}
+        style={{ clipPath: "polygon(0 0, 100% 0, 0 100%)" }}
       />
       <div
         className="absolute bottom-0 right-0 h-[75vh] w-[70vw] sm:h-[80vh] sm:w-[65vw] bg-[#D50000] -z-0" // Disbattery Red
-        style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }}
+        style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
       />
       <div
         className="absolute bottom-0 right-0 h-[60vh] w-[55vw] sm:h-[65vh] sm:w-[50vw] bg-[#FFC72C] -z-0" // Disbattery Yellow
-        style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }}
+        style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
       />
 
       {/* Header */}
@@ -110,7 +120,7 @@ export default function RegistroExitosoPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className="relative z-10 flex-grow flex flex-col items-center justify-center p-4">
+      <div className="relative z-10 flex-grow flex flex-col items-center justify-center p-4 min-h-[calc(100vh-5rem)]">
         <Card className="w-full max-w-md py-4 shadow-xl text-center bg-white/95 backdrop-blur-sm rounded-lg">
           <CardHeader className="flex flex-col items-center p-6 pb-3">
             <img
@@ -133,7 +143,7 @@ export default function RegistroExitosoPage() {
               <div className="flex items-center">
                 <div className="ml-3">
                   <p className="text-sm text-blue-800 font-medium">
-                    🔄 Regresando a tu ruta automáticamente en {countdown}{' '}
+                    🔄 Regresando a tu ruta automáticamente en {countdown}{" "}
                     {formatSecondsLabel(countdown)}...
                   </p>
                   <p className="text-xs text-blue-600 mt-1">
@@ -175,25 +185,35 @@ export default function RegistroExitosoPage() {
             </div>
           </CardFooter>
         </Card>
-      </main>
-    </div>
+      </div>
+    </PageWrapper>
   );
 }
 
 function useClienteDataLogger() {
   useEffect(() => {
-    console.log('🎉 ========= PÁGINA DE REGISTRO EXITOSO CARGADA =========');
+    console.log("🎉 ========= PÁGINA DE REGISTRO EXITOSO CARGADA =========");
 
-    const clienteDataString = localStorage.getItem(LOCAL_STORAGE_KEYS.clienteData);
-    const currentUserString = localStorage.getItem(LOCAL_STORAGE_KEYS.currentUser);
+    const clienteDataString = localStorage.getItem(
+      LOCAL_STORAGE_KEYS.clienteData
+    );
+    const currentUserString = localStorage.getItem(
+      LOCAL_STORAGE_KEYS.currentUser
+    );
 
-    console.log('📊 [REGISTRO-EXITOSO] ClienteData en localStorage:', clienteDataString);
-    console.log('👤 [REGISTRO-EXITOSO] CurrentUser en localStorage:', currentUserString);
+    console.log(
+      "📊 [REGISTRO-EXITOSO] ClienteData en localStorage:",
+      clienteDataString
+    );
+    console.log(
+      "👤 [REGISTRO-EXITOSO] CurrentUser en localStorage:",
+      currentUserString
+    );
 
     if (clienteDataString) {
       try {
         const clienteData: ClienteData = JSON.parse(clienteDataString);
-        console.log('📋 [REGISTRO-EXITOSO] Datos del cliente procesado:', {
+        console.log("📋 [REGISTRO-EXITOSO] Datos del cliente procesado:", {
           pointId: clienteData.pointId,
           rif: clienteData.rif,
           nombre: clienteData.nombre,
@@ -203,18 +223,26 @@ function useClienteDataLogger() {
         });
 
         if (!clienteData.pointId) {
-          console.error('❌ [PROBLEMA DETECTADO] El pointId está vacío en el clienteData:', clienteData.pointId);
+          console.error(
+            "❌ [PROBLEMA DETECTADO] El pointId está vacío en el clienteData:",
+            clienteData.pointId
+          );
         } else {
-          console.log('✅ [ÉXITO] PointId correcto encontrado:', clienteData.pointId);
+          console.log(
+            "✅ [ÉXITO] PointId correcto encontrado:",
+            clienteData.pointId
+          );
         }
       } catch (error) {
-        console.error('❌ [ERROR] No se pudo parsear clienteData:', error);
+        console.error("❌ [ERROR] No se pudo parsear clienteData:", error);
       }
     } else {
-      console.warn('⚠️ [ADVERTENCIA] No se encontró clienteData en localStorage');
+      console.warn(
+        "⚠️ [ADVERTENCIA] No se encontró clienteData en localStorage"
+      );
     }
 
-    console.log('🎉 ========= INICIANDO COUNTDOWN DE REDIRECCIÓN =========');
+    console.log("🎉 ========= INICIANDO COUNTDOWN DE REDIRECCIÓN =========");
   }, []);
 }
 
@@ -235,7 +263,11 @@ function useAuthStateTracker() {
   }, []);
 }
 
-function useCountdown({ initialValue, onComplete, completionLogMessage }: CountdownOptions) {
+function useCountdown({
+  initialValue,
+  onComplete,
+  completionLogMessage,
+}: CountdownOptions) {
   const [secondsRemaining, setSecondsRemaining] = useState(initialValue);
 
   useEffect(() => {
@@ -249,14 +281,16 @@ function useCountdown({ initialValue, onComplete, completionLogMessage }: Countd
         }
 
         const nextValue = prev - 1;
-        console.log(`⏱️ [COUNTDOWN] ${nextValue} segundos restantes para redirección`);
+        console.log(
+          `⏱️ [COUNTDOWN] ${nextValue} segundos restantes para redirección`
+        );
         return nextValue;
       });
     }, 1000);
 
     return () => {
       clearInterval(timer);
-      console.log('🧹 [CLEANUP] Timer de countdown limpiado');
+      console.log("🧹 [CLEANUP] Timer de countdown limpiado");
     };
   }, [completionLogMessage, onComplete]);
 
@@ -265,20 +299,27 @@ function useCountdown({ initialValue, onComplete, completionLogMessage }: Countd
 
 function useSafeNavigate(router: ReturnType<typeof useRouter>): SafeNavigate {
   return useCallback<SafeNavigate>(
-    (path, description = '') => {
+    (path, description = "") => {
       try {
-        console.log(`🔄 [NAVIGATION] Navegando a ${path}${description ? ` - ${description}` : ''}...`);
+        console.log(
+          `🔄 [NAVIGATION] Navegando a ${path}${description ? ` - ${description}` : ""}...`
+        );
         router.push(path);
       } catch (error) {
-        console.error(`❌ [NAVIGATION ERROR] Error navegando a ${path}:`, error);
-        console.log(`🔄 [NAVIGATION FALLBACK] Usando window.location.href para ${path}`);
+        console.error(
+          `❌ [NAVIGATION ERROR] Error navegando a ${path}:`,
+          error
+        );
+        console.log(
+          `🔄 [NAVIGATION FALLBACK] Usando window.location.href para ${path}`
+        );
         window.location.href = path;
       }
     },
-    [router],
+    [router]
   );
 }
 
 function formatSecondsLabel(seconds: number) {
-  return seconds === 1 ? 'segundo' : 'segundos';
+  return seconds === 1 ? "segundo" : "segundos";
 }

@@ -1,19 +1,20 @@
 "use client";
 
-import { useNotificationStatus } from '@/hooks/use-notifications';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Bell, BellOff, Settings, CheckCircle, XCircle } from 'lucide-react';
+import { useNotificationStatus } from "@/hooks/use-notifications";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Bell, BellOff, Settings, CheckCircle, XCircle } from "lucide-react";
 
 /**
  * Componente que muestra el estado actual de las notificaciones
  */
 export const NotificationStatus = () => {
-  const { hasPermission, isSupported, canReceiveNotifications } = useNotificationStatus();
+  const { hasPermission, isSupported, canReceiveNotifications } =
+    useNotificationStatus();
 
   const handleOpenSettings = () => {
     // Abrir página de pruebas de notificaciones
-    window.open('/test-notifications', '_blank');
+    window.open("/test-notifications", "_blank");
   };
 
   const getStatusBadge = () => {

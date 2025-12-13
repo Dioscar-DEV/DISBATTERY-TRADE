@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Wifi, WifiOff } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Wifi, WifiOff } from "lucide-react";
 
 export function OfflineIndicator() {
   const [isOnline, setIsOnline] = useState(true);
@@ -17,10 +17,10 @@ export function OfflineIndicator() {
       }
 
       try {
-        const response = await fetch('/favicon.ico', {
-          method: 'HEAD',
-          cache: 'no-cache',
-          mode: 'no-cors'
+        const response = await fetch("/favicon.ico", {
+          method: "HEAD",
+          cache: "no-cache",
+          mode: "no-cors",
         });
         setIsOnline(true);
       } catch {
@@ -31,11 +31,11 @@ export function OfflineIndicator() {
     // Función para verificar datos pendientes
     const checkPendingData = async () => {
       try {
-        const { offlineManager } = await import('@/services/offlineManager');
+        const { offlineManager } = await import("@/services/offlineManager");
         const stats = await offlineManager.getSyncStats();
         setPendingData(stats.pending);
       } catch (error) {
-        console.warn('Error checking pending data:', error);
+        console.warn("Error checking pending data:", error);
       }
     };
 
@@ -61,8 +61,8 @@ export function OfflineIndicator() {
       }, 5000);
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     // Verificar conectividad cada 30 segundos
     const interval = setInterval(() => {
@@ -71,8 +71,8 @@ export function OfflineIndicator() {
     }, 30000);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
       clearInterval(interval);
     };
   }, []);
@@ -86,12 +86,18 @@ export function OfflineIndicator() {
     <>
       {/* Indicador fijo en la esquina */}
       <div className="fixed bottom-4 right-4 z-40">
-        <div className={`text-white px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm ${
-          !isOnline ? 'bg-orange-500' : 'bg-blue-500'
-        }`}>
-          {!isOnline ? <WifiOff className="h-4 w-4" /> : <Wifi className="h-4 w-4" />}
+        <div
+          className={`text-white px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm ${
+            !isOnline ? "bg-amber-500" : "bg-primary"
+          }`}
+        >
+          {!isOnline ? (
+            <WifiOff className="h-4 w-4" />
+          ) : (
+            <Wifi className="h-4 w-4" />
+          )}
           <span>
-            {!isOnline ? 'Modo Offline' : `${pendingData} pendientes`}
+            {!isOnline ? "Modo Offline" : `${pendingData} pendientes`}
           </span>
         </div>
       </div>
@@ -107,7 +113,8 @@ export function OfflineIndicator() {
                   Sin conexión a internet
                 </h4>
                 <p className="text-xs text-orange-600 mt-1">
-                  La app sigue funcionando offline. Los datos se sincronizarán cuando se restaure la conexión.
+                  La app sigue funcionando offline. Los datos se sincronizarán
+                  cuando se restaure la conexión.
                 </p>
               </div>
             </div>
@@ -116,4 +123,4 @@ export function OfflineIndicator() {
       )}
     </>
   );
-} 
+}

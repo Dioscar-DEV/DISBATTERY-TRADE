@@ -74,6 +74,7 @@ import {
 import { PrepareOfflineButton } from "@/components/PrepareOfflineButton";
 import OfflineStatusManager from "@/components/OfflineStatusManager";
 import { LogoutButton } from "@/components/LogoutButton";
+import { PageWrapper } from "@/components/PageWrapper";
 
 // Icons
 import {
@@ -2029,7 +2030,12 @@ export default function MyRoutePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <PageWrapper
+      title="Mi Ruta"
+      showBackButton={false}
+      showHomeButton={true}
+      className="p-4"
+    >
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header con información del mercaderista */}
         <Card className="shadow-xl border-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
@@ -3385,6 +3391,6 @@ export default function MyRoutePage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageWrapper>
   );
 }

@@ -81,6 +81,7 @@ import { MapSelector } from "@/components/ui/map-selector";
 import { Combobox, ComboboxOption } from "@/components/ui/combobox";
 import { obtenerVisitas } from "@/services/visitas";
 import { GoogleMaps } from "@/components/ui/google-maps";
+import { PageWrapper } from "@/components/PageWrapper";
 import {
   getCurrentUserWithPermissions,
   UserData,
@@ -228,7 +229,7 @@ export default function GestionClientesPage() {
   const [filterRegion, setFilterRegion] = useState<Region | "all">("all");
   const [filterSede, setFilterSede] = useState<Sede | "all">("all");
   const [filterSignal, setFilterSignal] = useState<"all" | "si" | "no">("all");
-  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // const [isMobileMenuOpen, setMobileMenuOpen] = useState(false); // Removed
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -2183,601 +2184,320 @@ export default function GestionClientesPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Top Bar */}
-      <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
-        <div
-          style={{ backgroundColor: "#b61817" }}
-          className="w-full sm:w-1/3 flex items-center justify-between sm:justify-start py-3 px-6 sm:px-8"
-        >
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={() => router.back()}
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-red-700/50 p-2 rounded-md"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            {/* Desktop User Info */}
-            <div className="hidden sm:flex items-center text-white p-2 rounded-md">
-              <UserCircle className="w-10 h-10 mr-3" />
-              <div className="text-left flex-1">
-                <div className="text-xl font-semibold">
-                  {currentUser?.fullName || "Usuario"}
-                </div>
-                <div className="text-sm opacity-75">
-                  {userPermissions?.isAdminMaster
-                    ? "Admin Master"
-                    : `${currentUser?.role} - ${currentUser?.sede}`}
-                </div>
+    <PageWrapper
+      title="Gestión de Clientes"
+      subtitle="Administra los puntos de venta y clientes autorizados"
+      requireAuth={false}
+      loading={authLoading}
+      error={authError}
+      showHomeButton={true}
+    >
+      <div className="container-constrained p-4 space-y-6">
+        <Card className="bg-stone-50 shadow-xl">
+          <CardHeader className="border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <CardTitle className="text-2xl font-bold text-gray-900">
+                  Gestión de Clientes
+                </CardTitle>
+                <CardDescription>
+                  Administra los puntos de venta y clientes autorizados
+                </CardDescription>
               </div>
-              <LogoutButton className="ml-3 bg-red-800 hover:bg-red-900 text-white border-0 px-3 py-1 text-sm" />
-            </div>
-            {/* Mobile Title */}
-            <h1 className="sm:hidden text-xl font-semibold text-white">
-              Gestión de Clientes
-            </h1>
-          </div>
-          {/* Mobile Hamburger Button */}
-          <div className="sm:hidden">
-            <Button
-              onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-red-700/50 p-2 rounded-md"
-            >
-              <Menu className="w-6 h-6" />
-            </Button>
-          </div>
-        </div>
-        <div
-          style={{ backgroundColor: "#ffee26" }}
-          className="w-full sm:w-2/3 flex items-center justify-center sm:justify-end py-3 px-6 sm:px-8"
-        >
-          <img
-            src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png"
-            alt="Disbattery Lubricantes Logo"
-            className="max-h-8"
-            data-ai-hint="company logo darktext"
-          />
-        </div>
-      </header>
-
-      {/* Collapsible Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div
-          className="sm:hidden fixed top-16 left-0 w-full bg-red-800/95 backdrop-blur-sm z-40 p-4 text-white animate-in slide-in-from-top-4 duration-300"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <div className="flex items-center p-2 rounded-md mb-4">
-            <UserCircle className="w-10 h-10 mr-3 flex-shrink-0" />
-            <div className="text-left flex-1 overflow-hidden">
-              <div className="text-xl font-semibold truncate">
-                {currentUser?.fullName || "Usuario"}
-              </div>
-              <div className="text-sm opacity-75 truncate">
-                {userPermissions?.isAdminMaster
-                  ? "Admin Master"
-                  : `${currentUser?.role} - ${currentUser?.sede}`}
-              </div>
-            </div>
-          </div>
-          <LogoutButton className="w-full bg-red-700 hover:bg-red-800 text-white" />
-        </div>
-      )}
-
-      {/* Main Content - Scrollable */}
-      <main style={{ backgroundColor: "#a51717" }} className="flex-grow pt-24">
-        <div className="max-w-7xl mx-auto p-4">
-          <Card className="bg-stone-50 shadow-xl">
-            <CardHeader className="border-b border-gray-200">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <CardTitle className="text-2xl font-bold text-gray-900">
-                    Gestión de Clientes
-                  </CardTitle>
-                  <CardDescription>
-                    Administra los puntos de venta y clientes autorizados
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={async () => {
-                      setLoading(true);
-                      try {
-                        console.log(
-                          "🔄 Forzando actualización de información de señalización..."
-                        );
-                        await loadClientes(); // Esto recargará todos los clientes con señalización
-                        toast({
-                          title: "🔄 Actualización completada",
-                          description:
-                            "Se actualizó la información de señalización de todos los clientes",
-                        });
-                      } catch (error) {
-                        console.error(
-                          "Error actualizando señalización:",
-                          error
-                        );
-                        toast({
-                          variant: "destructive",
-                          title: "Error",
-                          description:
-                            "No se pudo actualizar la información de señalización",
-                        });
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                    variant="outline"
-                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                  >
-                    🔄 Actualizar Señalización
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      setBulkUpload((prev) => ({ ...prev, isOpen: true }))
+              <div className="flex gap-2">
+                <Button
+                  onClick={async () => {
+                    setLoading(true);
+                    try {
+                      console.log(
+                        "🔄 Forzando actualización de información de señalización..."
+                      );
+                      await loadClientes(); // Esto recargará todos los clientes con señalización
+                      toast({
+                        title: "🔄 Actualización completada",
+                        description:
+                          "Se actualizó la información de señalización de todos los clientes",
+                      });
+                    } catch (error) {
+                      console.error("Error actualizando señalización:", error);
+                      toast({
+                        variant: "destructive",
+                        title: "Error",
+                        description:
+                          "No se pudo actualizar la información de señalización",
+                      });
+                    } finally {
+                      setLoading(false);
                     }
-                    variant="outline"
-                    className="text-green-600 border-green-600 hover:bg-green-50"
-                    disabled={!userPermissions?.canManageClients}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Carga Masiva
-                  </Button>
-                  <Button
-                    onClick={handleNewCliente}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                    disabled={!userPermissions?.canManageClients}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Nuevo Cliente
-                  </Button>
-                </div>
+                  }}
+                  variant="outline"
+                  className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                >
+                  🔄 Actualizar Señalización
+                </Button>
+                <Button
+                  onClick={() =>
+                    setBulkUpload((prev) => ({ ...prev, isOpen: true }))
+                  }
+                  variant="outline"
+                  className="text-green-600 border-green-600 hover:bg-green-50"
+                  disabled={!userPermissions?.canManageClients}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Carga Masiva
+                </Button>
+                <Button
+                  onClick={handleNewCliente}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  disabled={!userPermissions?.canManageClients}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nuevo Cliente
+                </Button>
               </div>
-            </CardHeader>
+            </div>
+          </CardHeader>
 
-            <CardContent className="p-6 max-h-none overflow-visible">
-              <Tabs defaultValue="tabla" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="tabla">Tabla de Clientes</TabsTrigger>
-                  <TabsTrigger value="mapa">Vista de Mapa</TabsTrigger>
-                </TabsList>
+          <CardContent className="p-6 max-h-none overflow-visible">
+            <Tabs defaultValue="tabla" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="tabla">Tabla de Clientes</TabsTrigger>
+                <TabsTrigger value="mapa">Vista de Mapa</TabsTrigger>
+              </TabsList>
 
-                <TabsContent value="tabla" className="space-y-4">
-                  {/* Filtros */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-                    <div>
-                      <Label htmlFor="search">Buscar</Label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                          id="search"
-                          placeholder="Buscar por RIF o nombre..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="ciudad">Ciudad</Label>
-                      <Select
-                        value={filterCity}
-                        onValueChange={(value: string) => setFilterCity(value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="todas">
-                            Todas las ciudades
-                          </SelectItem>
-                          {/* Derivar lista única de ciudades desde clientes cargados */}
-                          {[
-                            ...new Set(
-                              clientes.map((c) => c.ciudad).filter(Boolean)
-                            ),
-                          ]
-                            .sort((a, b) => a.localeCompare(b))
-                            .map((ci) => (
-                              <SelectItem key={ci} value={ci}>
-                                {ci}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="tipo">Tipo</Label>
-                      <Select
-                        value={filterTipo}
-                        onValueChange={(
-                          value:
-                            | "todos"
-                            | "tienda"
-                            | "distribuidor"
-                            | "cliente_especial"
-                        ) => setFilterTipo(value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="todos">Todos los tipos</SelectItem>
-                          <SelectItem value="tienda">Tienda</SelectItem>
-                          <SelectItem value="distribuidor">
-                            Distribuidor
-                          </SelectItem>
-                          <SelectItem value="cliente_especial">
-                            Cliente Especial
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="sin-visita">Sin visita desde</Label>
-                      <Select
-                        value={filterSinVisita}
-                        onValueChange={(
-                          value: "todos" | "7" | "15" | "30" | "60" | "90"
-                        ) => setFilterSinVisita(value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="todos">
-                            Todos los clientes
-                          </SelectItem>
-                          <SelectItem value="7">7+ días sin visita</SelectItem>
-                          <SelectItem value="15">
-                            15+ días sin visita
-                          </SelectItem>
-                          <SelectItem value="30">
-                            30+ días sin visita
-                          </SelectItem>
-                          <SelectItem value="60">
-                            60+ días sin visita
-                          </SelectItem>
-                          <SelectItem value="90">
-                            90+ días sin visita
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="señalizacion">Señalización</Label>
-                      <Select
-                        value={filterSeñalizacion}
-                        onValueChange={(
-                          value:
-                            | "todos"
-                            | "con_señalizacion"
-                            | "sin_señalizacion"
-                            | "sin_informacion"
-                        ) => setFilterSeñalizacion(value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="todos">
-                            Todos los clientes
-                          </SelectItem>
-                          <SelectItem value="con_señalizacion">
-                            Con señalización
-                          </SelectItem>
-                          <SelectItem value="sin_señalizacion">
-                            Sin señalización
-                          </SelectItem>
-                          <SelectItem value="sin_informacion">
-                            Sin información
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+              <TabsContent value="tabla" className="space-y-4">
+                {/* Filtros */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                  <div>
+                    <Label htmlFor="search">Buscar</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="search"
+                        placeholder="Buscar por RIF o nombre..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
                     </div>
                   </div>
 
-                  {/* Tabla - Contenedeor con scroll más grande */}
-                  <div className="border rounded-lg max-h-[600px] overflow-y-auto overflow-x-auto">
-                    {/* Desktop Table View */}
-                    <div className="mobile-table">
-                      <Table className="responsive-table">
-                        <TableHeader className="sticky top-0 bg-white z-10">
+                  <div>
+                    <Label htmlFor="ciudad">Ciudad</Label>
+                    <Select
+                      value={filterCity}
+                      onValueChange={(value: string) => setFilterCity(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todas">
+                          Todas las ciudades
+                        </SelectItem>
+                        {/* Derivar lista única de ciudades desde clientes cargados */}
+                        {[
+                          ...new Set(
+                            clientes.map((c) => c.ciudad).filter(Boolean)
+                          ),
+                        ]
+                          .sort((a, b) => a.localeCompare(b))
+                          .map((ci) => (
+                            <SelectItem key={ci} value={ci}>
+                              {ci}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="tipo">Tipo</Label>
+                    <Select
+                      value={filterTipo}
+                      onValueChange={(
+                        value:
+                          | "todos"
+                          | "tienda"
+                          | "distribuidor"
+                          | "cliente_especial"
+                      ) => setFilterTipo(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos los tipos</SelectItem>
+                        <SelectItem value="tienda">Tienda</SelectItem>
+                        <SelectItem value="distribuidor">
+                          Distribuidor
+                        </SelectItem>
+                        <SelectItem value="cliente_especial">
+                          Cliente Especial
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="sin-visita">Sin visita desde</Label>
+                    <Select
+                      value={filterSinVisita}
+                      onValueChange={(
+                        value: "todos" | "7" | "15" | "30" | "60" | "90"
+                      ) => setFilterSinVisita(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">
+                          Todos los clientes
+                        </SelectItem>
+                        <SelectItem value="7">7+ días sin visita</SelectItem>
+                        <SelectItem value="15">15+ días sin visita</SelectItem>
+                        <SelectItem value="30">30+ días sin visita</SelectItem>
+                        <SelectItem value="60">60+ días sin visita</SelectItem>
+                        <SelectItem value="90">90+ días sin visita</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="señalizacion">Señalización</Label>
+                    <Select
+                      value={filterSeñalizacion}
+                      onValueChange={(
+                        value:
+                          | "todos"
+                          | "con_señalizacion"
+                          | "sin_señalizacion"
+                          | "sin_informacion"
+                      ) => setFilterSeñalizacion(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">
+                          Todos los clientes
+                        </SelectItem>
+                        <SelectItem value="con_señalizacion">
+                          Con señalización
+                        </SelectItem>
+                        <SelectItem value="sin_señalizacion">
+                          Sin señalización
+                        </SelectItem>
+                        <SelectItem value="sin_informacion">
+                          Sin información
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Tabla - Contenedeor con scroll más grande */}
+                <div className="border rounded-lg max-h-[600px] overflow-y-auto overflow-x-auto">
+                  {/* Desktop Table View */}
+                  <div className="mobile-table">
+                    <Table className="responsive-table">
+                      <TableHeader className="sticky top-0 bg-white z-10">
+                        <TableRow>
+                          <TableHead>RIF</TableHead>
+                          <TableHead>Nombre</TableHead>
+                          <TableHead>Dirección</TableHead>
+                          <TableHead>Ciudad</TableHead>
+                          <TableHead>Región</TableHead>
+                          <TableHead>Sede</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Estado</TableHead>
+                          <TableHead>Señalización</TableHead>
+                          <TableHead>Última Merchandising</TableHead>
+                          <TableHead>Última Trade-Impulso</TableHead>
+                          <TableHead>Acciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {loading ? (
                           <TableRow>
-                            <TableHead>RIF</TableHead>
-                            <TableHead>Nombre</TableHead>
-                            <TableHead>Dirección</TableHead>
-                            <TableHead>Ciudad</TableHead>
-                            <TableHead>Región</TableHead>
-                            <TableHead>Sede</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Estado</TableHead>
-                            <TableHead>Señalización</TableHead>
-                            <TableHead>Última Merchandising</TableHead>
-                            <TableHead>Última Trade-Impulso</TableHead>
-                            <TableHead>Acciones</TableHead>
+                            <TableCell
+                              colSpan={12}
+                              className="text-center py-8"
+                            >
+                              Cargando clientes...
+                            </TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {loading ? (
-                            <TableRow>
-                              <TableCell
-                                colSpan={12}
-                                className="text-center py-8"
-                              >
-                                Cargando clientes...
+                        ) : filteredClientes.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={12}
+                              className="text-center py-8 text-gray-500"
+                            >
+                              No se encontraron clientes
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredClientes.map((cliente) => (
+                            <TableRow key={cliente.id}>
+                              <TableCell className="font-mono text-sm">
+                                {cliente.rif || "N/A"}
                               </TableCell>
-                            </TableRow>
-                          ) : filteredClientes.length === 0 ? (
-                            <TableRow>
-                              <TableCell
-                                colSpan={12}
-                                className="text-center py-8 text-gray-500"
-                              >
-                                No se encontraron clientes
+                              <TableCell className="font-medium">
+                                <Button
+                                  variant="ghost"
+                                  className="p-0 h-auto font-medium text-left hover:text-blue-600 hover:bg-transparent"
+                                  onClick={() =>
+                                    handleConfigureVisitType(cliente)
+                                  }
+                                  disabled={
+                                    currentUser
+                                      ? !canAccessSede(
+                                          currentUser,
+                                          cliente.sede
+                                        )
+                                      : false
+                                  }
+                                >
+                                  {cliente.nombre}
+                                </Button>
                               </TableCell>
-                            </TableRow>
-                          ) : (
-                            filteredClientes.map((cliente) => (
-                              <TableRow key={cliente.id}>
-                                <TableCell className="font-mono text-sm">
-                                  {cliente.rif || "N/A"}
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  <Button
-                                    variant="ghost"
-                                    className="p-0 h-auto font-medium text-left hover:text-blue-600 hover:bg-transparent"
-                                    onClick={() =>
-                                      handleConfigureVisitType(cliente)
-                                    }
-                                    disabled={
-                                      currentUser
-                                        ? !canAccessSede(
-                                            currentUser,
-                                            cliente.sede
-                                          )
-                                        : false
-                                    }
-                                  >
-                                    {cliente.nombre}
-                                  </Button>
-                                </TableCell>
-                                <TableCell
-                                  className="text-truncate max-w-[200px]"
-                                  title={cliente.direccion}
-                                >
-                                  {cliente.direccion}
-                                </TableCell>
-                                <TableCell
-                                  className="text-truncate max-w-[120px]"
-                                  title={cliente.ciudad}
-                                >
-                                  {cliente.ciudad}
-                                </TableCell>
-                                <TableCell
-                                  className="text-truncate max-w-[120px]"
-                                  title={cliente.region}
-                                >
-                                  {cliente.region}
-                                </TableCell>
-                                <TableCell
-                                  className="text-truncate max-w-[120px]"
-                                  title={cliente.sede}
-                                >
-                                  {cliente.sede}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge className={getTipoColor(cliente.tipo)}>
-                                    {cliente.tipo}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    className={getEstadoColor(cliente.estado)}
-                                  >
-                                    {cliente.estado}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  {cliente.tieneSeñalizacion &&
-                                  cliente.signagePhoto &&
-                                  cliente.signagePhoto !== "No capturada" &&
-                                  cliente.signagePhoto.startsWith("http") ? (
-                                    <div className="flex items-center gap-2">
-                                      <Badge
-                                        className={getSeñalizacionColor(
-                                          cliente.tieneSeñalizacion ?? null
-                                        )}
-                                      >
-                                        {getSeñalizacionText(
-                                          cliente.tieneSeñalizacion ?? null
-                                        )}
-                                      </Badge>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleViewSignagePhoto(cliente)
-                                        }
-                                        className="h-6 px-2 text-xs"
-                                        title="Ver foto de señalización"
-                                      >
-                                        📷
-                                      </Button>
-                                    </div>
-                                  ) : (
-                                    <Badge
-                                      className={getSeñalizacionColor(
-                                        cliente.tieneSeñalizacion ?? null
-                                      )}
-                                    >
-                                      {getSeñalizacionText(
-                                        cliente.tieneSeñalizacion ?? null
-                                      )}
-                                    </Badge>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <span
-                                    className={`text-sm ${getColorVisitaEspecifica(cliente.ultimaVisitaMerchandising || null)}`}
-                                  >
-                                    {formatearFechaVisita(
-                                      cliente.ultimaVisitaMerchandising || null
-                                    )}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <span
-                                    className={`text-sm ${getColorVisitaEspecifica(cliente.ultimaVisitaTradeImpulso || null)}`}
-                                  >
-                                    {formatearFechaVisita(
-                                      cliente.ultimaVisitaTradeImpulso || null
-                                    )}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleEditCliente(cliente)}
-                                      disabled={
-                                        currentUser
-                                          ? !canAccessSede(
-                                              currentUser,
-                                              cliente.sede
-                                            )
-                                          : false
-                                      }
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleDelete(cliente.id)}
-                                      className="text-red-600 hover:text-red-700"
-                                      disabled={
-                                        currentUser
-                                          ? !canAccessSede(
-                                              currentUser,
-                                              cliente.sede
-                                            )
-                                          : false
-                                      }
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-
-                    {/* Mobile Card View */}
-                    <div className="mobile-card">
-                      {loading ? (
-                        <div className="text-center py-8">
-                          Cargando clientes...
-                        </div>
-                      ) : filteredClientes.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          No se encontraron clientes
-                        </div>
-                      ) : (
-                        filteredClientes.map((cliente) => (
-                          <div key={cliente.id} className="mobile-card-item">
-                            <div className="mobile-card-header">
-                              <Button
-                                variant="ghost"
-                                className="p-0 h-auto font-medium text-left hover:text-blue-600 hover:bg-transparent"
-                                onClick={() =>
-                                  handleConfigureVisitType(cliente)
-                                }
-                                disabled={
-                                  currentUser
-                                    ? !canAccessSede(currentUser, cliente.sede)
-                                    : false
-                                }
+                              <TableCell
+                                className="text-truncate max-w-[200px]"
+                                title={cliente.direccion}
                               >
-                                {cliente.nombre}
-                              </Button>
-                            </div>
-
-                            <div className="space-y-2">
-                              <div className="mobile-card-field">
-                                <span className="mobile-card-label">RIF:</span>
-                                <span className="mobile-card-value font-mono text-sm">
-                                  {cliente.rif || "N/A"}
-                                </span>
-                              </div>
-
-                              <div className="mobile-card-field">
-                                <span className="mobile-card-label">
-                                  Dirección:
-                                </span>
-                                <span
-                                  className="mobile-card-value text-truncate text-sm max-w-[200px]"
-                                  title={cliente.direccion}
-                                >
-                                  {cliente.direccion}
-                                </span>
-                              </div>
-
-                              <div className="mobile-card-field">
-                                <span className="mobile-card-label">
-                                  Ciudad:
-                                </span>
-                                <span className="mobile-card-value text-sm">
-                                  {cliente.ciudad}
-                                </span>
-                              </div>
-
-                              <div className="mobile-card-field">
-                                <span className="mobile-card-label">
-                                  Región/Sede:
-                                </span>
-                                <span className="mobile-card-value text-sm">
-                                  {cliente.region} / {cliente.sede}
-                                </span>
-                              </div>
-
-                              <div className="mobile-card-field">
-                                <span className="mobile-card-label">Tipo:</span>
-                                <Badge
-                                  className={getTipoColor(cliente.tipo)}
-                                  variant="secondary"
-                                >
+                                {cliente.direccion}
+                              </TableCell>
+                              <TableCell
+                                className="text-truncate max-w-[120px]"
+                                title={cliente.ciudad}
+                              >
+                                {cliente.ciudad}
+                              </TableCell>
+                              <TableCell
+                                className="text-truncate max-w-[120px]"
+                                title={cliente.region}
+                              >
+                                {cliente.region}
+                              </TableCell>
+                              <TableCell
+                                className="text-truncate max-w-[120px]"
+                                title={cliente.sede}
+                              >
+                                {cliente.sede}
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={getTipoColor(cliente.tipo)}>
                                   {cliente.tipo}
                                 </Badge>
-                              </div>
-
-                              <div className="mobile-card-field">
-                                <span className="mobile-card-label">
-                                  Estado:
-                                </span>
+                              </TableCell>
+                              <TableCell>
                                 <Badge
                                   className={getEstadoColor(cliente.estado)}
-                                  variant="secondary"
                                 >
                                   {cliente.estado}
                                 </Badge>
-                              </div>
-
-                              <div className="mobile-card-field">
-                                <span className="mobile-card-label">
-                                  Señalización:
-                                </span>
+                              </TableCell>
+                              <TableCell>
                                 {cliente.tieneSeñalizacion &&
                                 cliente.signagePhoto &&
                                 cliente.signagePhoto !== "No capturada" &&
@@ -2787,7 +2507,6 @@ export default function GestionClientesPage() {
                                       className={getSeñalizacionColor(
                                         cliente.tieneSeñalizacion ?? null
                                       )}
-                                      variant="secondary"
                                     >
                                       {getSeñalizacionText(
                                         cliente.tieneSeñalizacion ?? null
@@ -2810,181 +2529,366 @@ export default function GestionClientesPage() {
                                     className={getSeñalizacionColor(
                                       cliente.tieneSeñalizacion ?? null
                                     )}
-                                    variant="secondary"
                                   >
                                     {getSeñalizacionText(
                                       cliente.tieneSeñalizacion ?? null
                                     )}
                                   </Badge>
                                 )}
-                              </div>
-
-                              <div className="mobile-card-field">
-                                <span className="mobile-card-label">
-                                  Última Merchandising:
-                                </span>
+                              </TableCell>
+                              <TableCell>
                                 <span
-                                  className={`text-sm font-medium ${getColorVisitaEspecifica(cliente.ultimaVisitaMerchandising || null)}`}
+                                  className={`text-sm ${getColorVisitaEspecifica(cliente.ultimaVisitaMerchandising || null)}`}
                                 >
                                   {formatearFechaVisita(
                                     cliente.ultimaVisitaMerchandising || null
                                   )}
                                 </span>
-                              </div>
-
-                              <div className="mobile-card-field">
-                                <span className="mobile-card-label">
-                                  Última Trade-Impulso:
-                                </span>
+                              </TableCell>
+                              <TableCell>
                                 <span
-                                  className={`text-sm font-medium ${getColorVisitaEspecifica(cliente.ultimaVisitaTradeImpulso || null)}`}
+                                  className={`text-sm ${getColorVisitaEspecifica(cliente.ultimaVisitaTradeImpulso || null)}`}
                                 >
                                   {formatearFechaVisita(
                                     cliente.ultimaVisitaTradeImpulso || null
                                   )}
                                 </span>
-                              </div>
-                            </div>
-
-                            <div className="mobile-card-actions">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEditCliente(cliente)}
-                                disabled={
-                                  currentUser
-                                    ? !canAccessSede(currentUser, cliente.sede)
-                                    : false
-                                }
-                              >
-                                <Edit className="w-4 h-4 mr-1" />
-                                Editar
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDelete(cliente.id)}
-                                className="text-red-600 hover:text-red-700"
-                                disabled={
-                                  currentUser
-                                    ? !canAccessSede(currentUser, cliente.sede)
-                                    : false
-                                }
-                              >
-                                <Trash2 className="w-4 h-4 mr-1" />
-                                Eliminar
-                              </Button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Botón para cargar más clientes */}
-                  {hasMoreClients && (
-                    <div className="flex justify-center mt-4">
-                      <Button
-                        onClick={handleLoadMore}
-                        disabled={loadingMore}
-                        variant="outline"
-                        className="w-full max-w-xs"
-                      >
-                        {loadingMore ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                            Cargando más clientes...
-                          </>
-                        ) : (
-                          `Cargar más clientes (${filteredClientes.length} mostrados)`
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditCliente(cliente)}
+                                    disabled={
+                                      currentUser
+                                        ? !canAccessSede(
+                                            currentUser,
+                                            cliente.sede
+                                          )
+                                        : false
+                                    }
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDelete(cliente.id)}
+                                    className="text-red-600 hover:text-red-700"
+                                    disabled={
+                                      currentUser
+                                        ? !canAccessSede(
+                                            currentUser,
+                                            cliente.sede
+                                          )
+                                        : false
+                                    }
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
                         )}
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Información de paginación */}
-                  <div className="text-center text-sm text-gray-500 mt-2">
-                    {filteredClientes.length > 0 && (
-                      <span>
-                        Mostrando {filteredClientes.length} cliente
-                        {filteredClientes.length !== 1 ? "s" : ""}
-                        {!hasMoreClients && " (todos cargados)"}
-                      </span>
-                    )}
+                      </TableBody>
+                    </Table>
                   </div>
-                </TabsContent>
 
-                <TabsContent value="mapa" className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        <span>Vista de Mapa</span>
-                        <Button
-                          onClick={loadClientesWithGPS}
-                          variant="outline"
-                          size="sm"
-                          className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                        >
-                          📍 Cargar Coordenadas GPS
-                        </Button>
-                      </CardTitle>
-                      <CardDescription>
-                        Visualiza la concentración de clientes con un mapa de
-                        calor
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <GoogleMaps
-                        center={calculateMapCenter()}
-                        zoom={filteredClientes.length > 0 ? 10 : 7}
-                        height="600px"
-                        heatmapData={prepareHeatmapData()}
-                        showHeatmap={true}
-                      />
-                      <div className="mt-4 text-sm text-gray-600">
-                        <div className="flex items-center justify-between">
-                          <span>
-                            Total de clientes mostrados:{" "}
-                            {filteredClientes.length}
-                          </span>
-                          <span>
-                            Clientes con ubicación:{" "}
-                            {
-                              filteredClientes.filter(
-                                (c) => c.position?.lat && c.position?.lng
-                              ).length
-                            }
-                          </span>
-                        </div>
-                        <div className="mt-2 text-xs">
-                          <span className="font-medium">
-                            Interpretación del mapa de calor:
-                          </span>
-                          <div className="flex items-center gap-4 mt-1">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-4 h-4 rounded"
-                                style={{
-                                  background:
-                                    "linear-gradient(90deg, #00ffff 0%, #0000ff 50%, #ff0000 100%)",
-                                }}
-                              ></div>
-                              <span>
-                                Azul (menos concentración) → Rojo (mayor
-                                concentración)
+                  {/* Mobile Card View */}
+                  <div className="mobile-card">
+                    {loading ? (
+                      <div className="text-center py-8">
+                        Cargando clientes...
+                      </div>
+                    ) : filteredClientes.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        No se encontraron clientes
+                      </div>
+                    ) : (
+                      filteredClientes.map((cliente) => (
+                        <div key={cliente.id} className="mobile-card-item">
+                          <div className="mobile-card-header">
+                            <Button
+                              variant="ghost"
+                              className="p-0 h-auto font-medium text-left hover:text-blue-600 hover:bg-transparent"
+                              onClick={() => handleConfigureVisitType(cliente)}
+                              disabled={
+                                currentUser
+                                  ? !canAccessSede(currentUser, cliente.sede)
+                                  : false
+                              }
+                            >
+                              {cliente.nombre}
+                            </Button>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="mobile-card-field">
+                              <span className="mobile-card-label">RIF:</span>
+                              <span className="mobile-card-value font-mono text-sm">
+                                {cliente.rif || "N/A"}
+                              </span>
+                            </div>
+
+                            <div className="mobile-card-field">
+                              <span className="mobile-card-label">
+                                Dirección:
+                              </span>
+                              <span
+                                className="mobile-card-value text-truncate text-sm max-w-[200px]"
+                                title={cliente.direccion}
+                              >
+                                {cliente.direccion}
+                              </span>
+                            </div>
+
+                            <div className="mobile-card-field">
+                              <span className="mobile-card-label">Ciudad:</span>
+                              <span className="mobile-card-value text-sm">
+                                {cliente.ciudad}
+                              </span>
+                            </div>
+
+                            <div className="mobile-card-field">
+                              <span className="mobile-card-label">
+                                Región/Sede:
+                              </span>
+                              <span className="mobile-card-value text-sm">
+                                {cliente.region} / {cliente.sede}
+                              </span>
+                            </div>
+
+                            <div className="mobile-card-field">
+                              <span className="mobile-card-label">Tipo:</span>
+                              <Badge
+                                className={getTipoColor(cliente.tipo)}
+                                variant="secondary"
+                              >
+                                {cliente.tipo}
+                              </Badge>
+                            </div>
+
+                            <div className="mobile-card-field">
+                              <span className="mobile-card-label">Estado:</span>
+                              <Badge
+                                className={getEstadoColor(cliente.estado)}
+                                variant="secondary"
+                              >
+                                {cliente.estado}
+                              </Badge>
+                            </div>
+
+                            <div className="mobile-card-field">
+                              <span className="mobile-card-label">
+                                Señalización:
+                              </span>
+                              {cliente.tieneSeñalizacion &&
+                              cliente.signagePhoto &&
+                              cliente.signagePhoto !== "No capturada" &&
+                              cliente.signagePhoto.startsWith("http") ? (
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    className={getSeñalizacionColor(
+                                      cliente.tieneSeñalizacion ?? null
+                                    )}
+                                    variant="secondary"
+                                  >
+                                    {getSeñalizacionText(
+                                      cliente.tieneSeñalizacion ?? null
+                                    )}
+                                  </Badge>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleViewSignagePhoto(cliente)
+                                    }
+                                    className="h-6 px-2 text-xs"
+                                    title="Ver foto de señalización"
+                                  >
+                                    📷
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Badge
+                                  className={getSeñalizacionColor(
+                                    cliente.tieneSeñalizacion ?? null
+                                  )}
+                                  variant="secondary"
+                                >
+                                  {getSeñalizacionText(
+                                    cliente.tieneSeñalizacion ?? null
+                                  )}
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="mobile-card-field">
+                              <span className="mobile-card-label">
+                                Última Merchandising:
+                              </span>
+                              <span
+                                className={`text-sm font-medium ${getColorVisitaEspecifica(cliente.ultimaVisitaMerchandising || null)}`}
+                              >
+                                {formatearFechaVisita(
+                                  cliente.ultimaVisitaMerchandising || null
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="mobile-card-field">
+                              <span className="mobile-card-label">
+                                Última Trade-Impulso:
+                              </span>
+                              <span
+                                className={`text-sm font-medium ${getColorVisitaEspecifica(cliente.ultimaVisitaTradeImpulso || null)}`}
+                              >
+                                {formatearFechaVisita(
+                                  cliente.ultimaVisitaTradeImpulso || null
+                                )}
                               </span>
                             </div>
                           </div>
+
+                          <div className="mobile-card-actions">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditCliente(cliente)}
+                              disabled={
+                                currentUser
+                                  ? !canAccessSede(currentUser, cliente.sede)
+                                  : false
+                              }
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(cliente.id)}
+                              className="text-red-600 hover:text-red-700"
+                              disabled={
+                                currentUser
+                                  ? !canAccessSede(currentUser, cliente.sede)
+                                  : false
+                              }
+                            >
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Eliminar
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Botón para cargar más clientes */}
+                {hasMoreClients && (
+                  <div className="flex justify-center mt-4">
+                    <Button
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
+                      variant="outline"
+                      className="w-full max-w-xs"
+                    >
+                      {loadingMore ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                          Cargando más clientes...
+                        </>
+                      ) : (
+                        `Cargar más clientes (${filteredClientes.length} mostrados)`
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Información de paginación */}
+                <div className="text-center text-sm text-gray-500 mt-2">
+                  {filteredClientes.length > 0 && (
+                    <span>
+                      Mostrando {filteredClientes.length} cliente
+                      {filteredClientes.length !== 1 ? "s" : ""}
+                      {!hasMoreClients && " (todos cargados)"}
+                    </span>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="mapa" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>Vista de Mapa</span>
+                      <Button
+                        onClick={loadClientesWithGPS}
+                        variant="outline"
+                        size="sm"
+                        className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                      >
+                        📍 Cargar Coordenadas GPS
+                      </Button>
+                    </CardTitle>
+                    <CardDescription>
+                      Visualiza la concentración de clientes con un mapa de
+                      calor
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <GoogleMaps
+                      center={calculateMapCenter()}
+                      zoom={filteredClientes.length > 0 ? 10 : 7}
+                      height="600px"
+                      heatmapData={prepareHeatmapData()}
+                      showHeatmap={true}
+                    />
+                    <div className="mt-4 text-sm text-gray-600">
+                      <div className="flex items-center justify-between">
+                        <span>
+                          Total de clientes mostrados: {filteredClientes.length}
+                        </span>
+                        <span>
+                          Clientes con ubicación:{" "}
+                          {
+                            filteredClientes.filter(
+                              (c) => c.position?.lat && c.position?.lng
+                            ).length
+                          }
+                        </span>
+                      </div>
+                      <div className="mt-2 text-xs">
+                        <span className="font-medium">
+                          Interpretación del mapa de calor:
+                        </span>
+                        <div className="flex items-center gap-4 mt-1">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-4 h-4 rounded"
+                              style={{
+                                background:
+                                  "linear-gradient(90deg, #00ffff 0%, #0000ff 50%, #ff0000 100%)",
+                              }}
+                            ></div>
+                            <span>
+                              Azul (menos concentración) → Rojo (mayor
+                              concentración)
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Bottom Bar */}
       <footer className="flex flex-col sm:flex-row h-14 flex-shrink-0">
@@ -3824,6 +3728,6 @@ export default function GestionClientesPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageWrapper>
   );
 }

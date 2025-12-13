@@ -29,6 +29,7 @@ import { LogoutButton } from "@/components/LogoutButton";
 import OfflineStatusManager from "@/components/OfflineStatusManager";
 import { PageWrapper } from "@/components/PageWrapper";
 import { usePageState } from "@/hooks/usePageState";
+import { cn } from "@/lib/utils"; // Ensure cn is available or use string interpolation
 
 // Constants
 const COLORS = {
@@ -91,18 +92,6 @@ const getAvailableFeatures = (permissions: UserPermissions | null) => {
   );
 };
 
-// Inner Components
-const LoadingSpinner: React.FC = () => (
-  <div className="flex flex-col min-h-screen">
-    <div className="flex-grow flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Cargando panel de administración...</p>
-      </div>
-    </div>
-  </div>
-);
-
 interface HeaderProps {
   currentUser: UserData | null;
   userPermissions: UserPermissions | null;
@@ -120,7 +109,7 @@ const Header: React.FC<HeaderProps> = ({
   onToggleMobileMenu,
   isMobileMenuOpen,
 }) => (
-  <header className="flex flex-col sm:flex-row h-16 flex-shrink-0 fixed top-0 w-full z-50">
+  <header className="flex flex-col sm:flex-row min-h-16 flex-shrink-0 fixed top-0 w-full z-50 pt-safe">
     <div
       style={{ backgroundColor: COLORS.primary }}
       className="w-full sm:w-1/3 flex items-center justify-between sm:justify-start py-3 px-6 sm:px-8"
@@ -373,7 +362,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const loadUserData = async () => {
-      const result = await executeAsync(async () => {
+      await executeAsync(async () => {
         const authResult = await getCurrentUserWithPermissions();
         if (authResult) {
           setCurrentUser(authResult.user);
@@ -390,60 +379,67 @@ export default function AdminDashboard() {
   const availableFeatures = getAvailableFeatures(userPermissions);
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header
-        currentUser={currentUser}
-        userPermissions={userPermissions}
-        loading={loading}
-        onBack={() => router.back()}
-        onToggleMobileMenu={() => setMobileMenuOpen(!isMobileMenuOpen)}
-        isMobileMenuOpen={isMobileMenuOpen}
-      />
+    <PageWrapper
+      requireAuth={true}
+      title={null as any} // Hide default header
+      showBackButton={false}
+      className={""} // Custom background applied in main
+    >
+      <div className="flex flex-col min-h-screen">
+        <Header
+          currentUser={currentUser}
+          userPermissions={userPermissions}
+          loading={loading}
+          onBack={() => router.back()}
+          onToggleMobileMenu={() => setMobileMenuOpen(!isMobileMenuOpen)}
+          isMobileMenuOpen={isMobileMenuOpen}
+        />
 
-      <MobileMenu
-        currentUser={currentUser}
-        userPermissions={userPermissions}
-        loading={loading}
-        isOpen={isMobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)}
-      />
+        <MobileMenu
+          currentUser={currentUser}
+          userPermissions={userPermissions}
+          loading={loading}
+          isOpen={isMobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+        />
 
-      <main
-        style={{ backgroundColor: COLORS.background }}
-        className="flex-grow pt-24"
-      >
-        <div className="max-w-6xl mx-auto p-4">
-          <Card className="bg-stone-50 shadow-xl">
-            <CardHeader className="border-b border-gray-200">
-              <CardTitle className="text-3xl font-bold text-gray-900">
-                Panel de Administración
-              </CardTitle>
-              <CardDescription className="text-gray-600">
-                {userPermissions?.isAdminMaster
-                  ? "Acceso completo a todas las funcionalidades del sistema"
-                  : `Gestión de ${currentUser?.sede} - Permisos de ${currentUser?.role}`}
-              </CardDescription>
-            </CardHeader>
+        <main
+          style={{ backgroundColor: COLORS.background }}
+          className="flex-grow pt-[calc(6rem+env(safe-area-inset-top))]"
+        >
+          <div className="container-constrained p-4 pb-16">
+            <Card className="bg-stone-50 shadow-xl">
+              <CardHeader className="border-b border-gray-200">
+                <CardTitle className="text-3xl font-bold text-gray-900">
+                  Panel de Administración
+                </CardTitle>
+                <CardDescription className="text-gray-600">
+                  {userPermissions?.isAdminMaster
+                    ? "Acceso completo a todas las funcionalidades del sistema"
+                    : `Gestión de ${currentUser?.sede} - Permisos de ${currentUser?.role}`}
+                </CardDescription>
+              </CardHeader>
 
-            <CardContent className="p-6">
-              <FeatureGrid
-                features={availableFeatures}
-                currentUser={currentUser}
-                userPermissions={userPermissions}
-              />
+              <CardContent className="p-6">
+                <FeatureGrid
+                  features={availableFeatures}
+                  currentUser={currentUser}
+                  userPermissions={userPermissions}
+                />
 
-              {/* Panel de gestión offline para administradores */}
-              <div className="mt-8">
-                <OfflineStatusManager />
-              </div>
+                {/* Panel de gestión offline para administradores */}
+                <div className="mt-8">
+                  <OfflineStatusManager />
+                </div>
 
-              {userPermissions?.isAdminMaster && <AdminMasterInfo />}
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+                {userPermissions?.isAdminMaster && <AdminMasterInfo />}
+              </CardContent>
+            </Card>
+          </div>
+        </main>
 
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </PageWrapper>
   );
 }

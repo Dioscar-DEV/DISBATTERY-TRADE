@@ -2,436 +2,551 @@
 
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "primereact/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CalendarIcon, Download, FileText, FileSpreadsheet, FileJson, FileImage } from "lucide-react";
+import {
+  CalendarIcon,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  FileJson,
+  FileImage,
+} from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { exportService, ExportFilters, ExportOptions, ExportResult } from "@/services/exportService";
+import {
+  exportService,
+  ExportFilters,
+  ExportOptions,
+  ExportResult,
+} from "@/services/exportService";
 import { useToast } from "@/hooks/use-toast";
 
 interface ExportDataDialogProps {
-    isOpen: boolean;
-    onClose: () => void;
-    initialFilters?: Partial<ExportFilters>;
+  isOpen: boolean;
+  onClose: () => void;
+  initialFilters?: Partial<ExportFilters>;
 }
 
-export function ExportDataDialog({ isOpen, onClose, initialFilters = {} }: ExportDataDialogProps) {
-    const { toast } = useToast();
+export function ExportDataDialog({
+  isOpen,
+  onClose,
+  initialFilters = {},
+}: ExportDataDialogProps) {
+  const { toast } = useToast();
 
-    // Estados para filtros
-    const [filtros, setFiltros] = useState<ExportFilters>({
-        fechaDesde: initialFilters.fechaDesde,
-        fechaHasta: initialFilters.fechaHasta,
-        mercaderista: initialFilters.mercaderista || "",
-        correoMercaderista: initialFilters.correoMercaderista || "",
-        tipoVisita: initialFilters.tipoVisita,
-        rifCliente: initialFilters.rifCliente || "",
-        sucursal: initialFilters.sucursal || "",
-        sincronizadoN8N: initialFilters.sincronizadoN8N,
-    });
+  // Estados para filtros
+  const [filtros, setFiltros] = useState<ExportFilters>({
+    fechaDesde: initialFilters.fechaDesde,
+    fechaHasta: initialFilters.fechaHasta,
+    mercaderista: initialFilters.mercaderista || "",
+    correoMercaderista: initialFilters.correoMercaderista || "",
+    tipoVisita: initialFilters.tipoVisita,
+    rifCliente: initialFilters.rifCliente || "",
+    sucursal: initialFilters.sucursal || "",
+    sincronizadoN8N: initialFilters.sincronizadoN8N,
+  });
 
-    // Estados para opciones de exportación
-    const [opciones, setOpciones] = useState<ExportOptions>({
-        formato: "csv",
-        incluirFotos: false,
-        comprimirFotos: false,
-        incluirCoordenadas: true,
-        incluirObservaciones: true,
-        separarPorTipo: false,
-        limiteRegistros: undefined,
-    });
+  // Estados para opciones de exportación
+  const [opciones, setOpciones] = useState<ExportOptions>({
+    formato: "csv",
+    incluirFotos: false,
+    comprimirFotos: false,
+    incluirCoordenadas: true,
+    incluirObservaciones: true,
+    separarPorTipo: false,
+    limiteRegistros: undefined,
+  });
 
-    // Estados de UI
-    const [isExporting, setIsExporting] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [estadisticas, setEstadisticas] = useState<any>(null);
-    const [showCalendar, setShowCalendar] = useState<"desde" | "hasta" | null>(null);
+  // Estados de UI
+  const [isExporting, setIsExporting] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [estadisticas, setEstadisticas] = useState<any>(null);
+  const [showCalendar, setShowCalendar] = useState<"desde" | "hasta" | null>(
+    null
+  );
 
-    // Cargar estadísticas al abrir el diálogo
-    useEffect(() => {
-        if (isOpen) {
-            cargarEstadisticas();
+  // Cargar estadísticas al abrir el diálogo
+  useEffect(() => {
+    if (isOpen) {
+      cargarEstadisticas();
+    }
+  }, [isOpen]);
+
+  const cargarEstadisticas = async () => {
+    try {
+      const stats = await exportService.obtenerEstadisticasExportacion(filtros);
+      setEstadisticas(stats);
+    } catch (error) {
+      console.error("Error cargando estadísticas:", error);
+    }
+  };
+
+  const handleFiltroChange = (key: keyof ExportFilters, value: any) => {
+    setFiltros((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleOpcionChange = (key: keyof ExportOptions, value: any) => {
+    setOpciones((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleExportar = async () => {
+    setIsExporting(true);
+    setProgress(0);
+
+    try {
+      // Simular progreso
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => Math.min(prev + 10, 90));
+      }, 200);
+
+      const resultado = await exportService.exportarVisitas(filtros, opciones);
+
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      if (resultado.success) {
+        // Descargar archivo
+        if (resultado.data && resultado.filename) {
+          let mimeType = "text/csv";
+          if (opciones.formato === "json") mimeType = "application/json";
+          if (opciones.formato === "excel")
+            mimeType =
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+          if (opciones.formato === "pdf") mimeType = "application/pdf";
+
+          exportService.descargarArchivo(
+            resultado.data,
+            resultado.filename,
+            mimeType
+          );
+
+          toast({
+            title: "✅ Exportación exitosa",
+            description: `Se exportaron ${resultado.processedRecords} registros en formato ${opciones.formato.toUpperCase()}`,
+          });
         }
-    }, [isOpen]);
 
-    const cargarEstadisticas = async () => {
-        try {
-            const stats = await exportService.obtenerEstadisticasExportacion(filtros);
-            setEstadisticas(stats);
-        } catch (error) {
-            console.error("Error cargando estadísticas:", error);
-        }
-    };
+        onClose();
+      } else {
+        toast({
+          title: "❌ Error en exportación",
+          description: resultado.error || "Error desconocido",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error en exportación:", error);
+      toast({
+        title: "❌ Error en exportación",
+        description: "Error inesperado durante la exportación",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+      setProgress(0);
+    }
+  };
 
-    const handleFiltroChange = (key: keyof ExportFilters, value: any) => {
-        setFiltros(prev => ({ ...prev, [key]: value }));
-    };
+  const formatosDisponibles = [
+    {
+      value: "csv",
+      label: "CSV",
+      icon: FileText,
+      description: "Formato compatible con Excel",
+    },
+    {
+      value: "excel",
+      label: "Excel",
+      icon: FileSpreadsheet,
+      description: "Archivo Excel nativo",
+    },
+    {
+      value: "json",
+      label: "JSON",
+      icon: FileJson,
+      description: "Datos estructurados",
+    },
+    {
+      value: "pdf",
+      label: "PDF",
+      icon: FileImage,
+      description: "Documento PDF",
+    },
+  ];
 
-    const handleOpcionChange = (key: keyof ExportOptions, value: any) => {
-        setOpciones(prev => ({ ...prev, [key]: value }));
-    };
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-full">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5" />
+            Exportar Datos de Visitas
+          </DialogTitle>
+          <DialogDescription>
+            Configura los filtros y opciones para exportar los datos de visitas
+            en el formato deseado
+          </DialogDescription>
+        </DialogHeader>
 
-    const handleExportar = async () => {
-        setIsExporting(true);
-        setProgress(0);
+        <div className="space-y-6 py-4">
+          {/* Estadísticas */}
+          {estadisticas && (
+            <Alert>
+              <AlertDescription>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <strong>Total:</strong> {estadisticas.totalVisitas} visitas
+                  </div>
+                  <div>
+                    <strong>Sincronizadas:</strong> {estadisticas.sincronizadas}
+                  </div>
+                  <div>
+                    <strong>Pendientes:</strong> {estadisticas.pendientes}
+                  </div>
+                  <div>
+                    <strong>Con errores:</strong> {estadisticas.conErrores}
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
 
-        try {
-            // Simular progreso
-            const progressInterval = setInterval(() => {
-                setProgress(prev => Math.min(prev + 10, 90));
-            }, 200);
+          {/* Filtros */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Filtros de Datos</h3>
 
-            const resultado = await exportService.exportarVisitas(filtros, opciones);
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Fecha desde */}
+              <div className="space-y-2">
+                <Label htmlFor="fechaDesde">Fecha desde</Label>
+                <Calendar
+                  value={filtros.fechaDesde}
+                  onChange={(e: any) => {
+                    if (e.value instanceof Date) {
+                      handleFiltroChange("fechaDesde", e.value);
+                    }
+                  }}
+                  inline
+                  locale="es"
+                  dateFormat="dd/mm/yy"
+                  className="w-full border rounded-md p-2"
+                  showButtonBar
+                />
+              </div>
 
-            clearInterval(progressInterval);
-            setProgress(100);
+              {/* Fecha hasta */}
+              <div className="space-y-2">
+                <Label htmlFor="fechaHasta">Fecha hasta</Label>
+                <Calendar
+                  value={filtros.fechaHasta}
+                  onChange={(e: any) => {
+                    if (e.value instanceof Date) {
+                      handleFiltroChange("fechaHasta", e.value);
+                    }
+                  }}
+                  inline
+                  locale="es"
+                  dateFormat="dd/mm/yy"
+                  className="w-full border rounded-md p-2"
+                  showButtonBar
+                />
+              </div>
 
-            if (resultado.success) {
-                // Descargar archivo
-                if (resultado.data && resultado.filename) {
-                    let mimeType = "text/csv";
-                    if (opciones.formato === "json") mimeType = "application/json";
-                    if (opciones.formato === "excel") mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-                    if (opciones.formato === "pdf") mimeType = "application/pdf";
+              {/* Mercaderista */}
+              <div className="space-y-2">
+                <Label htmlFor="mercaderista">Mercaderista</Label>
+                <Input
+                  id="mercaderista"
+                  value={filtros.mercaderista}
+                  onChange={(e) =>
+                    handleFiltroChange("mercaderista", e.target.value)
+                  }
+                  placeholder="Nombre del mercaderista"
+                />
+              </div>
 
-                    exportService.descargarArchivo(resultado.data, resultado.filename, mimeType);
+              {/* Correo mercaderista */}
+              <div className="space-y-2">
+                <Label htmlFor="correoMercaderista">
+                  Correo del mercaderista
+                </Label>
+                <Input
+                  id="correoMercaderista"
+                  type="email"
+                  value={filtros.correoMercaderista}
+                  onChange={(e) =>
+                    handleFiltroChange("correoMercaderista", e.target.value)
+                  }
+                  placeholder="correo@ejemplo.com"
+                />
+              </div>
 
-                    toast({
-                        title: "✅ Exportación exitosa",
-                        description: `Se exportaron ${resultado.processedRecords} registros en formato ${opciones.formato.toUpperCase()}`,
-                    });
-                }
+              {/* Tipo de visita */}
+              <div className="space-y-2">
+                <Label htmlFor="tipoVisita">Tipo de visita</Label>
+                <Select
+                  value={filtros.tipoVisita || "todos"}
+                  onValueChange={(value) =>
+                    handleFiltroChange(
+                      "tipoVisita",
+                      value === "todos" ? undefined : value
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los tipos</SelectItem>
+                    <SelectItem value="Merchandising">Merchandising</SelectItem>
+                    <SelectItem value="Trade (Eventos)">
+                      Trade (Eventos)
+                    </SelectItem>
+                    <SelectItem value="Trade (Impulso)">
+                      Trade (Impulso)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                onClose();
-            } else {
-                toast({
-                    title: "❌ Error en exportación",
-                    description: resultado.error || "Error desconocido",
-                    variant: "destructive",
-                });
-            }
-        } catch (error) {
-            console.error("Error en exportación:", error);
-            toast({
-                title: "❌ Error en exportación",
-                description: "Error inesperado durante la exportación",
-                variant: "destructive",
-            });
-        } finally {
-            setIsExporting(false);
-            setProgress(0);
-        }
-    };
+              {/* RIF Cliente */}
+              <div className="space-y-2">
+                <Label htmlFor="rifCliente">RIF Cliente</Label>
+                <Input
+                  id="rifCliente"
+                  value={filtros.rifCliente}
+                  onChange={(e) =>
+                    handleFiltroChange("rifCliente", e.target.value)
+                  }
+                  placeholder="J-12345678-9"
+                />
+              </div>
 
-    const formatosDisponibles = [
-        { value: "csv", label: "CSV", icon: FileText, description: "Formato compatible con Excel" },
-        { value: "excel", label: "Excel", icon: FileSpreadsheet, description: "Archivo Excel nativo" },
-        { value: "json", label: "JSON", icon: FileJson, description: "Datos estructurados" },
-        { value: "pdf", label: "PDF", icon: FileImage, description: "Documento PDF" },
-    ];
+              {/* Sucursal */}
+              <div className="space-y-2">
+                <Label htmlFor="sucursal">Sucursal</Label>
+                <Input
+                  id="sucursal"
+                  value={filtros.sucursal}
+                  onChange={(e) =>
+                    handleFiltroChange("sucursal", e.target.value)
+                  }
+                  placeholder="Nombre de la sucursal"
+                />
+              </div>
 
-    if (!isOpen) return null;
+              {/* Estado de sincronización */}
+              <div className="space-y-2">
+                <Label htmlFor="sincronizadoN8N">
+                  Estado de sincronización
+                </Label>
+                <Select
+                  value={
+                    filtros.sincronizadoN8N === undefined
+                      ? "todos"
+                      : filtros.sincronizadoN8N.toString()
+                  }
+                  onValueChange={(value) =>
+                    handleFiltroChange(
+                      "sincronizadoN8N",
+                      value === "todos" ? undefined : value === "true"
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los estados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los estados</SelectItem>
+                    <SelectItem value="true">Sincronizadas</SelectItem>
+                    <SelectItem value="false">No sincronizadas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
 
-    return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Download className="h-5 w-5" />
-                        Exportar Datos de Visitas
-                    </CardTitle>
-                    <CardDescription>
-                        Configura los filtros y opciones para exportar los datos de visitas en el formato deseado
-                    </CardDescription>
-                </CardHeader>
+          {/* Opciones de exportación */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Opciones de Exportación</h3>
 
-                <CardContent className="space-y-6">
-                    {/* Estadísticas */}
-                    {estadisticas && (
-                        <Alert>
-                            <AlertDescription>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                    <div>
-                                        <strong>Total:</strong> {estadisticas.totalVisitas} visitas
-                                    </div>
-                                    <div>
-                                        <strong>Sincronizadas:</strong> {estadisticas.sincronizadas}
-                                    </div>
-                                    <div>
-                                        <strong>Pendientes:</strong> {estadisticas.pendientes}
-                                    </div>
-                                    <div>
-                                        <strong>Con errores:</strong> {estadisticas.conErrores}
-                                    </div>
-                                </div>
-                            </AlertDescription>
-                        </Alert>
-                    )}
-
-                    {/* Filtros */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold">Filtros de Datos</h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Fecha desde */}
-                            <div className="space-y-2">
-                                <Label htmlFor="fechaDesde">Fecha desde</Label>
-                                <Calendar
-                                    value={filtros.fechaDesde}
-                                    onChange={(e: any) => {
-                                        if (e.value instanceof Date) {
-                                            handleFiltroChange("fechaDesde", e.value);
-                                        }
-                                    }}
-                                    inline
-                                    locale="es"
-                                    dateFormat="dd/mm/yy"
-                                    className="w-full"
-                                    showButtonBar
-                                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Formato */}
+              <div className="space-y-2">
+                <Label>Formato de archivo</Label>
+                <Select
+                  value={opciones.formato}
+                  onValueChange={(value) =>
+                    handleOpcionChange("formato", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {formatosDisponibles.map((formato) => (
+                      <SelectItem key={formato.value} value={formato.value}>
+                        <div className="flex items-center gap-2">
+                          <formato.icon className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">{formato.label}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {formato.description}
                             </div>
-
-                            {/* Fecha hasta */}
-                            <div className="space-y-2">
-                                <Label htmlFor="fechaHasta">Fecha hasta</Label>
-                                <Calendar
-                                    value={filtros.fechaHasta}
-                                    onChange={(e: any) => {
-                                        if (e.value instanceof Date) {
-                                            handleFiltroChange("fechaHasta", e.value);
-                                        }
-                                    }}
-                                    inline
-                                    locale="es"
-                                    dateFormat="dd/mm/yy"
-                                    className="w-full"
-                                    showButtonBar
-                                />
-                            </div>
-
-                            {/* Mercaderista */}
-                            <div className="space-y-2">
-                                <Label htmlFor="mercaderista">Mercaderista</Label>
-                                <Input
-                                    id="mercaderista"
-                                    value={filtros.mercaderista}
-                                    onChange={(e) => handleFiltroChange("mercaderista", e.target.value)}
-                                    placeholder="Nombre del mercaderista"
-                                />
-                            </div>
-
-                            {/* Correo mercaderista */}
-                            <div className="space-y-2">
-                                <Label htmlFor="correoMercaderista">Correo del mercaderista</Label>
-                                <Input
-                                    id="correoMercaderista"
-                                    type="email"
-                                    value={filtros.correoMercaderista}
-                                    onChange={(e) => handleFiltroChange("correoMercaderista", e.target.value)}
-                                    placeholder="correo@ejemplo.com"
-                                />
-                            </div>
-
-                            {/* Tipo de visita */}
-                            <div className="space-y-2">
-                                <Label htmlFor="tipoVisita">Tipo de visita</Label>
-                                <Select
-                                    value={filtros.tipoVisita || "todos"}
-                                    onValueChange={(value) => handleFiltroChange("tipoVisita", value === "todos" ? undefined : value)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar tipo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="todos">Todos los tipos</SelectItem>
-                                        <SelectItem value="Merchandising">Merchandising</SelectItem>
-                                        <SelectItem value="Trade (Eventos)">Trade (Eventos)</SelectItem>
-                                        <SelectItem value="Trade (Impulso)">Trade (Impulso)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {/* RIF Cliente */}
-                            <div className="space-y-2">
-                                <Label htmlFor="rifCliente">RIF Cliente</Label>
-                                <Input
-                                    id="rifCliente"
-                                    value={filtros.rifCliente}
-                                    onChange={(e) => handleFiltroChange("rifCliente", e.target.value)}
-                                    placeholder="J-12345678-9"
-                                />
-                            </div>
-
-                            {/* Sucursal */}
-                            <div className="space-y-2">
-                                <Label htmlFor="sucursal">Sucursal</Label>
-                                <Input
-                                    id="sucursal"
-                                    value={filtros.sucursal}
-                                    onChange={(e) => handleFiltroChange("sucursal", e.target.value)}
-                                    placeholder="Nombre de la sucursal"
-                                />
-                            </div>
-
-                            {/* Estado de sincronización */}
-                            <div className="space-y-2">
-                                <Label htmlFor="sincronizadoN8N">Estado de sincronización</Label>
-                                <Select
-                                    value={filtros.sincronizadoN8N === undefined ? "todos" : filtros.sincronizadoN8N.toString()}
-                                    onValueChange={(value) => handleFiltroChange("sincronizadoN8N", value === "todos" ? undefined : value === "true")}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Todos los estados" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="todos">Todos los estados</SelectItem>
-                                        <SelectItem value="true">Sincronizadas</SelectItem>
-                                        <SelectItem value="false">No sincronizadas</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                          </div>
                         </div>
-                    </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                    {/* Opciones de exportación */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold">Opciones de Exportación</h3>
+              {/* Límite de registros */}
+              <div className="space-y-2">
+                <Label htmlFor="limiteRegistros">
+                  Límite de registros (opcional)
+                </Label>
+                <Input
+                  id="limiteRegistros"
+                  type="number"
+                  value={opciones.limiteRegistros || ""}
+                  onChange={(e) =>
+                    handleOpcionChange(
+                      "limiteRegistros",
+                      e.target.value ? parseInt(e.target.value) : undefined
+                    )
+                  }
+                  placeholder="Sin límite"
+                />
+              </div>
+            </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Formato */}
-                            <div className="space-y-2">
-                                <Label>Formato de archivo</Label>
-                                <Select
-                                    value={opciones.formato}
-                                    onValueChange={(value) => handleOpcionChange("formato", value)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {formatosDisponibles.map((formato) => (
-                                            <SelectItem key={formato.value} value={formato.value}>
-                                                <div className="flex items-center gap-2">
-                                                    <formato.icon className="h-4 w-4" />
-                                                    <div>
-                                                        <div className="font-medium">{formato.label}</div>
-                                                        <div className="text-xs text-muted-foreground">{formato.description}</div>
-                                                    </div>
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+            {/* Opciones adicionales */}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="incluirFotos"
+                  checked={opciones.incluirFotos}
+                  onCheckedChange={(checked) =>
+                    handleOpcionChange("incluirFotos", checked)
+                  }
+                />
+                <Label htmlFor="incluirFotos">
+                  Incluir fotos en la exportación
+                </Label>
+              </div>
 
-                            {/* Límite de registros */}
-                            <div className="space-y-2">
-                                <Label htmlFor="limiteRegistros">Límite de registros (opcional)</Label>
-                                <Input
-                                    id="limiteRegistros"
-                                    type="number"
-                                    value={opciones.limiteRegistros || ""}
-                                    onChange={(e) => handleOpcionChange("limiteRegistros", e.target.value ? parseInt(e.target.value) : undefined)}
-                                    placeholder="Sin límite"
-                                />
-                            </div>
-                        </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="comprimirFotos"
+                  checked={opciones.comprimirFotos}
+                  onCheckedChange={(checked) =>
+                    handleOpcionChange("comprimirFotos", checked)
+                  }
+                />
+                <Label htmlFor="comprimirFotos">
+                  Comprimir fotos para reducir tamaño
+                </Label>
+              </div>
 
-                        {/* Opciones adicionales */}
-                        <div className="space-y-3">
-                            <div className="flex items-center space-x-2">
-                                <Checkbox
-                                    id="incluirFotos"
-                                    checked={opciones.incluirFotos}
-                                    onCheckedChange={(checked) => handleOpcionChange("incluirFotos", checked)}
-                                />
-                                <Label htmlFor="incluirFotos">Incluir fotos en la exportación</Label>
-                            </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="incluirCoordenadas"
+                  checked={opciones.incluirCoordenadas}
+                  onCheckedChange={(checked) =>
+                    handleOpcionChange("incluirCoordenadas", checked)
+                  }
+                />
+                <Label htmlFor="incluirCoordenadas">
+                  Incluir coordenadas GPS
+                </Label>
+              </div>
 
-                            <div className="flex items-center space-x-2">
-                                <Checkbox
-                                    id="comprimirFotos"
-                                    checked={opciones.comprimirFotos}
-                                    onCheckedChange={(checked) => handleOpcionChange("comprimirFotos", checked)}
-                                />
-                                <Label htmlFor="comprimirFotos">Comprimir fotos para reducir tamaño</Label>
-                            </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="incluirObservaciones"
+                  checked={opciones.incluirObservaciones}
+                  onCheckedChange={(checked) =>
+                    handleOpcionChange("incluirObservaciones", checked)
+                  }
+                />
+                <Label htmlFor="incluirObservaciones">
+                  Incluir observaciones detalladas
+                </Label>
+              </div>
 
-                            <div className="flex items-center space-x-2">
-                                <Checkbox
-                                    id="incluirCoordenadas"
-                                    checked={opciones.incluirCoordenadas}
-                                    onCheckedChange={(checked) => handleOpcionChange("incluirCoordenadas", checked)}
-                                />
-                                <Label htmlFor="incluirCoordenadas">Incluir coordenadas GPS</Label>
-                            </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="separarPorTipo"
+                  checked={opciones.separarPorTipo}
+                  onCheckedChange={(checked) =>
+                    handleOpcionChange("separarPorTipo", checked)
+                  }
+                />
+                <Label htmlFor="separarPorTipo">
+                  Separar por tipo de visita
+                </Label>
+              </div>
+            </div>
+          </div>
 
-                            <div className="flex items-center space-x-2">
-                                <Checkbox
-                                    id="incluirObservaciones"
-                                    checked={opciones.incluirObservaciones}
-                                    onCheckedChange={(checked) => handleOpcionChange("incluirObservaciones", checked)}
-                                />
-                                <Label htmlFor="incluirObservaciones">Incluir observaciones detalladas</Label>
-                            </div>
+          {/* Progreso de exportación */}
+          {isExporting && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>Exportando datos...</span>
+                <span>{progress}%</span>
+              </div>
+              <Progress value={progress} className="w-full" />
+            </div>
+          )}
 
-                            <div className="flex items-center space-x-2">
-                                <Checkbox
-                                    id="separarPorTipo"
-                                    checked={opciones.separarPorTipo}
-                                    onCheckedChange={(checked) => handleOpcionChange("separarPorTipo", checked)}
-                                />
-                                <Label htmlFor="separarPorTipo">Separar por tipo de visita</Label>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Progreso de exportación */}
-                    {isExporting && (
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                                <span>Exportando datos...</span>
-                                <span>{progress}%</span>
-                            </div>
-                            <Progress value={progress} className="w-full" />
-                        </div>
-                    )}
-
-                    {/* Botones de acción */}
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={onClose} disabled={isExporting}>
-                            Cancelar
-                        </Button>
-                        <Button
-                            onClick={handleExportar}
-                            disabled={isExporting}
-                            className="min-w-[120px]"
-                        >
-                            {isExporting ? (
-                                <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                                    Exportando...
-                                </>
-                            ) : (
-                                <>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Exportar
-                                </>
-                            )}
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+          {/* Botones de acción */}
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={onClose} disabled={isExporting}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleExportar}
+              disabled={isExporting}
+              className="min-w-[120px]"
+            >
+              {isExporting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Exportando...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </>
+              )}
+            </Button>
+          </div>
         </div>
-    );
+      </DialogContent>
+    </Dialog>
+  );
 }
-

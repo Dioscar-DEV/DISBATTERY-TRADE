@@ -1,95 +1,112 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Smartphone, Download, Share2, CheckCircle, Star, Clock, Wifi, Menu } from 'lucide-react';
-import { PermissionChecker } from '@/components/PermissionChecker';
-import { useRouter } from 'next/navigation';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Smartphone,
+  Download,
+  Share2,
+  CheckCircle,
+  Star,
+  Clock,
+  Wifi,
+  Menu,
+} from "lucide-react";
+import { PermissionChecker } from "@/components/PermissionChecker";
+import { useRouter } from "next/navigation";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Constantes
 const APP_CONFIG = {
-  name: 'Disbattery Trade App',
-  logo: 'https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png',
-  description: 'Aplicación oficial para mercaderistas Disbattery',
-  shareTitle: 'Disbattery Trade App',
-  shareText: '📱 Instala la app de Disbattery para mercaderistas',
-  gradient: 'linear-gradient(to right, #002D72, #D50000)',
+  name: "Disbattery Trade App",
+  logo: "https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png",
+  description: "Aplicación oficial para mercaderistas Disbattery",
+  shareTitle: "Disbattery Trade App",
+  shareText: "📱 Instala la app de Disbattery para mercaderistas",
 } as const;
 
 const APP_FEATURES = [
-  { icon: Star, text: 'Gestión de rutas y visitas' },
-  { icon: Star, text: 'Captura de fotos y reportes' },
-  { icon: Star, text: 'Sincronización automática' },
-  { icon: Star, text: 'Funciona sin conexión' },
+  { icon: Star, text: "Gestión de rutas y visitas" },
+  { icon: Star, text: "Captura de fotos y reportes" },
+  { icon: Star, text: "Sincronización automática" },
+  { icon: Star, text: "Funciona sin conexión" },
 ] as const;
 
 const APP_BADGES = [
-  { icon: Wifi, text: 'Funciona Offline', color: 'text-blue-600' },
-  { icon: Clock, text: 'Sincronización Auto', color: 'text-green-600' },
-  { icon: Smartphone, text: 'Instalable', color: 'text-purple-600' },
+  { icon: Wifi, text: "Funciona Offline", color: "text-blue-600" },
+  { icon: Clock, text: "Sincronización Auto", color: "text-green-600" },
+  { icon: Smartphone, text: "Instalable", color: "text-purple-600" },
 ] as const;
 
 const INSTALLATION_INSTRUCTIONS = {
   chrome: {
-    title: '📱 En Chrome/Edge:',
+    title: "📱 En Chrome/Edge:",
     steps: [
-      'Toca el menú (3 puntos)',
+      "Toca el menú (3 puntos)",
       'Busca "Instalar app" o "Agregar a inicio"',
-      'Toca "Instalar"'
+      'Toca "Instalar"',
     ],
-    color: 'blue'
+    color: "blue",
   },
   safari: {
-    title: '🍎 En Safari (iPhone):',
+    title: "🍎 En Safari (iPhone):",
     steps: [
-      'Toca el botón compartir',
+      "Toca el botón compartir",
       'Desliza y busca "Agregar a inicio"',
-      'Toca "Agregar"'
+      'Toca "Agregar"',
     ],
-    color: 'green'
+    color: "green",
   },
   android: {
-    title: '🤖 En Android:',
+    title: "🤖 En Android:",
     steps: [
-      'Toca menú del navegador',
+      "Toca menú del navegador",
       'Selecciona "Agregar a pantalla de inicio"',
-      'Confirma "Agregar"'
+      'Confirma "Agregar"',
     ],
-    color: 'purple'
-  }
+    color: "purple",
+  },
 } as const;
 
 const UI_TEXTS = {
   installButton: {
-    canInstall: '📱 INSTALAR APP AHORA',
-    cannotInstall: '📱 INSTALAR EN MI TELÉFONO'
+    canInstall: "📱 INSTALAR APP AHORA",
+    cannotInstall: "📱 INSTALAR EN MI TELÉFONO",
   },
   continueButton: {
-    installed: 'Abrir App',
-    notInstalled: 'Usar en Navegador'
+    installed: "Abrir App",
+    notInstalled: "Usar en Navegador",
   },
-  shareButton: 'Compartir con Compañeros',
-  tipText: '💡 Tip: Si no ves la opción "Instalar", usa el menú de tu navegador',
-  instructionsTitle: '📱 Cómo Instalar la App',
-  instructionsDescription: 'Sigue estos pasos para instalar Disbattery Trade en tu teléfono',
-  permissionsTitle: 'Configurar Permisos',
-  permissionsDescription: 'Activa los permisos necesarios para usar todas las funciones',
-  backButton: '← Volver',
-  continueUsingApp: 'Continuar Usando la App',
-  continueToApp: 'Continuar a la App',
-  installedMessage: '¡App ya instalada!',
-  installedDescription: 'La aplicación está lista para usar',
-  featuresTitle: '🚀 Características Principales:',
-  instructionsStepByStep: '🔥 INSTRUCCIONES PASO A PASO:',
+  shareButton: "Compartir con Compañeros",
+  tipText:
+    '💡 Tip: Si no ves la opción "Instalar", usa el menú de tu navegador',
+  instructionsTitle: "📱 Cómo Instalar la App",
+  instructionsDescription:
+    "Sigue estos pasos para instalar Disbattery Trade en tu teléfono",
+  permissionsTitle: "Configurar Permisos",
+  permissionsDescription:
+    "Activa los permisos necesarios para usar todas las funciones",
+  backButton: "← Volver",
+  continueUsingApp: "Continuar Usando la App",
+  continueToApp: "Continuar a la App",
+  installedMessage: "¡App ya instalada!",
+  installedDescription: "La aplicación está lista para usar",
+  featuresTitle: "🚀 Características Principales:",
+  instructionsStepByStep: "🔥 INSTRUCCIONES PASO A PASO:",
 } as const;
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
+    outcome: "accepted" | "dismissed";
     platform: string;
   }>;
   prompt(): Promise<void>;
@@ -97,13 +114,14 @@ interface BeforeInstallPromptEvent extends Event {
 
 // Custom Hook para manejar instalación PWA
 const useAppInstallation = () => {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [canInstall, setCanInstall] = useState(false);
 
   useEffect(() => {
     // Verificar si ya está instalada
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    if (window.matchMedia("(display-mode: standalone)").matches) {
       setIsInstalled(true);
     }
 
@@ -114,18 +132,24 @@ const useAppInstallation = () => {
       setCanInstall(true);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as any);
+    window.addEventListener(
+      "beforeinstallprompt",
+      handleBeforeInstallPrompt as any
+    );
 
     // Escuchar cuando se instala
-    window.addEventListener('appinstalled', () => {
+    window.addEventListener("appinstalled", () => {
       setIsInstalled(true);
       setCanInstall(false);
       setDeferredPrompt(null);
     });
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as any);
-      window.removeEventListener('appinstalled', () => { });
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt as any
+      );
+      window.removeEventListener("appinstalled", () => {});
     };
   }, []);
 
@@ -135,7 +159,7 @@ const useAppInstallation = () => {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
 
-    if (outcome === 'accepted') {
+    if (outcome === "accepted") {
       setCanInstall(false);
       setDeferredPrompt(null);
       return true;
@@ -160,28 +184,28 @@ const useAppActions = () => {
     const shareData = {
       title: APP_CONFIG.shareTitle,
       text: APP_CONFIG.shareText,
-      url: window.location.origin
+      url: window.location.origin,
     };
 
     if (navigator.share) {
       try {
         await navigator.share(shareData);
       } catch (error) {
-        console.log('Error compartiendo:', error);
+        console.log("Error compartiendo:", error);
         // Fallback: copiar al portapapeles
         await navigator.clipboard.writeText(window.location.origin);
-        alert('Link copiado al portapapeles');
+        alert("Link copiado al portapapeles");
       }
     } else {
       // Fallback: copiar al portapapeles
       await navigator.clipboard.writeText(window.location.origin);
-      alert('Link copiado al portapapeles');
+      alert("Link copiado al portapapeles");
     }
   };
 
   const navigateToApp = (isInstalled: boolean) => {
     if (isInstalled) {
-      router.push('/');
+      router.push("/");
     }
   };
 
@@ -197,16 +221,17 @@ interface InstallationInstructionsProps {
   onContinue: () => void;
 }
 
-const InstallationInstructions: React.FC<InstallationInstructionsProps> = ({ onBack, onContinue }) => (
+const InstallationInstructions: React.FC<InstallationInstructionsProps> = ({
+  onBack,
+  onContinue,
+}) => (
   <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader className="text-center">
         <CardTitle className="text-xl font-bold text-blue-600">
           {UI_TEXTS.instructionsTitle}
         </CardTitle>
-        <CardDescription>
-          {UI_TEXTS.instructionsDescription}
-        </CardDescription>
+        <CardDescription>{UI_TEXTS.instructionsDescription}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Alert>
@@ -217,29 +242,31 @@ const InstallationInstructions: React.FC<InstallationInstructionsProps> = ({ onB
         </Alert>
 
         <div className="space-y-3 text-sm">
-          {Object.entries(INSTALLATION_INSTRUCTIONS).map(([key, instruction]) => (
-            <div key={key} className={`bg-${instruction.color}-50 p-3 rounded-lg border-l-4 border-${instruction.color}-500`}>
-              <p className="font-bold">{instruction.title}</p>
-              {instruction.steps.map((step, index) => (
-                <p key={index}>{index + 1}. {step}</p>
-              ))}
-            </div>
-          ))}
+          {Object.entries(INSTALLATION_INSTRUCTIONS).map(
+            ([key, instruction]) => (
+              <div
+                key={key}
+                className={`bg-${instruction.color}-50 p-3 rounded-lg border-l-4 border-${instruction.color}-500`}
+              >
+                <p className="font-bold">{instruction.title}</p>
+                {instruction.steps.map((step, index) => (
+                  <p key={index}>
+                    {index + 1}. {step}
+                  </p>
+                ))}
+              </div>
+            )
+          )}
         </div>
 
         <div className="space-y-2">
-          <Button
-            onClick={onBack}
-            variant="outline"
-            className="w-full"
-          >
+          <Button onClick={onBack} variant="outline" className="w-full">
             {UI_TEXTS.backButton}
           </Button>
 
           <Button
             onClick={onContinue}
-            className="w-full"
-            style={{ backgroundImage: APP_CONFIG.gradient }}
+            className="w-full bg-gradient-to-r from-brand-blue to-brand-red text-white"
           >
             {UI_TEXTS.continueUsingApp}
           </Button>
@@ -254,15 +281,14 @@ interface PermissionsSetupProps {
   onContinue: () => void;
 }
 
-const PermissionsSetup: React.FC<PermissionsSetupProps> = ({ onBack, onContinue }) => (
+const PermissionsSetup: React.FC<PermissionsSetupProps> = ({
+  onBack,
+  onContinue,
+}) => (
   <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
     <div className="w-full max-w-md">
       <div className="text-center mb-6">
-        <Button
-          variant="ghost"
-          onClick={onBack}
-          className="mb-4"
-        >
+        <Button variant="ghost" onClick={onBack} className="mb-4">
           {UI_TEXTS.backButton}
         </Button>
         <h1 className="text-2xl font-bold mb-2">{UI_TEXTS.permissionsTitle}</h1>
@@ -272,7 +298,7 @@ const PermissionsSetup: React.FC<PermissionsSetupProps> = ({ onBack, onContinue 
       </div>
 
       <PermissionChecker
-        onPermissionsReady={() => { }}
+        onPermissionsReady={() => {}}
         showCameraCheck={true}
         showLocationCheck={true}
       />
@@ -280,8 +306,7 @@ const PermissionsSetup: React.FC<PermissionsSetupProps> = ({ onBack, onContinue 
       <div className="mt-6 text-center">
         <Button
           onClick={onContinue}
-          className="w-full"
-          style={{ backgroundImage: APP_CONFIG.gradient }}
+          className="w-full bg-gradient-to-r from-brand-blue to-brand-red text-white"
         >
           {UI_TEXTS.continueToApp}
         </Button>
@@ -346,7 +371,9 @@ const MainInstallationScreen: React.FC<MainInstallationScreenProps> = ({
         )}
 
         <div className="space-y-3">
-          <h3 className="font-semibold text-center">{UI_TEXTS.featuresTitle}</h3>
+          <h3 className="font-semibold text-center">
+            {UI_TEXTS.featuresTitle}
+          </h3>
           <div className="grid grid-cols-1 gap-2 text-sm">
             {APP_FEATURES.map((feature, index) => (
               <div key={index} className="flex items-center gap-2">
@@ -360,27 +387,22 @@ const MainInstallationScreen: React.FC<MainInstallationScreenProps> = ({
         <div className="space-y-3">
           <Button
             onClick={onInstall}
-            className="w-full text-lg py-6"
-            style={{ backgroundImage: APP_CONFIG.gradient }}
+            className="w-full text-lg py-6 bg-gradient-to-r from-brand-blue to-brand-red text-white"
           >
             <Download className="mr-2 h-5 w-5" />
-            {canInstall ? UI_TEXTS.installButton.canInstall : UI_TEXTS.installButton.cannotInstall}
+            {canInstall
+              ? UI_TEXTS.installButton.canInstall
+              : UI_TEXTS.installButton.cannotInstall}
           </Button>
 
-          <Button
-            onClick={onContinue}
-            variant="outline"
-            className="w-full"
-          >
+          <Button onClick={onContinue} variant="outline" className="w-full">
             <Smartphone className="mr-2 h-4 w-4" />
-            {isInstalled ? UI_TEXTS.continueButton.installed : UI_TEXTS.continueButton.notInstalled}
+            {isInstalled
+              ? UI_TEXTS.continueButton.installed
+              : UI_TEXTS.continueButton.notInstalled}
           </Button>
 
-          <Button
-            onClick={onShare}
-            variant="outline"
-            className="w-full"
-          >
+          <Button onClick={onShare} variant="outline" className="w-full">
             <Share2 className="mr-2 h-4 w-4" />
             {UI_TEXTS.shareButton}
           </Button>
@@ -424,7 +446,7 @@ export default function InstalarPage() {
     return (
       <InstallationInstructions
         onBack={() => setShowInstructions(false)}
-        onContinue={() => router.push('/')}
+        onContinue={() => router.push("/")}
       />
     );
   }
@@ -433,7 +455,7 @@ export default function InstalarPage() {
     return (
       <PermissionsSetup
         onBack={() => setShowPermissions(false)}
-        onContinue={() => router.push('/')}
+        onContinue={() => router.push("/")}
       />
     );
   }

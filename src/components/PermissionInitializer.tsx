@@ -1,27 +1,30 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { PermissionChecker } from './PermissionChecker';
+import { useEffect, useState } from "react";
+import { PermissionChecker } from "./PermissionChecker";
 
 interface PermissionStatus {
-  camera: 'granted' | 'denied' | 'prompt' | 'unknown';
-  location: 'granted' | 'denied' | 'prompt' | 'unknown';
+  camera: "granted" | "denied" | "prompt" | "unknown";
+  location: "granted" | "denied" | "prompt" | "unknown";
 }
 
 export function PermissionInitializer() {
   const [showPermissionChecker, setShowPermissionChecker] = useState(false);
   const [permissionsChecked, setPermissionsChecked] = useState(false);
-  const [currentPermissions, setCurrentPermissions] = useState<PermissionStatus>({
-    camera: 'unknown',
-    location: 'unknown'
-  });
+  const [currentPermissions, setCurrentPermissions] =
+    useState<PermissionStatus>({
+      camera: "unknown",
+      location: "unknown",
+    });
 
   useEffect(() => {
     // Solo verificar permisos en el navegador
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     // Verificar si ya se verificaron los permisos en esta sesión
-    const permissionsAlreadyChecked = sessionStorage.getItem('permissions_checked');
+    const permissionsAlreadyChecked = sessionStorage.getItem(
+      "permissions_checked"
+    );
     if (permissionsAlreadyChecked) {
       setPermissionsChecked(true);
       return;
@@ -36,10 +39,15 @@ export function PermissionInitializer() {
       let needsPermissions = false;
 
       // Verificar cámara
-      if ('permissions' in navigator) {
+      if ("permissions" in navigator) {
         try {
-          const cameraPermission = await navigator.permissions.query({ name: 'camera' as PermissionName });
-          if (cameraPermission.state === 'prompt' || cameraPermission.state === 'denied') {
+          const cameraPermission = await navigator.permissions.query({
+            name: "camera" as PermissionName,
+          });
+          if (
+            cameraPermission.state === "prompt" ||
+            cameraPermission.state === "denied"
+          ) {
             needsPermissions = true;
           }
         } catch (error) {
@@ -49,8 +57,13 @@ export function PermissionInitializer() {
 
         // Verificar ubicación
         try {
-          const locationPermission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-          if (locationPermission.state === 'prompt' || locationPermission.state === 'denied') {
+          const locationPermission = await navigator.permissions.query({
+            name: "geolocation" as PermissionName,
+          });
+          if (
+            locationPermission.state === "prompt" ||
+            locationPermission.state === "denied"
+          ) {
             needsPermissions = true;
           }
         } catch (error) {
@@ -66,11 +79,11 @@ export function PermissionInitializer() {
         setShowPermissionChecker(true);
       } else {
         // Marcar como verificado
-        sessionStorage.setItem('permissions_checked', 'true');
+        sessionStorage.setItem("permissions_checked", "true");
         setPermissionsChecked(true);
       }
     } catch (error) {
-      console.warn('Error checking permissions:', error);
+      console.warn("Error checking permissions:", error);
       // En caso de error, mostrar el checker por seguridad
       setShowPermissionChecker(true);
     }
@@ -80,20 +93,25 @@ export function PermissionInitializer() {
     setCurrentPermissions(permissions);
 
     // Si ambos permisos están concedidos, ocultar el checker automáticamente
-    if (permissions.camera === 'granted' && permissions.location === 'granted') {
-      sessionStorage.setItem('permissions_checked', 'true');
+    if (
+      permissions.camera === "granted" &&
+      permissions.location === "granted"
+    ) {
+      sessionStorage.setItem("permissions_checked", "true");
       setShowPermissionChecker(false);
       setPermissionsChecked(true);
     }
   };
 
   const handleContinue = () => {
-    sessionStorage.setItem('permissions_checked', 'true');
+    sessionStorage.setItem("permissions_checked", "true");
     setShowPermissionChecker(false);
     setPermissionsChecked(true);
   };
 
-  const allPermissionsGranted = currentPermissions.camera === 'granted' && currentPermissions.location === 'granted';
+  const allPermissionsGranted =
+    currentPermissions.camera === "granted" &&
+    currentPermissions.location === "granted";
 
   // No mostrar nada si ya se verificaron los permisos
   if (permissionsChecked && !showPermissionChecker) {
@@ -110,7 +128,8 @@ export function PermissionInitializer() {
               Configuración Inicial
             </h2>
             <p className="text-sm text-muted-foreground mb-6 text-center">
-              Para usar todas las funciones de la aplicación, necesitamos configurar algunos permisos.
+              Para usar todas las funciones de la aplicación, necesitamos
+              configurar algunos permisos.
             </p>
             <PermissionChecker
               onPermissionsReady={handlePermissionsReady}
@@ -124,11 +143,13 @@ export function PermissionInitializer() {
                 onClick={handleContinue}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   allPermissionsGranted
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {allPermissionsGranted ? 'Continuar' : 'Continuar sin configurar'}
+                {allPermissionsGranted
+                  ? "Continuar"
+                  : "Continuar sin configurar"}
               </button>
             </div>
           </div>

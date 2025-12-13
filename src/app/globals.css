@@ -10,29 +10,29 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 216 100% 22.4%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96%;
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 100% 41.8%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 216 100% 22.4%;
     --radius: 0.5rem;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --primary-gradient-start: 343 100% 45%;
-    /* #e60026 */
-    --primary-gradient-end: 343 88% 35%;
-    /* #c3001f */
+    --primary-gradient-start: 216 100% 22.4%;
+    /* #002D72 */
+    --primary-gradient-end: 0 100% 41.8%;
+    /* #D50000 */
   }
 
   .dark {
@@ -63,14 +63,14 @@
   }
 }
 
-  * {
-    border-color: hsl(var(--border));
-  }
+* {
+  border-color: hsl(var(--border));
+}
 
-  body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-  }
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
 
 /* Estilos globales para mejorar el scroll */
 html,
@@ -165,19 +165,86 @@ body {
 /* Responsive table improvements */
 @media (max-width: 768px) {
   .responsive-table {
-    font-size: 0.875rem;
+    font-size: 1rem; /* Increased from 0.875rem for better readability */
   }
 
   .responsive-table th,
   .responsive-table td {
-    padding: 0.5rem;
+    padding: 0.75rem; /* Increased padding */
   }
 
   .responsive-table th {
-    font-size: 0.75rem;
+    font-size: 0.875rem; /* Increased headers */
   }
 }
 
+/* PWA Safe Area Support */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+  --sar: env(safe-area-inset-right);
+}
+
+/* Utility to respect top safe area */
+.pt-safe {
+  padding-top: var(--sat);
+}
+
+/* Utility to respect bottom safe area */
+.pb-safe {
+  padding-bottom: var(--sab);
+}
+
+/* Responsive Containers */
+.container-fluid {
+  width: 100%;
+  padding-right: 1rem;
+  padding-left: 1rem;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.container-constrained {
+  width: 100%;
+  padding-right: 1rem;
+  padding-left: 1rem;
+  margin-right: auto;
+  margin-left: auto;
+  max-width: 1400px; /* Prevent stretching on ultrawide monitors */
+}
+
+@media (min-width: 640px) {
+  .container-fluid, .container-constrained {
+    padding-right: 1.5rem;
+    padding-left: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-fluid, .container-constrained {
+    padding-right: 2rem;
+    padding-left: 2rem;
+  }
+}
+
+/* Responsive Grid Gaps */
+.grid-responsive {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .grid-responsive {
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-responsive {
+    gap: 2rem;
+  }
+}
 /* Mobile card view for tables */
 .mobile-card {
   display: none;
@@ -274,7 +341,7 @@ body {
   width: 40px;
   height: 40px;
   border: 4px solid #f3f3f3;
-  border-top: 4px solid #002D72;
+  border-top: 4px solid #002d72;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }

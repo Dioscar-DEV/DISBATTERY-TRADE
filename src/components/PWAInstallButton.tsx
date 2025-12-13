@@ -1,38 +1,39 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Download, Smartphone } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Download, Smartphone } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
+    outcome: "accepted" | "dismissed";
     platform: string;
   }>;
   prompt(): Promise<void>;
 }
 
 interface PWAInstallButtonProps {
-  variant?: 'default' | 'outline' | 'ghost';
-  size?: 'default' | 'sm' | 'lg' | 'icon';
+  variant?: "default" | "outline" | "ghost";
+  size?: "default" | "sm" | "lg" | "icon";
   className?: string;
   showOnlyWhenInstallable?: boolean;
 }
 
 export function PWAInstallButton({
-  variant = 'default',
-  size = 'default',
-  className = '',
-  showOnlyWhenInstallable = false
+  variant = "default",
+  size = "default",
+  className = "",
+  showOnlyWhenInstallable = false,
 }: PWAInstallButtonProps) {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [canInstall, setCanInstall] = useState(false);
 
   useEffect(() => {
     // Verificar si ya está instalada
-    if ((window as Window).matchMedia('(display-mode: standalone)').matches) {
+    if ((window as Window).matchMedia("(display-mode: standalone)").matches) {
       setIsInstalled(true);
     }
 
@@ -43,18 +44,24 @@ export function PWAInstallButton({
       setCanInstall(true);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as unknown as EventListenerOrEventListenerObject);
+    window.addEventListener(
+      "beforeinstallprompt",
+      handleBeforeInstallPrompt as unknown as EventListenerOrEventListenerObject
+    );
 
     // Escuchar cuando se instala
-    window.addEventListener('appinstalled', () => {
+    window.addEventListener("appinstalled", () => {
       setIsInstalled(true);
       setCanInstall(false);
       setDeferredPrompt(null);
     });
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as unknown as EventListenerOrEventListenerObject);
-      window.removeEventListener('appinstalled', () => { });
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt as unknown as EventListenerOrEventListenerObject
+      );
+      window.removeEventListener("appinstalled", () => {});
     };
   }, []);
 
@@ -64,14 +71,14 @@ export function PWAInstallButton({
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
 
-    if (outcome === 'accepted') {
+    if (outcome === "accepted") {
       setCanInstall(false);
       setDeferredPrompt(null);
     }
   };
 
   const handleOpenInstallPage = () => {
-    window.open('/instalar', '_blank');
+    window.open("/instalar", "_blank");
   };
 
   // Si solo mostrar cuando es instalable y no puede instalarse, no mostrar nada
@@ -101,8 +108,7 @@ export function PWAInstallButton({
         onClick={handleInstallClick}
         variant={variant}
         size={size}
-        className={className}
-        style={variant === 'default' ? { backgroundImage: 'linear-gradient(to right, #002D72, #D50000)' } : {}}
+        className={`${className} ${variant === "default" ? "bg-gradient-to-r from-brand-blue to-brand-red text-white border-0 hover:opacity-90 transition-opacity" : ""}`}
       >
         <Download className="mr-2 h-4 w-4" />
         Instalar App
@@ -116,11 +122,10 @@ export function PWAInstallButton({
       onClick={handleOpenInstallPage}
       variant={variant}
       size={size}
-      className={className}
-      style={variant === 'default' ? { backgroundImage: 'linear-gradient(to right, #002D72, #D50000)' } : {}}
+      className={`${className} ${variant === "default" ? "bg-gradient-to-r from-brand-blue to-brand-red text-white border-0 hover:opacity-90 transition-opacity" : ""}`}
     >
       <Download className="mr-2 h-4 w-4" />
       Instalar App
     </Button>
   );
-} 
+}
