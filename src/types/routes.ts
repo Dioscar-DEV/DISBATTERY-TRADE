@@ -7,7 +7,7 @@ export interface RoutePoint {
   position: { lat: number; lng: number };
   type: "cliente" | "distribuidor" | "oficina";
   estimatedTime: number; // minutos
-  status: "pendiente" | "visitado" | "omitido" | "cerrado";
+  status: "pendiente" | "visitado" | "omitido" | "cerrado" | "gestionado";
   tipoVisita?: "Merchandising" | "Trade (Eventos)" | "Trade (Impulso)"; // Tipo de visita asignado en la ruta
   marcaTrabajada?: "Shell" | "Qualid"; // Marca trabajada para este punto específico
   // Campos adicionales del cliente
@@ -63,6 +63,7 @@ export interface Route {
   en_progresoAt?: Date;
   completadaAt?: Date;
   createdBy?: string;
+  sede?: string;
 }
 
 // Tipos para regiones y sedes

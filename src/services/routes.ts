@@ -7,11 +7,9 @@ import {
   query,
   where,
   getDocs,
-  QuerySnapshot,
-  DocumentData,
+  getDoc,
 } from "firebase/firestore";
 import { getFirestoreClient } from "@/firebase/clientApp";
-import { offlineManager } from "./offlineManager";
 import type { Route, RoutePoint } from "@/types/routes";
 import { format } from "date-fns";
 import { sendNotificationToAdmins } from "./notifications";
@@ -109,8 +107,50 @@ export const updateRouteStatus = async (
     await updateDoc(routeRef, updateData);
     // ✅ Mantener coherencia local en IndexedDB para estrategia offline-first
     try {
+      const { offlineManager } = await import("./offlineManager");
       await offlineManager.updateOfflineRouteStatus(routeId, newStatus);
     } catch {}
+    // ✅ 4. Enviar notificación a administradores si corresponde
+    if (newStatus === "completada" || newStatus === "en_progreso") {
+      try {
+        console.log(
+          `🔔 Enviando notificación de cambio de estado a ${newStatus}`
+        );
+
+        // Obtener datos de la ruta para el mensaje
+        const routeSnapshot = await getDoc(routeRef);
+        const routeData = routeSnapshot.data() as Route | undefined;
+        const mercaderistaName =
+          (routeData as any)?.mercaderista?.nombre || "Mercaderista";
+        const sede = routeData?.sede || "No especificada";
+
+        const title =
+          newStatus === "completada"
+            ? "✅ Ruta Completada"
+            : "🚀 Ruta Iniciada";
+
+        const body =
+          newStatus === "completada"
+            ? `${mercaderistaName} ha completado su ruta del día en ${sede}.`
+            : `${mercaderistaName} ha iniciado su ruta del día en ${sede}.`;
+
+        await sendNotificationToAdmins(sede, {
+          title,
+          body,
+          data: {
+            type: "route_update",
+            routeId,
+            status: newStatus,
+            mercaderistaId: mercaderistoId || routeData?.mercaderistoId,
+          },
+          sede: sede, // Enviar solo a admins de esa sede
+        });
+      } catch (notifError) {
+        console.error("⚠️ Error enviando notificación push:", notifError);
+        // No bloquear el flujo principal
+      }
+    }
+
     console.log(`✅ [RouteService] Status actualizado a: ${newStatus}`);
   } catch (error: any) {
     console.error("❌ [RouteService] Error actualizando status:", error);
@@ -168,10 +208,12 @@ export const updateRoutePointStatus = async (
 
     let pointUpdated = false;
     let routeFound = false;
+    let pointName = "Cliente";
+    let currentSede = "GRUPO DISBATTERY";
 
     // Buscar el punto SOLO en las rutas de la fecha específica
     for (const routeDoc of snapshot.docs) {
-      const routeData = routeDoc.data();
+      const routeData = routeDoc.data() as Route;
       const points = routeData.points || [];
 
       console.log(
@@ -200,6 +242,8 @@ export const updateRoutePointStatus = async (
             `🎯 [RouteService] ✅ PUNTO ENCONTRADO EXACTAMENTE: "${points[pointIndex].name}" con estado actual "${points[pointIndex].status}"`
           );
           routeFound = true;
+          pointName = points[pointIndex].name || "Cliente";
+          currentSede = routeData.sede || "GRUPO DISBATTERY";
 
           // ✅ ACTUALIZAR SOLO SI ES NECESARIO
           if (points[pointIndex].status !== newStatus) {
@@ -254,6 +298,27 @@ export const updateRoutePointStatus = async (
         ? `Punto actualizado exitosamente para la fecha ${date}`
         : `No se pudo actualizar el punto para la fecha ${date}`,
     };
+
+    // ✅ NOTIFICACIÓN DE PUNTO VISITADO
+    if (
+      pointUpdated &&
+      (newStatus === "visitado" || newStatus === "gestionado")
+    ) {
+      try {
+        await sendNotificationToAdmins(currentSede, {
+          title: "📍 Visita Realizada",
+          body: `Se ha realizado una visita en: ${pointName}`,
+          data: {
+            type: "point_visit",
+            pointId,
+            status: newStatus,
+            mercaderistoId,
+          },
+        });
+      } catch (e) {
+        console.error("⚠️ Error enviando notificación de punto:", e);
+      }
+    }
 
     console.log(`🎯 [RouteService] === RESULTADO FINAL ===`);
     console.log(`🎯 [RouteService] Resultado:`, result);

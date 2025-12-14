@@ -13,7 +13,7 @@ import {
 import { getFirestoreClient } from "@/firebase/clientApp";
 import { Route, Cliente, RoutePoint } from "@/types/routes";
 import { UserData } from "./auth";
-import { offlineManager } from "./offlineManager";
+
 import { format } from "date-fns";
 
 interface PreloadProgress {
@@ -98,6 +98,7 @@ class DataPreloadService {
         "Inicializando base de datos offline..."
       );
       try {
+        const { offlineManager } = await import("./offlineManager");
         await offlineManager.initDB();
         console.log("✅ [DataPreload] IndexedDB inicializada correctamente");
       } catch (dbError) {
@@ -149,6 +150,7 @@ class DataPreloadService {
       // Paso 4: Almacenar datos en IndexedDB (siempre intentar, incluso con arrays vacíos)
       this.reportProgress("storage", 3, 4, "Almacenando datos localmente...");
       try {
+        const { offlineManager } = await import("./offlineManager");
         await offlineManager.storeRoutes(routes);
         await offlineManager.storeClientes(clientes);
         console.log("✅ [DataPreload] Datos almacenados en IndexedDB");
@@ -209,6 +211,7 @@ class DataPreloadService {
 
       // ✅ INTENTAR ALMACENAR AL MENOS DATOS PARCIALES
       try {
+        const { offlineManager } = await import("./offlineManager");
         await offlineManager.storeRoutes(routes);
         await offlineManager.storeClientes(clientes);
         console.log("✅ [DataPreload] Datos parciales almacenados tras error");
@@ -581,6 +584,7 @@ class DataPreloadService {
    */
   async hasOfflineData(userId: string): Promise<boolean> {
     try {
+      const { offlineManager } = await import("./offlineManager");
       await offlineManager.initDB();
       const routes = await offlineManager.getOfflineRoutes(userId);
       return routes.length > 0;
@@ -599,6 +603,7 @@ class DataPreloadService {
     dataAge?: number;
   }> {
     try {
+      const { offlineManager } = await import("./offlineManager");
       await offlineManager.initDB();
       const routes = await offlineManager.getOfflineRoutes(userId);
 

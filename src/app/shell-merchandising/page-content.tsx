@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Camera } from "lucide-react";
+import { Camera, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -35,22 +35,18 @@ export function ShellMerchandisingPage() {
     setN8NWebhookURL("https://n8n.con-visas.com/webhook/Disbattery-Trade-app");
   }, []);
 
-  const [planogramPhotoBefore, setPlanogramPhotoBefore] = useState<
-    string | null
-  >(null);
-  const [planogramWorked, setPlanogramWorked] = useState<string>("");
-  const [planogramPhotoAfter, setPlanogramPhotoAfter] = useState<string | null>(
-    null
+  const [planogramPhotoBefore, setPlanogramPhotoBefore] = useState<string[]>(
+    []
   );
+  const [planogramWorked, setPlanogramWorked] = useState<string>("");
+  const [planogramPhotoAfter, setPlanogramPhotoAfter] = useState<string[]>([]);
   const [authorizedStickers, setAuthorizedStickers] = useState<number | null>(
     null
   );
   const [stickersPlacedQuantity, setStickersPlacedQuantity] = useState<
     number | null
   >(null);
-  const [stickersPlacedPhoto, setStickersPlacedPhoto] = useState<string | null>(
-    null
-  );
+  const [stickersPlacedPhoto, setStickersPlacedPhoto] = useState<string[]>([]);
 
   const [totalCenefasColocadas, setTotalCenefasColocadas] = useState<
     number | null
@@ -109,9 +105,7 @@ export function ShellMerchandisingPage() {
     getCameraPermission();
   }, [toast]);
 
-  const takePhoto = async (
-    setter: React.Dispatch<React.SetStateAction<string | null>>
-  ) => {
+  const takePhoto = async (onPhotoTaken: (photoUrl: string) => void) => {
     if (!videoRef.current || !hasCameraPermission) {
       toast({
         variant: "destructive",
@@ -129,7 +123,7 @@ export function ShellMerchandisingPage() {
 
       // Show video element for capturing
       videoRef.current.classList.remove("hidden");
-      setCapturingType(setter.name); // Hacky way to know which photo is being captured for UI feedback if needed
+      setCapturingType("capturing"); // Using generic string since we use callback now
 
       // Timeout to allow camera to initialize and focus (optional)
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -144,7 +138,7 @@ export function ShellMerchandisingPage() {
           process.env.NEXT_PUBLIC_CAMERA_QUALITY || "0.8"
         );
         const photoURL = canvas.toDataURL("image/jpeg", quality);
-        setter(photoURL);
+        onPhotoTaken(photoURL);
       } else {
         throw new Error("Could not get canvas context");
       }
@@ -175,7 +169,7 @@ export function ShellMerchandisingPage() {
   const handlePlanogramWorkedChange = (value: string) => {
     setPlanogramWorked(value);
     if (value === "No") {
-      setPlanogramPhotoAfter(null);
+      setPlanogramPhotoAfter([]);
     }
   };
 
@@ -279,7 +273,7 @@ export function ShellMerchandisingPage() {
 
     // ✅ VALIDACIÓN OBLIGATORIA: Fotos de planograma cuando se trabajó
     if (planogramWorked === "Yes") {
-      if (!planogramPhotoBefore) {
+      if (planogramPhotoBefore.length === 0) {
         toast({
           variant: "destructive",
           title: 'Foto "Antes" del Planograma Requerida',
@@ -288,7 +282,7 @@ export function ShellMerchandisingPage() {
         });
         return;
       }
-      if (!planogramPhotoAfter) {
+      if (planogramPhotoAfter.length === 0) {
         toast({
           variant: "destructive",
           title: 'Foto "Después" del Planograma Requerida',
@@ -301,7 +295,7 @@ export function ShellMerchandisingPage() {
 
     // ✅ VALIDACIÓN OBLIGATORIA: Foto de stickers cuando se colocaron
     if (stickersPlacedQuantity !== null && stickersPlacedQuantity > 0) {
-      if (!stickersPlacedPhoto) {
+      if (stickersPlacedPhoto.length === 0) {
         toast({
           variant: "destructive",
           title: "Foto de Stickers Requerida",
@@ -375,27 +369,27 @@ export function ShellMerchandisingPage() {
       console.log("🔍 VERIFICANDO FOTOS MERCHANDISING ANTES DE GUARDAR:");
       console.log(
         "planogramPhotoBefore (foto antes):",
-        planogramPhotoBefore ? "SÍ CAPTURADA" : "NO CAPTURADA"
+        planogramPhotoBefore.length > 0 ? "SÍ CAPTURADA" : "NO CAPTURADA"
       );
       console.log(
         "planogramPhotoAfter (foto después):",
-        planogramPhotoAfter ? "SÍ CAPTURADA" : "NO CAPTURADA"
+        planogramPhotoAfter.length > 0 ? "SÍ CAPTURADA" : "NO CAPTURADA"
       );
       console.log(
         "stickersPlacedPhoto (foto sticker):",
-        stickersPlacedPhoto ? "SÍ CAPTURADA" : "NO CAPTURADA"
+        stickersPlacedPhoto.length > 0 ? "SÍ CAPTURADA" : "NO CAPTURADA"
       );
 
       const datosShellMerchandising = {
         // Planograma Shell
         hicistePlanogramaShell: planogramWorked === "Yes",
-        fotoAntesShell: planogramPhotoBefore || "",
-        fotoDespuesShell: planogramPhotoAfter || "",
+        fotoAntesShell: planogramPhotoBefore, // Array
+        fotoDespuesShell: planogramPhotoAfter, // Array
 
         // Sticker Punto de Venta Shell - CORREGIDO para guardar números
         cantidadStickersAutorizados: authorizedStickers ?? 0,
         cantidadStickersNuevos: stickersPlacedQuantity ?? 0,
-        fotoStickerShell: stickersPlacedPhoto || "",
+        fotoStickerShell: stickersPlacedPhoto, // Array
 
         // Materiales Shell
         totalCenefasShell: totalCenefasColocadas ?? 0,
@@ -654,34 +648,54 @@ export function ShellMerchandisingPage() {
               <Label htmlFor="planogram-photo-before">
                 Foto Actual del Planograma
               </Label>
+
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {planogramPhotoBefore.map((foto, idx) => (
+                  <div key={idx} className="relative">
+                    <img
+                      src={foto}
+                      alt={`Planograma Antes ${idx}`}
+                      className="rounded-md object-cover w-full h-24"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6"
+                      onClick={() =>
+                        setPlanogramPhotoBefore((prev) =>
+                          prev.filter((_, i) => i !== idx)
+                        )
+                      }
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
               <Button
-                onClick={() => takePhoto(setPlanogramPhotoBefore)}
+                onClick={() =>
+                  takePhoto((url) =>
+                    setPlanogramPhotoBefore((prev) => [...prev, url])
+                  )
+                }
                 disabled={!hasCameraPermission || !!capturingType}
-                className="w-full mt-1 text-white"
+                className="w-full mt-2 text-white"
                 style={{
                   backgroundImage:
                     "linear-gradient(to right, #fbce04, #e30a18)",
                 }}
               >
-                {capturingType === "setPlanogramPhotoBefore" ? (
+                {capturingType ? (
                   "Capturando..."
-                ) : hasCameraPermission ? (
-                  <>
-                    <Camera className="mr-2 h-4 w-4" /> Tomar Foto del
-                    Planograma
-                  </>
                 ) : (
-                  "Cámara no permitida"
+                  <>
+                    <Camera className="mr-2 h-4 w-4" />
+                    {planogramPhotoBefore.length > 0
+                      ? "Agregar Otra Foto"
+                      : "Tomar Foto Antes"}
+                  </>
                 )}
               </Button>
-              {planogramPhotoBefore && (
-                <img
-                  src={planogramPhotoBefore}
-                  alt="Planograma Antes"
-                  className="mt-2 rounded-md object-cover w-full h-auto"
-                  data-ai-hint="store shelf before"
-                />
-              )}
             </div>
 
             <div>
@@ -705,34 +719,54 @@ export function ShellMerchandisingPage() {
                 <Label htmlFor="planogram-photo-after">
                   Foto del Planograma Después del Trabajo
                 </Label>
+
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {planogramPhotoAfter.map((foto, idx) => (
+                    <div key={idx} className="relative">
+                      <img
+                        src={foto}
+                        alt={`Planograma Después ${idx}`}
+                        className="rounded-md object-cover w-full h-24"
+                      />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() =>
+                          setPlanogramPhotoAfter((prev) =>
+                            prev.filter((_, i) => i !== idx)
+                          )
+                        }
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
                 <Button
-                  onClick={() => takePhoto(setPlanogramPhotoAfter)}
+                  onClick={() =>
+                    takePhoto((url) =>
+                      setPlanogramPhotoAfter((prev) => [...prev, url])
+                    )
+                  }
                   disabled={!hasCameraPermission || !!capturingType}
-                  className="w-full mt-1 text-white"
+                  className="w-full mt-2 text-white"
                   style={{
                     backgroundImage:
                       "linear-gradient(to right, #fbce04, #e30a18)",
                   }}
                 >
-                  {capturingType === "setPlanogramPhotoAfter" ? (
+                  {capturingType ? (
                     "Capturando..."
-                  ) : hasCameraPermission ? (
-                    <>
-                      <Camera className="mr-2 h-4 w-4" /> Tomar Foto del
-                      Planograma Después
-                    </>
                   ) : (
-                    "Cámara no permitida"
+                    <>
+                      <Camera className="mr-2 h-4 w-4" />
+                      {planogramPhotoAfter.length > 0
+                        ? "Agregar Otra Foto"
+                        : "Tomar Foto Después"}
+                    </>
                   )}
                 </Button>
-                {planogramPhotoAfter && (
-                  <img
-                    src={planogramPhotoAfter}
-                    alt="Planograma Después"
-                    className="mt-2 rounded-md object-cover w-full h-auto"
-                    data-ai-hint="store shelf after"
-                  />
-                )}
               </div>
             )}
 
@@ -782,33 +816,54 @@ export function ShellMerchandisingPage() {
                 <Label htmlFor="stickers-placed-photo">
                   Foto de los Stickers Colocados
                 </Label>
+
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {stickersPlacedPhoto.map((foto, idx) => (
+                    <div key={idx} className="relative">
+                      <img
+                        src={foto}
+                        alt={`Stickers ${idx}`}
+                        className="rounded-md object-cover w-full h-24"
+                      />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() =>
+                          setStickersPlacedPhoto((prev) =>
+                            prev.filter((_, i) => i !== idx)
+                          )
+                        }
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
                 <Button
-                  onClick={() => takePhoto(setStickersPlacedPhoto)}
+                  onClick={() =>
+                    takePhoto((url) =>
+                      setStickersPlacedPhoto((prev) => [...prev, url])
+                    )
+                  }
                   disabled={!hasCameraPermission || !!capturingType}
-                  className="w-full mt-1 text-white"
+                  className="w-full mt-2 text-white"
                   style={{
                     backgroundImage:
                       "linear-gradient(to right, #fbce04, #e30a18)",
                   }}
                 >
-                  {capturingType === "setStickersPlacedPhoto" ? (
+                  {capturingType ? (
                     "Capturando..."
-                  ) : hasCameraPermission ? (
-                    <>
-                      <Camera className="mr-2 h-4 w-4" /> Tomar Foto de Stickers
-                    </>
                   ) : (
-                    "Cámara no permitida"
+                    <>
+                      <Camera className="mr-2 h-4 w-4" />
+                      {stickersPlacedPhoto.length > 0
+                        ? "Agregar Otra Foto"
+                        : "Tomar Foto Stickers"}
+                    </>
                   )}
                 </Button>
-                {stickersPlacedPhoto && (
-                  <img
-                    src={stickersPlacedPhoto}
-                    alt="Stickers Colocados"
-                    className="mt-2 rounded-md object-cover w-full h-auto"
-                    data-ai-hint="product stickers"
-                  />
-                )}
               </div>
             )}
 

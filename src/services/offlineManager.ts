@@ -1,22 +1,3 @@
-/**
- * 🚀 SERVICIO UNIFICADO DE GESTIÓN OFFLINE - VERSIÓN CONSOLIDADA
- *
- * Este servicio centraliza TODA la lógica offline de la aplicación:
- * - Guardado offline/online unificado
- * - Sincronización automática robusta
- * - Manejo de IndexedDB + fallback a localStorage
- * - Gestión de rutas y clientes offline
- * - Validación GPS
- * - Cola de visitas para sincronización
- * - Sistema de cola de operaciones unificado
- *
- * CONSOLIDA Y REEMPLAZA:
- * - syncService.ts (eliminado)
- * - sync.ts (eliminado)
- * - offlineService.ts (deprecado - usar offlineManager)
- */
-
-import { db } from "@/db/database";
 import { crearVisita } from "./visitas";
 import { uploadMultipleImages } from "./images";
 import { getCurrentUser, getUserFromStorage } from "./auth";
@@ -493,20 +474,42 @@ class OfflineManager {
   } {
     const errors: string[] = [];
 
-    if (!visitaData.clienteData) {
-      errors.push("Datos del cliente requeridos");
-    }
+    // Si es una operación administrativa o de sistema, tiene validación diferente
+    if (this.isAdminData(visitaData)) {
+      if (!visitaData.tipoVisita) {
+        errors.push("Tipo de visita requerido para operación admin");
+      }
+      if (!visitaData.accion) {
+        errors.push("Acción requerida para operación admin");
+      }
+      // Verificar que tenga al menos un objeto de datos relevante
+      if (
+        !visitaData.routeData &&
+        !visitaData.clienteData &&
+        !visitaData.eventoData &&
+        !visitaData.userData
+      ) {
+        errors.push(
+          "Datos de operación requeridos (route/cliente/evento/user)"
+        );
+      }
+    } else {
+      // Validación estricta para visitas normales (Merchandising/Trade)
+      if (!visitaData.clienteData) {
+        errors.push("Datos del cliente requeridos");
+      }
 
-    if (!visitaData.tipoVisita) {
-      errors.push("Tipo de visita requerido");
-    }
+      if (!visitaData.tipoVisita) {
+        errors.push("Tipo de visita requerido");
+      }
 
-    if (!visitaData.clienteData?.rif) {
-      errors.push("RIF del cliente requerido");
-    }
+      if (visitaData.clienteData && !visitaData.clienteData.rif) {
+        errors.push("RIF del cliente requerido");
+      }
 
-    if (!visitaData.clienteData?.nombre) {
-      errors.push("Nombre del cliente requerido");
+      if (visitaData.clienteData && !visitaData.clienteData.nombre) {
+        errors.push("Nombre del cliente requerido");
+      }
     }
 
     return {
@@ -1446,11 +1449,11 @@ class OfflineManager {
   private isAdminData(data: any): boolean {
     return (
       data.tipoVisita?.includes("Admin -") ||
-      data.accion ||
-      data.clienteData ||
-      data.userData ||
-      data.routeData ||
-      data.eventoData
+      data.accion !== undefined || // Existencia explícita de acción
+      // Eliminado data.clienteData para evitar falsos positivos con visitas normales
+      data.routeData !== undefined ||
+      data.eventoData !== undefined ||
+      data.userData !== undefined
     );
   }
 
@@ -1803,9 +1806,8 @@ class OfflineManager {
               case "uploadImage": {
                 const { draftId, fieldKey, base64, storagePath } =
                   op.payload || {};
-                const { uploadImageToStorage, generateFileName } = await import(
-                  "@/services/images"
-                );
+                const { uploadImageToStorage, generateFileName } =
+                  await import("@/services/images");
                 const fileName = generateFileName(`${draftId}_${fieldKey}`);
                 const url = await uploadImageToStorage(
                   base64,
@@ -1837,12 +1839,10 @@ class OfflineManager {
               }
               case "createVisita": {
                 const { coll, data } = op.payload || {};
-                const { getFirestoreClient } = await import(
-                  "@/firebase/clientApp"
-                );
-                const { collection, addDoc } = await import(
-                  "firebase/firestore"
-                );
+                const { getFirestoreClient } =
+                  await import("@/firebase/clientApp");
+                const { collection, addDoc } =
+                  await import("firebase/firestore");
                 const fs = getFirestoreClient();
                 await addDoc(collection(fs, coll), data);
 
@@ -1855,9 +1855,8 @@ class OfflineManager {
               }
               case "updateCliente": {
                 const { path, data } = op.payload || {};
-                const { getFirestoreClient } = await import(
-                  "@/firebase/clientApp"
-                );
+                const { getFirestoreClient } =
+                  await import("@/firebase/clientApp");
                 const { doc, updateDoc } = await import("firebase/firestore");
                 const fs = getFirestoreClient();
                 await updateDoc(doc(fs, path), data);
@@ -1871,9 +1870,8 @@ class OfflineManager {
               }
               case "updateRoute": {
                 const { path, data } = op.payload || {};
-                const { getFirestoreClient } = await import(
-                  "@/firebase/clientApp"
-                );
+                const { getFirestoreClient } =
+                  await import("@/firebase/clientApp");
                 const { doc, updateDoc } = await import("firebase/firestore");
                 const fs = getFirestoreClient();
                 await updateDoc(doc(fs, path), data);
@@ -2749,9 +2747,8 @@ class OfflineManager {
       });
 
       // Importar dinámicamente para evitar dependencias circulares
-      const { dataPreloadService } = await import(
-        "@/services/dataPreloadService"
-      );
+      const { dataPreloadService } =
+        await import("@/services/dataPreloadService");
 
       onProgress?.({
         step: "download",

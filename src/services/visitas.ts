@@ -18,7 +18,9 @@ import {
 import { format } from "date-fns";
 
 // URL del webhook N8N desde variables de entorno o configuración directa
-let N8N_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || "https://n8n.con-visas.com/webhook/Disbattery-Trade-app";
+let N8N_WEBHOOK_URL =
+  process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL ||
+  "https://n8n.con-visas.com/webhook/Disbattery-Trade-app";
 
 // Configurar URL del webhook N8N
 export const setN8NWebhookURL = (url: string) => {
@@ -308,13 +310,21 @@ export const crearVisita = async (data: CreateVisitaData): Promise<string> => {
         console.log("   - lastVisitDate:", updatePayload.lastVisitDate);
         console.log("   - position:", updatePayload.position);
 
-        await updateDoc(clienteRef, updatePayload);
-        console.log(
-          "[clientes] actualizado",
-          rifNormalizado,
-          "->",
-          updatePayload
-        );
+        try {
+          await updateDoc(clienteRef, updatePayload);
+          console.log(
+            "[clientes] actualizado",
+            rifNormalizado,
+            "->",
+            updatePayload
+          );
+        } catch (err) {
+          console.error(
+            `❌ Error actualizando cliente ${rifNormalizado}:`,
+            err
+          );
+          // No fallar la visita si falla la actualización del cliente
+        }
       } else {
         console.warn(
           "[clientes] No se encontró cliente con RIF",
@@ -328,7 +338,10 @@ export const crearVisita = async (data: CreateVisitaData): Promise<string> => {
     if (data.rifCliente && data.correoMercaderista) {
       try {
         // Obtener el UID del mercaderista desde localStorage (solo en cliente)
-        const currentUser = typeof window !== 'undefined' ? localStorage.getItem("currentUser") : null;
+        const currentUser =
+          typeof window !== "undefined"
+            ? localStorage.getItem("currentUser")
+            : null;
         let mercaderistoId = "";
 
         if (currentUser) {
@@ -337,7 +350,10 @@ export const crearVisita = async (data: CreateVisitaData): Promise<string> => {
         }
 
         // ✅ CRÍTICO: Obtener pointId específico desde localStorage
-        const clienteDataString = typeof window !== 'undefined' ? localStorage.getItem("clienteData") : null;
+        const clienteDataString =
+          typeof window !== "undefined"
+            ? localStorage.getItem("clienteData")
+            : null;
         let pointId = "";
 
         if (clienteDataString) {

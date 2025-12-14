@@ -26,7 +26,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -45,13 +44,10 @@ import {
   Trash2,
   Search,
   Filter,
-  UserCircle,
-  ArrowLeft,
-  Upload,
   FileText,
   AlertCircle,
   CheckCircle,
-  Menu,
+  Upload,
 } from "lucide-react";
 import {
   Cliente,
@@ -194,7 +190,6 @@ const isTradeImpulsoVisit = (visita: any) => {
 
 // Constantes para paginación
 const CLIENTS_PER_PAGE = 50;
-const MAX_CLIENTS_LOAD = 200; // Máximo de clientes a cargar inicialmente
 
 export default function GestionClientesPage() {
   const router = useRouter();
@@ -229,7 +224,6 @@ export default function GestionClientesPage() {
   const [filterRegion, setFilterRegion] = useState<Region | "all">("all");
   const [filterSede, setFilterSede] = useState<Sede | "all">("all");
   const [filterSignal, setFilterSignal] = useState<"all" | "si" | "no">("all");
-  // const [isMobileMenuOpen, setMobileMenuOpen] = useState(false); // Removed
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -2210,13 +2204,35 @@ export default function GestionClientesPage() {
                     setLoading(true);
                     try {
                       console.log(
-                        "🔄 Forzando actualización de información de señalización..."
+                        "🔄 Actualizando información de señalización y visitas..."
                       );
-                      await loadClientes(); // Esto recargará todos los clientes con señalización
+
+                      const updatedClientes = await Promise.all(
+                        clientes.map(async (cliente) => {
+                          const [signageInfo, visitInfo] = await Promise.all([
+                            obtenerInformacionSeñalizacion(cliente.rif),
+                            obtenerUltimasVisitasPorTipo(cliente.rif),
+                          ]);
+
+                          return {
+                            ...cliente,
+                            tieneSeñalizacion: signageInfo.tieneSeñalizacion,
+                            signage: signageInfo.estado,
+                            signagePhoto: undefined, // No fetched in summary but could be
+                            ultimaVisitaMerchandising:
+                              visitInfo.ultimaVisitaMerchandising,
+                            ultimaVisitaTradeImpulso:
+                              visitInfo.ultimaVisitaTradeImpulso,
+                          };
+                        })
+                      );
+
+                      setClientes(updatedClientes);
+
                       toast({
                         title: "🔄 Actualización completada",
                         description:
-                          "Se actualizó la información de señalización de todos los clientes",
+                          "Se actualizó la información de señalización y visitas de todos los clientes visualizados",
                       });
                     } catch (error) {
                       console.error("Error actualizando señalización:", error);

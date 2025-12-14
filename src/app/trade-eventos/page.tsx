@@ -21,11 +21,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Trash, Video, X, CheckCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Camera, Trash, Video, X, CheckCircle, MapPin } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { setN8NWebhookURL } from "@/services/visitas";
-import { RespuestasTrade } from "@/types/visitas";
 import { getCurrentUser, getUserFromStorage } from "@/services/auth";
 import { getGPSLocation, GPSCoordinates } from "@/services/gpsService";
 
@@ -79,8 +77,6 @@ const ENTREGABLES_IMPULSO_QUALID_TYPES: string[] = [
   "Paños Qualid",
   "Vasos Qualid",
 ];
-
-const FOTO_LABELS = ["Stand", "Promotoras", "Ambiente"];
 
 export default function TradeEventosPage() {
   const router = useRouter();
@@ -314,120 +310,71 @@ export default function TradeEventosPage() {
   );
 
   // ✅ NUEVO: Estados de fotos separados por marca
-  const [fotosShell, setFotosShell] = useState<(string | null)[]>(
-    Array(3).fill(null)
-  );
-  const [fotosQualid, setFotosQualid] = useState<(string | null)[]>(
-    Array(3).fill(null)
-  );
+  const [fotosShell, setFotosShell] = useState<(string | null)[]>([]);
+  const [fotosQualid, setFotosQualid] = useState<(string | null)[]>([]);
 
   // Estados para videos del evento
   const [videosEvento, setVideosEvento] = useState<string[]>([]);
+  const [comentarios, setComentarios] = useState("");
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [gpsCoordinates, setGpsCoordinates] = useState<GPSCoordinates | null>(
     null
   );
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
-  const uploadImage = async (
-    setter: React.Dispatch<React.SetStateAction<string | null>>,
-    photoType: string
-  ) => {
+  // Obtener ubicación GPS al montar o al intentar guardar
+  useEffect(() => {
+    const fetchLocation = async () => {
+      setIsGettingLocation(true);
+      try {
+        const coords = await getGPSLocation();
+        setGpsCoordinates(coords);
+        console.log("📍 Ubicación obtenida:", coords);
+      } catch (error) {
+        console.error("Error obteniendo GPS:", error);
+      } finally {
+        setIsGettingLocation(false);
+      }
+    };
+    fetchLocation();
+  }, []);
+
+  // ✅ MODIFICADO: Funciones para cargar fotos dinámicamente (append)
+  const uploadBrandPhoto = async (brand: "Shell" | "Qualid") => {
     try {
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "image/*";
+      input.multiple = true; // ✅ Permitir selección múltiple
 
       input.onchange = (event) => {
-        const file = (event.target as HTMLInputElement).files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const result = e.target?.result as string;
-            setter(result);
-            toast({
-              title: "✅ Imagen subida",
-              description: "La imagen se ha cargado correctamente.",
-            });
-          };
-          reader.readAsDataURL(file);
-        }
-      };
+        const files = (event.target as HTMLInputElement).files;
+        if (files && files.length > 0) {
+          const newPhotos: string[] = [];
+          let processedCount = 0;
 
-      input.click();
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast({
-        variant: "destructive",
-        title: "Error al subir imagen",
-        description: "Asegúrese de que el archivo sea una imagen válida.",
-      });
-    }
-  };
+          Array.from(files).forEach((file) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const result = e.target?.result as string;
+              newPhotos.push(result);
+              processedCount++;
 
-  const uploadEventPhoto = async (index: number) => {
-    try {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-
-      input.onchange = (event) => {
-        const file = (event.target as HTMLInputElement).files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const result = e.target?.result as string;
-            const newFotos = [...fotosEvento];
-            newFotos[index] = result;
-            setFotosEvento(newFotos);
-            toast({
-              title: `✅ Foto ${index + 1} subida`,
-              description: "La imagen del evento se ha cargado correctamente.",
-            });
-          };
-          reader.readAsDataURL(file);
-        }
-      };
-
-      input.click();
-    } catch (error) {
-      console.error("Error uploading event photo:", error);
-      toast({
-        variant: "destructive",
-        title: "Error al subir foto del evento",
-        description: "Asegúrese de que el archivo sea una imagen válida.",
-      });
-    }
-  };
-
-  // ✅ NUEVAS FUNCIONES PARA CARGAR FOTOS POR MARCA
-  const uploadBrandPhoto = async (brand: "Shell" | "Qualid", index: number) => {
-    try {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-
-      input.onchange = (event) => {
-        const file = (event.target as HTMLInputElement).files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const result = e.target?.result as string;
-            if (brand === "Shell") {
-              const newFotos = [...fotosShell];
-              newFotos[index] = result;
-              setFotosShell(newFotos);
-            } else {
-              const newFotos = [...fotosQualid];
-              newFotos[index] = result;
-              setFotosQualid(newFotos);
-            }
-            toast({
-              title: `✅ Foto ${index + 1} (${brand}) subida`,
-              description: "La imagen del evento se ha cargado correctamente.",
-            });
-          };
-          reader.readAsDataURL(file);
+              if (processedCount === files.length) {
+                if (brand === "Shell") {
+                  setFotosShell((prev) => [...prev, ...newPhotos]);
+                } else {
+                  setFotosQualid((prev) => [...prev, ...newPhotos]);
+                }
+                toast({
+                  title: `✅ ${files.length} foto(s) de ${brand} subida(s)`,
+                  description: "Las imágenes se han cargado correctamente.",
+                });
+              }
+            };
+            reader.readAsDataURL(file);
+          });
         }
       };
 
@@ -437,24 +384,27 @@ export default function TradeEventosPage() {
       toast({
         variant: "destructive",
         title: `Error al subir foto de ${brand}`,
-        description: "Asegúrese de que el archivo sea una imagen válida.",
+        description: "Hubo un error al procesar las imágenes.",
       });
     }
   };
 
-  const removeBrandPhoto = (brand: "Shell" | "Qualid", index: number) => {
+  const removeBrandPhoto = (
+    brand: "Shell" | "Qualid",
+    indexToRemove: number
+  ) => {
     if (brand === "Shell") {
-      const newFotos = [...fotosShell];
-      newFotos[index] = null;
-      setFotosShell(newFotos);
+      setFotosShell((prev) =>
+        prev.filter((_, index) => index !== indexToRemove)
+      );
     } else {
-      const newFotos = [...fotosQualid];
-      newFotos[index] = null;
-      setFotosQualid(newFotos);
+      setFotosQualid((prev) =>
+        prev.filter((_, index) => index !== indexToRemove)
+      );
     }
     toast({
       title: "Foto eliminada",
-      description: `La foto ${index + 1} de ${brand} ha sido eliminada.`,
+      description: `La foto de ${brand} ha sido eliminada.`,
     });
   };
 
@@ -689,11 +639,12 @@ export default function TradeEventosPage() {
         recursosUsados: recursosAgregados,
         entregablesShell: entregablesShellAgregados,
         entregablesQualid: entregablesQualidAgregados,
-        fotosEvento: fotosEvento.filter((foto) => foto !== null), // MANTENER PARA COMPATIBILIDAD
+        fotosEvento: [], // Deprecated
         fotosShell: fotosShell.filter((f) => f !== null), // NUEVO
         fotosQualid: fotosQualid.filter((f) => f !== null), // NUEVO
         videosEvento: videosEvento,
-        gpsCoordinates: location,
+        gpsCoordinates: gpsCoordinates || location, // Usar real o fallback
+        comentarios: comentarios,
         clienteData: cliente,
         mercaderista: mercaderista,
         correoMercaderista: correoMercaderista,
@@ -1186,38 +1137,34 @@ export default function TradeEventosPage() {
               <div className="grid grid-cols-2 gap-4">
                 {fotosShell.map((foto, index) => (
                   <div key={`shell-${index}`} className="space-y-2">
-                    <Label className="text-sm">
-                      Foto {FOTO_LABELS[index]} (Shell)
-                    </Label>
-                    {foto ? (
-                      <div className="relative">
-                        <img
-                          src={foto}
-                          alt={`Foto de Shell ${index + 1}`}
-                          className="w-full h-32 object-cover rounded-md border"
-                        />
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => removeBrandPhoto("Shell", index)}
-                          disabled={isSyncing}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
+                    <Label className="text-sm">Foto {index + 1} (Shell)</Label>
+                    <div className="relative">
+                      <img
+                        src={foto || ""}
+                        alt={`Foto de Shell ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-md border"
+                      />
                       <Button
-                        variant="outline"
-                        className="w-full h-32 border-2 border-dashed"
-                        onClick={() => uploadBrandPhoto("Shell", index)}
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => removeBrandPhoto("Shell", index)}
                         disabled={isSyncing}
                       >
-                        <Camera className="mr-2 h-4 w-4" /> Subir Foto
+                        <X className="h-4 w-4" />
                       </Button>
-                    )}
+                    </div>
                   </div>
                 ))}
+                <Button
+                  variant="outline"
+                  className="w-full h-32 border-2 border-dashed flex flex-col gap-2 items-center justify-center"
+                  onClick={() => uploadBrandPhoto("Shell")}
+                  disabled={isSyncing}
+                >
+                  <Camera className="h-6 w-6" />
+                  <span>Agregar Foto Shell</span>
+                </Button>
               </div>
             </div>
           )}
@@ -1231,38 +1178,34 @@ export default function TradeEventosPage() {
               <div className="grid grid-cols-2 gap-4">
                 {fotosQualid.map((foto, index) => (
                   <div key={`qualid-${index}`} className="space-y-2">
-                    <Label className="text-sm">
-                      Foto {FOTO_LABELS[index]} (Qualid)
-                    </Label>
-                    {foto ? (
-                      <div className="relative">
-                        <img
-                          src={foto}
-                          alt={`Foto de Qualid ${index + 1}`}
-                          className="w-full h-32 object-cover rounded-md border"
-                        />
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => removeBrandPhoto("Qualid", index)}
-                          disabled={isSyncing}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
+                    <Label className="text-sm">Foto {index + 1} (Qualid)</Label>
+                    <div className="relative">
+                      <img
+                        src={foto || ""}
+                        alt={`Foto de Qualid ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-md border"
+                      />
                       <Button
-                        variant="outline"
-                        className="w-full h-32 border-2 border-dashed"
-                        onClick={() => uploadBrandPhoto("Qualid", index)}
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => removeBrandPhoto("Qualid", index)}
                         disabled={isSyncing}
                       >
-                        <Camera className="mr-2 h-4 w-4" /> Subir Foto
+                        <X className="h-4 w-4" />
                       </Button>
-                    )}
+                    </div>
                   </div>
                 ))}
+                <Button
+                  variant="outline"
+                  className="w-full h-32 border-2 border-dashed flex flex-col gap-2 items-center justify-center"
+                  onClick={() => uploadBrandPhoto("Qualid")}
+                  disabled={isSyncing}
+                >
+                  <Camera className="h-6 w-6" />
+                  <span>Agregar Foto Qualid</span>
+                </Button>
               </div>
             </div>
           )}
@@ -1310,6 +1253,56 @@ export default function TradeEventosPage() {
                   </ul>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Sección de Comentarios y GPS */}
+          {selectedBrands.length > 0 && (
+            <div className="space-y-4 border-t pt-4">
+              <Label className="font-medium">
+                Observaciones / Comentarios Adicionales
+              </Label>
+              <Textarea
+                placeholder="Ingrese cualquier observación relevante sobre el evento..."
+                value={comentarios}
+                onChange={(e) => setComentarios(e.target.value)}
+                className="min-h-[100px]"
+              />
+
+              <div className="flex items-center space-x-2 text-sm text-gray-500 mt-2">
+                <MapPin
+                  className={`w-4 h-4 ${
+                    gpsCoordinates ? "text-green-500" : "text-gray-400"
+                  }`}
+                />
+                <span>
+                  {isGettingLocation
+                    ? "Obteniendo ubicación actual..."
+                    : gpsCoordinates
+                      ? `Ubicación registrada: ${gpsCoordinates.latitude.toFixed(
+                          6
+                        )}, ${gpsCoordinates.longitude.toFixed(6)}`
+                      : "Ubicación GPS pendiente"}
+                </span>
+                {!gpsCoordinates && !isGettingLocation && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => {
+                      setIsGettingLocation(true);
+                      getGPSLocation()
+                        .then((coords) => {
+                          setGpsCoordinates(coords);
+                          setIsGettingLocation(false);
+                        })
+                        .catch(() => setIsGettingLocation(false));
+                    }}
+                  >
+                    Reintentar
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </CardContent>

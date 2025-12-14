@@ -1602,6 +1602,9 @@ export default function MyRoutePage() {
       case "oficina":
         return <CheckCircle className="w-5 h-5 text-purple-500" />;
     }
+
+    // Default icon for other types or handled statuses
+    return <UserCheck className="w-5 h-5 text-gray-500" />;
   };
 
   // Función para manejar cliente cerrado
@@ -2429,12 +2432,16 @@ export default function MyRoutePage() {
                             const isVisitado = point.status === "visitado";
                             const isOmitido = point.status === "omitido";
                             const isCerrado = point.status === "cerrado";
+                            const isGestionado = point.status === "gestionado";
                             const isRouteCompleted =
                               todaysRoutes[0]?.status === "completada";
 
-                            // ✅ CORRECCIÓN: Solo permitir clicks si está pendiente AND la ruta no está completada AND no está cerrado
+                            // ✅ CORRECCIÓN: Solo permitir clicks si está pendiente AND la ruta no está completada AND no está cerrado/gestionado
                             const isClickable =
-                              isPendiente && !isRouteCompleted && !isCerrado;
+                              isPendiente &&
+                              !isRouteCompleted &&
+                              !isCerrado &&
+                              !isGestionado;
 
                             return (
                               <li key={point.id}>
@@ -2503,6 +2510,11 @@ export default function MyRoutePage() {
                                                   🚪
                                                 </span>
                                               )}
+                                              {isGestionado && (
+                                                <span className="text-blue-600 text-base">
+                                                  📋
+                                                </span>
+                                              )}
                                               {isRouteCompleted && (
                                                 <span className="text-gray-500 text-sm ml-2 font-medium">
                                                   🔒
@@ -2567,7 +2579,9 @@ export default function MyRoutePage() {
                                                     ? "text-green-600"
                                                     : isCerrado
                                                       ? "text-red-600"
-                                                      : "text-amber-600"
+                                                      : isGestionado
+                                                        ? "text-blue-600"
+                                                        : "text-amber-600"
                                             }`}
                                           >
                                             {isRouteCompleted
@@ -2578,7 +2592,9 @@ export default function MyRoutePage() {
                                                   ? "Visitado"
                                                   : isCerrado
                                                     ? "Cerrado"
-                                                    : "Omitido"}
+                                                    : isGestionado
+                                                      ? "Gestionado"
+                                                      : "Omitido"}
                                           </span>
                                           <div className="flex items-center gap-1">
                                             {isClickable && (
@@ -2590,6 +2606,9 @@ export default function MyRoutePage() {
                                             )}
                                             {isCerrado && (
                                               <DoorClosed className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
+                                            )}
+                                            {isGestionado && (
+                                              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                                             )}
                                           </div>
                                         </div>
@@ -2617,7 +2636,8 @@ export default function MyRoutePage() {
                                       )) &&
                                     isPendiente &&
                                     !isRouteCompleted &&
-                                    !isCerrado && (
+                                    !isCerrado &&
+                                    !isGestionado && (
                                       <Button
                                         variant="outline"
                                         size="sm"

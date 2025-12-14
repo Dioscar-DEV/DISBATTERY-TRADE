@@ -1,6 +1,7 @@
 # 🚀 PLAN PWA - DISBATTERY TRADE APP
 
 ## 📋 OBJETIVOS
+
 - ✅ Funcionamiento 100% offline
 - ✅ Carga de rutas sin conexión
 - ✅ Sincronización automática cuando hay internet
@@ -9,9 +10,10 @@
 
 ---
 
-## 🏗️ FASE 1: CONFIGURACIÓN PWA BASE (2-3 días)
+## 🏗️ FASE 1: CONFIGURACIÓN PWA BASE (✅ COMPLETADO)
 
 ### 1.1 Instalación de dependencias
+
 ```bash
 npm install next-pwa workbox-webpack-plugin
 npm install dexie  # Base de datos offline
@@ -19,17 +21,18 @@ npm install idb    # IndexedDB wrapper
 ```
 
 ### 1.2 Configuración next.config.ts
+
 ```typescript
-const withPWA = require('next-pwa')({
-  dest: 'public',
+const withPWA = require("next-pwa")({
+  dest: "public",
   register: true,
   skipWaiting: true,
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-      handler: 'CacheFirst',
+      handler: "CacheFirst",
       options: {
-        cacheName: 'google-fonts-cache',
+        cacheName: "google-fonts-cache",
         expiration: {
           maxEntries: 10,
           maxAgeSeconds: 60 * 60 * 24 * 365, // 1 año
@@ -38,9 +41,9 @@ const withPWA = require('next-pwa')({
     },
     {
       urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*/i,
-      handler: 'StaleWhileRevalidate',
+      handler: "StaleWhileRevalidate",
       options: {
-        cacheName: 'firebase-images-cache',
+        cacheName: "firebase-images-cache",
         expiration: {
           maxEntries: 1000,
           maxAgeSeconds: 60 * 60 * 24 * 30, // 30 días
@@ -56,6 +59,7 @@ module.exports = withPWA({
 ```
 
 ### 1.3 Web App Manifest (public/manifest.json)
+
 ```json
 {
   "name": "Disbattery Trade App",
@@ -84,12 +88,13 @@ module.exports = withPWA({
 
 ---
 
-## 🗄️ FASE 2: BASE DE DATOS OFFLINE (3-4 días)
+## 🗄️ FASE 2: BASE DE DATOS OFFLINE (✅ COMPLETADO)
 
 ### 2.1 Estructura IndexedDB con Dexie
+
 ```typescript
 // src/db/database.ts
-import Dexie, { Table } from 'dexie';
+import Dexie, { Table } from "dexie";
 
 export interface Cliente {
   id?: number;
@@ -105,8 +110,8 @@ export interface Ruta {
   id?: number;
   fecha: string;
   puntos: Cliente[];
-  estado: 'planificada' | 'en_progreso' | 'completada';
-  syncStatus: 'synced' | 'pending' | 'error';
+  estado: "planificada" | "en_progreso" | "completada";
+  syncStatus: "synced" | "pending" | "error";
 }
 
 export interface VisitaOffline {
@@ -116,7 +121,7 @@ export interface VisitaOffline {
   data: any;
   fotos: { [key: string]: string }; // fotos en base64
   timestamp: number;
-  syncStatus: 'pending' | 'syncing' | 'synced' | 'error';
+  syncStatus: "pending" | "syncing" | "synced" | "error";
 }
 
 class DisbatteryDB extends Dexie {
@@ -125,11 +130,11 @@ class DisbatteryDB extends Dexie {
   visitas!: Table<VisitaOffline>;
 
   constructor() {
-    super('DisbatteryTradeDB');
+    super("DisbatteryTradeDB");
     this.version(1).stores({
-      clientes: '++id, rif, nombre, sede',
-      rutas: '++id, fecha, estado, syncStatus',
-      visitas: '++id, visitaId, clienteRif, syncStatus, timestamp'
+      clientes: "++id, rif, nombre, sede",
+      rutas: "++id, fecha, estado, syncStatus",
+      visitas: "++id, visitaId, clienteRif, syncStatus, timestamp",
     });
   }
 }
@@ -137,80 +142,38 @@ class DisbatteryDB extends Dexie {
 export const db = new DisbatteryDB();
 ```
 
-### 2.2 Servicios de Sincronización
-```typescript
-// src/services/sync.ts
-export class SyncService {
-  static async syncPendingVisitas() {
-    const pendingVisitas = await db.visitas
-      .where('syncStatus')
-      .equals('pending')
-      .toArray();
+### 2.2 Servicios de Sincronización (Implementado: OfflineManager)
 
-    for (const visita of pendingVisitas) {
-      try {
-        await this.uploadVisita(visita);
-        await db.visitas.update(visita.id!, { syncStatus: 'synced' });
-      } catch (error) {
-        await db.visitas.update(visita.id!, { syncStatus: 'error' });
-      }
-    }
+```typescript
+// src/services/offlineManager.ts
+// Servicio unificado que consolida SyncService y OfflineService
+export class OfflineManager {
+  // ... implementación centralizada
+
+  async saveVisita(visitaData: any): Promise<SaveResult> {
+    // Lógica dual: intenta online, fallback a offline
   }
 
-  static async saveVisitaOffline(visitaData: any) {
-    const visita: VisitaOffline = {
-      visitaId: generateUniqueId(),
-      clienteRif: visitaData.cliente.rif,
-      data: visitaData,
-      fotos: visitaData.fotos || {},
-      timestamp: Date.now(),
-      syncStatus: 'pending'
-    };
-
-    await db.visitas.add(visita);
-    
-    // Intentar sincronizar inmediatamente si hay conexión
-    if (navigator.onLine) {
-      this.syncPendingVisitas();
-    }
+  async syncPendingVisitas(): Promise<void> {
+    // Sincronización automática de cola
   }
 }
 ```
 
 ---
 
-## 📱 FASE 3: GESTIÓN OFFLINE DE RUTAS (2-3 días)
+## 📱 FASE 3: GESTIÓN OFFLINE DE RUTAS (✅ COMPLETADO)
 
-### 3.1 Precarga de Rutas
-```typescript
-// src/hooks/useOfflineRoutes.ts
-export function useOfflineRoutes() {
-  const downloadRoutesForOffline = async (fechas: string[]) => {
-    for (const fecha of fechas) {
-      const ruta = await fetchRutaFromFirebase(fecha);
-      await db.rutas.put({
-        fecha,
-        puntos: ruta.puntos,
-        estado: ruta.estado,
-        syncStatus: 'synced'
-      });
-      
-      // Precargar datos de clientes
-      for (const cliente of ruta.puntos) {
-        await db.clientes.put(cliente);
-      }
-    }
-  };
+### 3.1 Precarga de Rutas (Implementado: OfflineManager + dualRouteLoader)
 
-  const getRutaOffline = async (fecha: string) => {
-    return await db.rutas.where('fecha').equals(fecha).first();
-  };
+El sistema actual utiliza una estrategia híbrida (`dualRouteLoader`) que intenta cargar rutas de:
 
-  return { downloadRoutesForOffline, getRutaOffline };
-}
-```
+1. API/Firebase (si hay conexión)
+2. IndexedDB (si no hay conexión o falla la API)
+3. LocalStorage (como último recurso)
 
 ### 3.2 Componente de Gestión Offline
+
 ```typescript
 // src/components/OfflineManager.tsx
 export function OfflineManager() {
@@ -219,7 +182,7 @@ export function OfflineManager() {
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
-    
+
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
 
@@ -254,36 +217,41 @@ export function OfflineManager() {
 
 ---
 
-## 🔄 FASE 4: SINCRONIZACIÓN INTELIGENTE (3-4 días)
+## 🔄 FASE 4: SINCRONIZACIÓN INTELIGENTE (✅ COMPLETADO)
 
 ### 4.1 Background Sync
+
 ```typescript
 // public/sw.js (Service Worker personalizado)
-self.addEventListener('sync', event => {
-  if (event.tag === 'background-sync-visitas') {
+self.addEventListener("sync", (event) => {
+  if (event.tag === "background-sync-visitas") {
     event.waitUntil(syncVisitas());
   }
 });
 
 async function syncVisitas() {
   // Lógica de sincronización en background
-  const response = await fetch('/api/sync-visitas', {
-    method: 'POST',
-    body: JSON.stringify({ action: 'sync-pending' })
+  const response = await fetch("/api/sync-visitas", {
+    method: "POST",
+    body: JSON.stringify({ action: "sync-pending" }),
   });
   return response;
 }
 ```
 
 ### 4.2 API Route para Sincronización
+
 ```typescript
 // src/pages/api/sync-visitas.ts
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === 'POST') {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method === "POST") {
     // Procesar visitas pendientes
     // Subir imágenes a Firebase Storage
     // Guardar datos en Firestore
-    
+
     res.status(200).json({ success: true });
   }
 }
@@ -291,44 +259,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 ---
 
-## 📸 FASE 5: MANEJO DE IMÁGENES OFFLINE (2-3 días)
+## 📸 FASE 5: MANEJO DE IMÁGENES OFFLINE (✅ COMPLETADO)
 
 ### 5.1 Compresión y Almacenamiento Local
+
 ```typescript
 // src/utils/imageCache.ts
 export class ImageCacheService {
-  static async saveImageOffline(base64Image: string, key: string): Promise<string> {
+  static async saveImageOffline(
+    base64Image: string,
+    key: string
+  ): Promise<string> {
     // Comprimir imagen
     const compressedImage = await this.compressImage(base64Image);
-    
+
     // Guardar en IndexedDB
     await db.images.put({
       key,
       data: compressedImage,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
-    
+
     return key;
   }
 
   static async getImageOffline(key: string): Promise<string | null> {
-    const image = await db.images.where('key').equals(key).first();
+    const image = await db.images.where("key").equals(key).first();
     return image?.data || null;
   }
 
-  static async compressImage(base64: string, quality: number = 0.7): Promise<string> {
+  static async compressImage(
+    base64: string,
+    quality: number = 0.7
+  ): Promise<string> {
     return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d')!;
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d")!;
       const img = new Image();
-      
+
       img.onload = () => {
         // Redimensionar si es muy grande
         const maxWidth = 1024;
         const maxHeight = 1024;
-        
+
         let { width, height } = img;
-        
+
         if (width > height) {
           if (width > maxWidth) {
             height = (height * maxWidth) / width;
@@ -340,14 +315,14 @@ export class ImageCacheService {
             height = maxHeight;
           }
         }
-        
+
         canvas.width = width;
         canvas.height = height;
-        
+
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        resolve(canvas.toDataURL("image/jpeg", quality));
       };
-      
+
       img.src = base64;
     });
   }
@@ -356,15 +331,17 @@ export class ImageCacheService {
 
 ---
 
-## 🎯 FASE 6: TESTING Y OPTIMIZACIÓN (2-3 días)
+## 🎯 FASE 6: TESTING Y OPTIMIZACIÓN (🔄 EN PROGRESO)
 
 ### 6.1 Testing Offline
+
 - ✅ Probar formularios sin conexión
 - ✅ Verificar sincronización automática
 - ✅ Validar caché de imágenes
 - ✅ Probar con múltiples usuarios
 
 ### 6.2 Optimizaciones
+
 - ✅ Lazy loading de componentes
 - ✅ Precarga inteligente de datos
 - ✅ Limpieza automática de caché antigua
@@ -375,6 +352,7 @@ export class ImageCacheService {
 ## 📊 MÉTRICAS Y MONITORING
 
 ### 6.3 Dashboard de Estado
+
 ```typescript
 // Componente para mostrar estado offline
 export function OfflineStatus() {
@@ -399,14 +377,14 @@ export function OfflineStatus() {
 
 ## 🚀 CRONOGRAMA TOTAL: 15-20 días
 
-| Fase | Días | Descripción |
-|------|------|-------------|
-| 1 | 2-3 | Configuración PWA base |
-| 2 | 3-4 | Base de datos offline |
-| 3 | 2-3 | Gestión offline de rutas |
-| 4 | 3-4 | Sincronización inteligente |
-| 5 | 2-3 | Manejo de imágenes offline |
-| 6 | 2-3 | Testing y optimización |
+| Fase | Días | Descripción                |
+| ---- | ---- | -------------------------- |
+| 1    | 2-3  | Configuración PWA base     |
+| 2    | 3-4  | Base de datos offline      |
+| 3    | 2-3  | Gestión offline de rutas   |
+| 4    | 3-4  | Sincronización inteligente |
+| 5    | 2-3  | Manejo de imágenes offline |
+| 6    | 2-3  | Testing y optimización     |
 
 ---
 
@@ -428,4 +406,4 @@ export function OfflineStatus() {
 3. **Recursos**: ¿Cuántos desarrolladores disponibles?
 4. **Timeline**: ¿Hay fecha límite específica?
 
-¿Te parece bien este enfoque? ¿Hay alguna fase que quieras que detalle más? 
+¿Te parece bien este enfoque? ¿Hay alguna fase que quieras que detalle más?
