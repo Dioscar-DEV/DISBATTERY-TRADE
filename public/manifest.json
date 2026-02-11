@@ -1,0 +1,54 @@
+{
+  "name": "Disbattery Trade App",
+  "short_name": "DisbatteryTrade",
+  "description": "Aplicación para mercaderistas Disbattery - Visitas, rutas y reportes",
+  "theme_color": "#002D72",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "start_url": "/",
+  "lang": "es-VE",
+  "categories": ["business", "productivity"],
+  "gcm_sender_id": "614937382806",
+  "icons": [
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mi Ruta",
+      "short_name": "Ruta",
+      "description": "Ver mi ruta del día",
+      "url": "/mi-ruta",
+      "icons": [
+        {
+          "src": "https://storage.googleapis.com/iandai/imagenes/Disbattery.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Nueva Visita",
+      "short_name": "Visita",
+      "description": "Registrar nueva visita",
+      "url": "/visit-capture",
+      "icons": [
+        {
+          "src": "https://storage.googleapis.com/iandai/imagenes/Disbattery.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+} 

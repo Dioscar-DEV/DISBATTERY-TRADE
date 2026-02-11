@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Disbattery</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+        /* Header */
+        .header {
+            display: flex;
+            height: 56px;
+        }
+        .header-left {
+            background-color: #b61817;
+            width: 33.33%;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            color: white;
+            text-decoration: none;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        .user-info:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        .user-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 12px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .header-right {
+            background-color: #ffee26;
+            width: 66.67%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 24px;
+        }
+        .disbattery-logo-header {
+            max-height: 32px;
+        }
+
+        /* Main Content */
+        .main-content {
+            background-color: #a51717;
+            min-height: calc(100vh - 112px);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+        }
+        
+        /* Yellow Triangle */
+        .yellow-triangle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 75%;
+            height: 100%;
+            background-color: #ffee26;
+            clip-path: polygon(100% 0, 0% 100%, 100% 100%);
+            z-index: 1;
+        }
+
+        /* Dashboard Card */
+        .dashboard-card {
+            background: #fafaf9;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            width: 100%;
+            max-width: 672px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .card-header {
+            padding: 24px 24px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .disbattery-logo-card {
+            max-height: 48px;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 2.25rem;
+            font-weight: bold;
+            background: linear-gradient(to right, #b61817, #d73027);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .card-description {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        /* Feature Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: #fafaf9;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .feature-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transform: translateY(-2px);
+        }
+
+        .feature-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .feature-icon {
+            width: 28px;
+            height: 28px;
+            color: #b61817;
+        }
+
+        .feature-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            background: linear-gradient(to right, #b61817, #d73027);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .feature-description {
+            color: #6b7280;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        /* Footer */
+        .footer {
+            display: flex;
+            height: 56px;
+        }
+        .footer-section-1 {
+            background-color: #2a2769;
+            width: 20%;
+        }
+        .footer-section-2 {
+            background-color: #b61817;
+            width: 20%;
+        }
+        .footer-section-3 {
+            background-color: #fbce04;
+            width: 60%;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            padding: 0 24px;
+        }
+        .shell-logo {
+            max-height: 56px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header, .footer {
+                flex-direction: column;
+                height: auto;
+            }
+            .header-left, .header-right, .footer-section-1, .footer-section-2, .footer-section-3 {
+                width: 100%;
+                height: 56px;
+            }
+            .main-content {
+                min-height: calc(100vh - 224px);
+            }
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+            .yellow-triangle {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <a href="#" class="user-info" onclick="logout()">
+                <div class="user-icon">👤</div>
+                <span style="font-size: 1.25rem; font-weight: 600;">Usuario</span>
+            </a>
+        </div>
+        <div class="header-right">
+            <img src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png" alt="Disbattery Logo" class="disbattery-logo-header">
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="yellow-triangle"></div>
+        
+        <div class="dashboard-card">
+            <div class="card-header">
+                <img src="https://storage.googleapis.com/iandai/imagenes/disbatterylogo.png" alt="Disbattery Lubricantes S.A." class="disbattery-logo-card">
+                <h1 class="card-title">Panel de Administración</h1>
+                <p class="card-description">Bienvenido al panel de control. Desde aquí podrás gestionar la aplicación.</p>
+            </div>
+            
+            <div class="card-content">
+                <div class="features-grid">
+                    <a href="#" class="feature-card" onclick="showComingSoon('Gestión de Usuarios')">
+                        <div class="feature-header">
+                            <svg class="feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                            </svg>
+                            <h3 class="feature-title">Gestión de Usuarios</h3>
+                        </div>
+                        <p class="feature-description">Crear, editar y asignar roles a mercaderistas y administradores.</p>
+                    </a>
+
+                    <a href="#" class="feature-card" onclick="showComingSoon('Gestión de Rutas')">
+                        <div class="feature-header">
+                            <svg class="feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                            <h3 class="feature-title">Gestión de Rutas</h3>
+                        </div>
+                        <p class="feature-description">Planificar y visualizar rutas de mercaderistas con integración Google Maps.</p>
+                    </a>
+
+                    <a href="#" class="feature-card" onclick="showComingSoon('Gestión de Clientes')">
+                        <div class="feature-header">
+                            <svg class="feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                            </svg>
+                            <h3 class="feature-title">Gestión de Clientes</h3>
+                        </div>
+                        <p class="feature-description">Administrar la información de los clientes visitados.</p>
+                    </a>
+
+                    <a href="#" class="feature-card" onclick="showComingSoon('Datos de Visitas')">
+                        <div class="feature-header">
+                            <svg class="feature-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            <h3 class="feature-title">Datos de Visitas</h3>
+                        </div>
+                        <p class="feature-description">Visualizar y analizar los datos recolectados en las visitas.</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-section-1"></div>
+        <div class="footer-section-2"></div>
+        <div class="footer-section-3">
+            <img src="https://storage.googleapis.com/iandai/imagenes/shell.png" alt="Shell Logo" class="shell-logo">
+        </div>
+    </footer>
+
+    <script>
+        function logout() {
+            if (confirm('¿Está seguro que desea cerrar sesión?')) {
+                window.location.href = '/';
+            }
+        }
+
+        function showComingSoon(feature) {
+            alert(`${feature} - Próximamente disponible`);
+        }
+    </script>
+</body>
+</html> 

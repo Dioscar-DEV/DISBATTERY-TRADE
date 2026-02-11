@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generador de Iconos PWA Disbattery</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .icon-preview { margin: 10px; display: inline-block; text-align: center; }
+        canvas { border: 1px solid #ccc; margin: 5px; }
+        button { background: #002D72; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #003D82; }
+    </style>
+</head>
+<body>
+    <h1>🎨 Generador de Iconos PWA - Disbattery</h1>
+    <p>Haz clic en "Generar Iconos" y descarga cada imagen haciendo clic derecho → "Guardar imagen como..."</p>
+    
+    <button onclick="generateAllIcons()">🚀 Generar Todos los Iconos</button>
+    
+    <div id="icons-container"></div>
+
+    <script>
+    const sizes = [16, 32, 72, 96, 128, 144, 152, 192, 384, 512];
+    
+    function createIcon(size) {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        
+        // Fondo con gradiente
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#002D72'); // Azul Disbattery
+        gradient.addColorStop(0.5, '#D50000'); // Rojo Disbattery  
+        gradient.addColorStop(1, '#FFC72C'); // Amarillo Disbattery
+        
+        // Dibujar círculo de fondo
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, size/2 - 4, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Borde blanco
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(2, size / 64);
+        ctx.stroke();
+        
+        // Letra D
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${size * 0.55}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('D', size/2, size/2);
+        
+        // Sombra en la letra para mejor contraste
+        ctx.strokeStyle = '#002D72';
+        ctx.lineWidth = Math.max(1, size / 128);
+        ctx.strokeText('D', size/2, size/2);
+        
+        return canvas;
+    }
+    
+    function generateAllIcons() {
+        const container = document.getElementById('icons-container');
+        container.innerHTML = '<h2>📱 Iconos Generados (Click derecho → Guardar imagen como...)</h2>';
+        
+        sizes.forEach(size => {
+            const canvas = createIcon(size);
+            const preview = document.createElement('div');
+            preview.className = 'icon-preview';
+            
+            const label = document.createElement('div');
+            label.textContent = `icon-${size}x${size}.png`;
+            label.style.fontWeight = 'bold';
+            label.style.marginBottom = '5px';
+            
+            preview.appendChild(label);
+            preview.appendChild(canvas);
+            container.appendChild(preview);
+        });
+        
+        // Crear también favicon.ico
+        const faviconCanvas = createIcon(32);
+        const faviconPreview = document.createElement('div');
+        faviconPreview.className = 'icon-preview';
+        
+        const faviconLabel = document.createElement('div');
+        faviconLabel.textContent = 'favicon.ico (usar como 32x32)';
+        faviconLabel.style.fontWeight = 'bold';
+        faviconLabel.style.marginBottom = '5px';
+        faviconLabel.style.color = '#D50000';
+        
+        faviconPreview.appendChild(faviconLabel);
+        faviconPreview.appendChild(faviconCanvas);
+        container.appendChild(faviconPreview);
+        
+        // Instrucciones
+        const instructions = document.createElement('div');
+        instructions.innerHTML = `
+            <h3>📋 Instrucciones:</h3>
+            <ol>
+                <li><strong>Haz clic derecho en cada imagen</strong> → "Guardar imagen como..."</li>
+                <li><strong>Guárdalas en la carpeta public/</strong> con los nombres exactos mostrados</li>
+                <li><strong>Para favicon.ico:</strong> Guarda la imagen de 32x32 como "favicon.ico"</li>
+            </ol>
+            <p style="background: #e8f4f8; padding: 10px; border-radius: 5px;">
+                💡 <strong>Tip:</strong> Estos son iconos temporales. Después puedes crear unos profesionales 
+                con el logo real de Disbattery.
+            </p>
+        `;
+        instructions.style.marginTop = '20px';
+        instructions.style.background = '#f9f9f9';
+        instructions.style.padding = '20px';
+        instructions.style.borderRadius = '8px';
+        
+        container.appendChild(instructions);
+    }
+    </script>
+</body>
+</html> 
