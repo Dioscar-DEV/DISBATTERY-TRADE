@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   getCurrentUserWithPermissions,
+  getUserFromStorage,
+  calculatePermissions,
   UserData,
   UserPermissions,
 } from "@/services/auth";
@@ -76,6 +78,45 @@ export function PageWrapper({
 
     const checkAuth = async () => {
       try {
+        // ✅ OFFLINE-FIRST: Verificar localStorage primero (funciona sin internet)
+        const storageUser = getUserFromStorage();
+        if (storageUser) {
+          console.log("✅ Usuario encontrado en localStorage (offline-ready)");
+          const permissions = calculatePermissions(storageUser);
+          setCurrentUser(storageUser);
+          setUserPermissions(permissions);
+
+          // Verificar permisos específicos si se requieren
+          if (requiredPermissions.length > 0) {
+            const hasAllPermissions = requiredPermissions.every(
+              (permission) =>
+                permissions[permission as keyof UserPermissions]
+            );
+            if (!hasAllPermissions) {
+              setAuthError("No tienes permisos para acceder a esta página");
+              return;
+            }
+          }
+
+          setAuthLoading(false);
+
+          // En background: actualizar desde Firebase si hay conexión
+          if (navigator.onLine) {
+            getCurrentUserWithPermissions()
+              .then((result) => {
+                if (result) {
+                  setCurrentUser(result.user);
+                  setUserPermissions(result.permissions);
+                }
+              })
+              .catch(() => {
+                // Ignorar errores de actualización en background
+              });
+          }
+          return;
+        }
+
+        // Si no hay datos en localStorage, intentar Firebase
         const result = await getCurrentUserWithPermissions();
 
         if (!result) {

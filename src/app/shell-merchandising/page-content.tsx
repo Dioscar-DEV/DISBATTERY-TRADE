@@ -499,18 +499,11 @@ export function ShellMerchandisingPage() {
         description: "Navegando...",
       });
 
-      // Forzar navegación después de que el toast se renderice
-      // Usar setTimeout para evitar que el toast bloquee la navegación
-      setTimeout(() => {
-        try {
-          console.log("🚀 Forzando navegación a /shell-material-interno");
-          window.location.replace("/shell-material-interno");
-        } catch (error) {
-          console.error("❌ Error navegando:", error);
-          // Fallback usando href
-          window.location.href = "/shell-material-interno";
-        }
-      }, 100);
+      // ✅ FIXED: Usar router.push() en lugar de window.location para navegación offline
+      // router.push() hace navegación del lado del cliente sin HTTP request completo
+      // Esto permite navegación instantánea offline
+      console.log("🚀 Navegando a /shell-material-interno (client-side)");
+      router.push("/shell-material-interno");
     } catch (error) {
       console.log("=== ERROR ACUMULANDO DATOS ===");
       console.error("Error guardando datos localmente:", error);

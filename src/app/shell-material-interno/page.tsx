@@ -367,12 +367,10 @@ export default function ShellMaterialInternoPage() {
         description: "Progreso guardado. Continuando con el formulario...",
       });
 
-        // Flujo simplificado - continuar con Qualid merchandising
-        if (!navigator.onLine) {
-          window.location.href = "/qualid-merchandising";
-        } else {
-          router.push("/qualid-merchandising");
-        }
+      // ✅ FIXED: Siempre usar router.push() para navegación del lado del cliente
+      // Esto funciona tanto online como offline sin necesidad de HTTP request
+      console.log("🚀 Navegando a /qualid-merchandising (client-side)");
+      router.push("/qualid-merchandising");
     } catch (error) {
       console.error("Error guardando datos de material interno:", error);
       toast({

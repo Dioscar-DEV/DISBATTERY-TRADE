@@ -8,7 +8,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  turbopack: {},
+  // Turbopack deshabilitado: next-pwa no es compatible con Turbopack
+  // turbopack: {},
   env: {
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyA6Q_8LsOmui-Dcib-w5KD3CiJagTxFHoA",
     NEXT_PUBLIC_FIREBASE_VAPID_KEY: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "AIzaSyCs73uDqTGuoy2u0fnZgngTqRWhuyIU5l8",
@@ -28,29 +29,15 @@ const withPWA = require("next-pwa")({
   dest: "public",
   register: true,
   skipWaiting: true,
-  importScripts: ["sw-custom.js"],
+  // importScripts inyectado por post-build.js en lugar de aquí para evitar duplicación
+  // importScripts: ["sw-custom.js"],
   clientsClaim: true,
-  cleanupOutdatedCaches: true,
+  cleanupOutdatedCaches: false, // DISABLED: might be deleting precache
   // DESACTIVAR PWA EN DESARROLLO es la clave para evitar el error de chunks
   disable: process.env.NODE_ENV === "development",
-  // Incluir todas las rutas HTML en el precache para offline
-  publicExcludes: ["!*.map", "!*.txt"],
-  additionalManifestEntries: [
-    { url: "/mi-ruta/index.html", revision: null },
-    { url: "/visit-capture/index.html", revision: null },
-    { url: "/signage-capture/index.html", revision: null },
-    { url: "/shell-merchandising/index.html", revision: null },
-    { url: "/qualid-merchandising/index.html", revision: null },
-    { url: "/observaciones/index.html", revision: null },
-    { url: "/reportes-finales/index.html", revision: null },
-    { url: "/ventas-productos/index.html", revision: null },
-    { url: "/trade-eventos/index.html", revision: null },
-    { url: "/trade-impulso/index.html", revision: null },
-    { url: "/shell-material-interno/index.html", revision: null },
-    { url: "/registro-exitoso/index.html", revision: null },
-    { url: "/instalar/index.html", revision: null },
-    { url: "/index.html", revision: null },
-  ], 
+  // Sin precache manual - usar solo runtime caching (cache as you navigate)
+  // Las páginas se cachearán cuando las visites la primera vez online
+  publicExcludes: ["!*.map", "!*.txt"], 
   fallbacks: {
     document: "/offline.html",
     // fallback para chunks JS (si falla la carga de un chunk)
@@ -68,13 +55,13 @@ const withPWA = require("next-pwa")({
   ],
   runtimeCaching: [
     {
-      // Páginas: NetworkFirst para rutas SPA, incluyendo rutas dinámicas
+      // Páginas: CacheFirst para rutas SPA - navegación instantánea offline
+      // Cambiado de NetworkFirst a CacheFirst para evitar "Cargando..." indefinido offline
       urlPattern: /\/visit-capture.*|\/signage-capture.*|\/shell-merchandising.*|\/qualid-merchandising.*|\/observaciones.*|\/reportes-finales.*|\/ventas-productos.*|\/trade-eventos.*|\/trade-impulso.*|\/shell-material-interno.*/,
-      handler: "NetworkFirst",
+      handler: "CacheFirst",
       options: {
         cacheName: "pages-cache",
         expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
-        networkTimeoutSeconds: 10,
         // fallback a offline.html si falla
         plugins: [
           {

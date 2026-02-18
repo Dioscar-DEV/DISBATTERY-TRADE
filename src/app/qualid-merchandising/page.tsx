@@ -453,13 +453,9 @@ export default function QualidMerchandising() {
         description: "Progreso guardado. Continuando con el formulario...",
       });
 
-      // ✅ NAVEGACIÓN CON DELAY PARA ASEGURAR QUE EL GUARDADO SE COMPLETE
-      console.log("🔄 [QUALID] Navegando a ventas-productos...");
-      if (!navigator.onLine) {
-        window.location.href = "/ventas-productos";
-      } else {
-        router.push("/ventas-productos");
-      }
+      // ✅ FIXED: Siempre usar router.push() para navegación del lado del cliente
+      console.log("🚀 [QUALID] Navegando a /ventas-productos (client-side)");
+      router.push("/ventas-productos");
     } catch (error: any) {
       console.error("❌ [QUALID] ERROR COMPLETO guardando datos:", error);
       console.error("❌ [QUALID] Stack trace:", error?.stack);

@@ -95,11 +95,34 @@ export default function SWDebugPage() {
     }
 
     try {
-      const cacheNames = await caches.keys();
+      const cacheNames = await window.caches.keys();
       addLog(`📦 Encontradas ${cacheNames.length} caches`);
 
+      if (cacheNames.length === 0) {
+        addLog("⚠️ NO HAY CACHES. El precache no se ejecutó o falló.");
+        addLog("🔍 Verificando si Cache API funciona...");
+
+        // Test manual de Cache API
+        try {
+          const testCache = await window.caches.open("test-cache");
+          await testCache.put(
+            new Request("/test"),
+            new Response("test", { status: 200 })
+          );
+          const testResponse = await testCache.match("/test");
+          if (testResponse) {
+            addLog("✅ Cache API funciona correctamente");
+            await window.caches.delete("test-cache");
+          } else {
+            addLog("❌ Cache API no funciona correctamente");
+          }
+        } catch (testError) {
+          addLog(`❌ Error probando Cache API: ${testError}`);
+        }
+      }
+
       const cacheInfoPromises = cacheNames.map(async (name) => {
-        const cache = await caches.open(name);
+        const cache = await window.caches.open(name);
         const keys = await cache.keys();
         return {
           name,
@@ -128,8 +151,8 @@ export default function SWDebugPage() {
   const clearAllCaches = async () => {
     addLog("🗑️ Limpiando todas las caches...");
     try {
-      const cacheNames = await caches.keys();
-      await Promise.all(cacheNames.map((name) => caches.delete(name)));
+      const cacheNames = await window.caches.keys();
+      await Promise.all(cacheNames.map((name) => window.caches.delete(name)));
       addLog("✅ Todas las caches eliminadas");
       await checkCaches();
     } catch (error) {

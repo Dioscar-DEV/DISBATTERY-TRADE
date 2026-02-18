@@ -14,41 +14,18 @@ const SW_PATH = path.join(OUT_DIR, 'sw.js');
 const SW_CUSTOM_SRC = path.join(PUBLIC_DIR, 'sw-custom.js');
 const SW_CUSTOM_DEST = path.join(OUT_DIR, 'sw-custom.js');
 
-console.log('🔧 [Post-Build] Injecting sw-custom.js into sw.js...');
+console.log('🔧 [Post-Build] Temporarily skipping sw-custom.js injection to test workbox alone...');
 
 try {
-  // 1. Copy sw-custom.js to out/
-  if (!fs.existsSync(SW_CUSTOM_SRC)) {
-    console.error('❌ [Post-Build] sw-custom.js not found in public/');
-    process.exit(1);
-  }
+  // TEMPORARILY DISABLED: Skip sw-custom.js injection to test if workbox works alone
 
-  fs.copyFileSync(SW_CUSTOM_SRC, SW_CUSTOM_DEST);
-  console.log('✅ [Post-Build] Copied sw-custom.js to out/');
-
-  // 2. Read sw.js
+  // 1. Just verify sw.js exists
   if (!fs.existsSync(SW_PATH)) {
     console.error('❌ [Post-Build] sw.js not found in out/');
     process.exit(1);
   }
 
-  let swContent = fs.readFileSync(SW_PATH, 'utf8');
-
-  // 3. Check if sw-custom.js is already imported
-  if (swContent.includes('importScripts("sw-custom.js")') || swContent.includes("importScripts('sw-custom.js')")) {
-    console.log('ℹ️  [Post-Build] sw-custom.js already imported, skipping');
-    process.exit(0);
-  }
-
-  // 4. Inject at the very beginning of the file (safest approach)
-  // Workbox sw.js starts with: if(!self.define){...}
-  // We need to inject BEFORE everything, so it executes first
-
-  // Simply prepend to the beginning of the file
-  swContent = 'importScripts("sw-custom.js");\n' + swContent;
-  fs.writeFileSync(SW_PATH, swContent, 'utf8');
-  console.log('✅ [Post-Build] Injected sw-custom.js at the very beginning of sw.js');
-
+  console.log('✅ [Post-Build] sw.js found - NOT injecting sw-custom.js (testing workbox alone)');
   console.log('🎉 [Post-Build] Done!');
 } catch (error) {
   console.error('❌ [Post-Build] Error:', error.message);

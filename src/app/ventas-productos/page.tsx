@@ -162,12 +162,9 @@ export default function VentasProductosPage() {
           description: "Continuando a reportes finales...",
         });
 
-        // Navegar a reportes finales
-        if (!navigator.onLine) {
-          window.location.href = "/reportes-finales";
-        } else {
-          router.push("/reportes-finales");
-        }
+        // ✅ FIXED: Siempre usar router.push() para navegación del lado del cliente
+        console.log("🚀 Navegando a /reportes-finales (client-side)");
+        router.push("/reportes-finales");
       }
     } catch (error) {
       console.error("Error guardando ventas:", error);
